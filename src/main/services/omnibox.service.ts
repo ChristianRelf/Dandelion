@@ -2,6 +2,7 @@ import type { OmniboxResult, Tab } from '@shared/types';
 import {
   buildSearchUrl,
   classifyOmniboxInput,
+  convertTimezone,
   convertUnits,
   createId,
   evaluateExpression,
@@ -17,12 +18,18 @@ export interface TabsProvider {
   listAll(): Tab[];
 }
 
+/** Narrow view of the system clipboard, so the service stays testable. */
+export interface ClipboardProvider {
+  readText(): string;
+}
+
 export interface OmniboxDeps {
   history: HistoryService;
   bookmarks: BookmarksService;
   search: SearchService;
   settings: SettingsService;
   tabs: TabsProvider;
+  clipboard: ClipboardProvider;
 }
 
 type ResultSeed = Pick<OmniboxResult, 'kind' | 'title' | 'score'> & Partial<OmniboxResult>;
@@ -108,6 +115,24 @@ export class OmniboxService {
             title: `${conversion.formatted} ${conversion.toUnit}`,
             subtitle: conversion.input,
             icon: 'ruler',
+            score: 0.99,
+          }),
+        );
+      }
+    }
+
+    // Timezone conversion.
+    if (search.enableTimezoneConversion) {
+      const zoned = convertTimezone(trimmed);
+      if (zoned) {
+        const dayNote =
+          zoned.dayOffset > 0 ? ' (next day)' : zoned.dayOffset < 0 ? ' (previous day)' : '';
+        results.push(
+          makeResult({
+            kind: 'timezone',
+            title: `${zoned.formatted}${zoned.abbreviation ? ` ${zoned.abbreviation}` : ''}`,
+            subtitle: `${zoned.zoneLabel}${dayNote} · from ${zoned.sourceLabel}`,
+            icon: 'clock',
             score: 0.99,
           }),
         );
@@ -230,16 +255,64 @@ export class OmniboxService {
   }
 
   private emptyState(profileId: string, limit: number): OmniboxResult[] {
-    return this.deps.history.topSites(profileId, limit).map((entry) =>
-      makeResult({
-        kind: 'history',
-        title: entry.title || prettifyUrl(entry.url),
-        subtitle: prettifyUrl(entry.url),
-        url: entry.url,
-        icon: 'history',
-        score: entry.visitCount,
-      }),
-    );
+    const results: OmniboxResult[] = [];
+
+    const clipboardUrl = this.clipboardUrl();
+    if (clipboardUrl) {
+      results.push(
+        makeResult({
+          kind: 'clipboard',
+          title: prettifyUrl(clipboardUrl),
+          subtitle: 'Paste and go · from your clipboard',
+          url: clipboardUrl,
+          icon: 'clipboard',
+          score: Number.MAX_SAFE_INTEGER,
+        }),
+      );
+    }
+
+    for (const entry of this.deps.history.topSites(profileId, limit)) {
+      results.push(
+        makeResult({
+          kind: 'history',
+          title: entry.title || prettifyUrl(entry.url),
+          subtitle: prettifyUrl(entry.url),
+          url: entry.url,
+          icon: 'history',
+          score: entry.visitCount,
+        }),
+      );
+    }
+
+    return results.slice(0, limit);
+  }
+
+  /**
+   * The clipboard's contents, if they are a URL worth offering. Read only when
+   * the omnibox opens empty, and never leaves the machine — it is surfaced as a
+   * suggestion and nothing more.
+   */
+  private clipboardUrl(): string | null {
+    if (!this.deps.settings.get().search.enableClipboardSuggestions) return null;
+
+    let text: string;
+    try {
+      text = this.deps.clipboard.readText();
+    } catch {
+      // A clipboard held by another application can throw; a suggestion is not
+      // worth failing the whole omnibox over.
+      return null;
+    }
+
+    const trimmed = text.trim();
+    // Guard against pasting an essay: a URL has no whitespace, and the cap
+    // keeps a huge clipboard from being scanned on every keystroke.
+    if (!trimmed || trimmed.length > 2048 || /\s/.test(trimmed)) return null;
+
+    const intent = classifyOmniboxInput(trimmed);
+    if (intent.kind !== 'url') return null;
+    // Only offer schemes a click can safely follow.
+    return /^https?:\/\//i.test(intent.url) ? intent.url : null;
   }
 
   private async fetchSuggestions(query: string): Promise<string[]> {

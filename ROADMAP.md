@@ -47,8 +47,8 @@ code.
 - [x] Search history
 - [x] Quick calculator
 - [x] Unit conversions
-- [ ] Timezone conversion
-- [ ] Clipboard URL detection
+- [x] Timezone conversion
+- [x] Clipboard URL detection
 
 ## Downloads
 

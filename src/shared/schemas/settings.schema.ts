@@ -41,6 +41,8 @@ const searchSchema = z.object({
   showBookmarkSuggestions: z.boolean(),
   enableCalculator: z.boolean(),
   enableUnitConversion: z.boolean(),
+  enableTimezoneConversion: z.boolean(),
+  enableClipboardSuggestions: z.boolean(),
   enableWeather: z.boolean(),
   enableAiSuggestions: z.boolean(),
   inlineAutocomplete: z.boolean(),

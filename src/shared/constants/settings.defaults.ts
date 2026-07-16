@@ -48,6 +48,8 @@ export const DEFAULT_SETTINGS: Settings = {
     showBookmarkSuggestions: true,
     enableCalculator: true,
     enableUnitConversion: true,
+    enableTimezoneConversion: true,
+    enableClipboardSuggestions: true,
     enableWeather: false,
     enableAiSuggestions: false,
     inlineAutocomplete: true,

@@ -634,6 +634,18 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           { keywords: 'convert units measurement' },
         ),
         toggleRow(
+          'Timezone conversion',
+          s.search.enableTimezoneConversion,
+          (value) => void patch({ search: { enableTimezoneConversion: value } }),
+          { keywords: 'time zone clock utc city' },
+        ),
+        toggleRow(
+          'Suggest links from the clipboard',
+          s.search.enableClipboardSuggestions,
+          (value) => void patch({ search: { enableClipboardSuggestions: value } }),
+          { keywords: 'clipboard paste and go url copy' },
+        ),
+        toggleRow(
           'Inline autocomplete',
           s.search.inlineAutocomplete,
           (value) => void patch({ search: { inlineAutocomplete: value } }),
