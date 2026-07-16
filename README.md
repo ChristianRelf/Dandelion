@@ -102,4 +102,8 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the deep dive, and
 
 ## License
 
-MIT © Dandelion Browser. See [LICENSE](LICENSE).
+Dandelion is free software: you may use, study, share and modify it under the terms of the
+**GNU General Public License v3.0 or later**. Derivatives must remain under the same license, so
+the browser and its forks stay open. See [LICENSE](LICENSE) for the full text.
+
+Copyright © 2026 Christian Relf.
