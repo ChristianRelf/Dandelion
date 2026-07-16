@@ -1,6 +1,7 @@
 import { DEFAULT_ACCENT, INTERNAL_PAGES } from '@shared/constants';
 import { trpc } from './trpc/client';
 import { nextGroupColor } from './tab-colors';
+import { openUrl } from './navigation';
 import { selectOrderedTabs, selectSplitActive, useBrowserStore } from '../stores/browser.store';
 import { useUiStore } from '../stores/ui.store';
 import { useReaderStore } from '../stores/reader.store';
@@ -102,13 +103,9 @@ function toggleSplitView(): void {
   });
 }
 
-export async function openInternalPage(url: string): Promise<void> {
-  const { activeTabId, activeWorkspaceId } = useBrowserStore.getState();
-  if (activeTabId) {
-    await trpc.tabs.navigate.mutate({ tabId: activeTabId, url });
-  } else if (activeWorkspaceId) {
-    await trpc.tabs.create.mutate({ workspaceId: activeWorkspaceId, url, active: true });
-  }
+/** Navigate to one of the browser's own pages — see `INTERNAL_PAGES`. */
+export function openInternalPage(url: string): Promise<void> {
+  return openUrl(url);
 }
 
 async function toggleBookmarkActive(): Promise<void> {

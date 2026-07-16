@@ -2,6 +2,7 @@ import { useId, type KeyboardEvent, type ReactElement } from 'react';
 import { motion } from 'motion/react';
 import { cn } from '../../lib/cn';
 import { Icon } from './Icon';
+import { Tooltip } from './Tooltip';
 
 export interface SegmentOption<T extends string> {
   value: T;
@@ -15,6 +16,13 @@ interface SegmentedControlProps<T extends string> {
   onChange: (value: T) => void;
   'aria-label': string;
   size?: 'sm' | 'md';
+  /**
+   * Show icons alone, naming each segment with a tooltip instead of visible
+   * text. Labels stay in the accessibility tree, so this trades width for
+   * legibility rather than for meaning — only worth it where labels would not
+   * fit, and only when every option carries an icon.
+   */
+  iconOnly?: boolean;
   className?: string;
 }
 
@@ -28,6 +36,7 @@ export function SegmentedControl<T extends string>({
   onChange,
   'aria-label': ariaLabel,
   size = 'md',
+  iconOnly = false,
   className,
 }: SegmentedControlProps<T>): ReactElement {
   const groupId = useId();
@@ -46,11 +55,16 @@ export function SegmentedControl<T extends string>({
       role="radiogroup"
       aria-label={ariaLabel}
       onKeyDown={onKeyDown}
-      className={cn('inline-flex items-center gap-0.5 rounded-lg bg-surface p-0.5', className)}
+      className={cn(
+        'items-center gap-0.5 rounded-lg bg-surface p-0.5',
+        // Icon-only segments share the width evenly rather than hugging content.
+        iconOnly ? 'flex w-full' : 'inline-flex',
+        className,
+      )}
     >
       {options.map((option) => {
         const active = option.value === value;
-        return (
+        const segment = (
           <button
             key={option.value}
             type="button"
@@ -60,7 +74,8 @@ export function SegmentedControl<T extends string>({
             onClick={() => onChange(option.value)}
             className={cn(
               'relative inline-flex items-center gap-1.5 rounded-md font-medium transition-colors',
-              size === 'sm' ? 'h-6 px-2 text-[12px]' : 'h-7 px-2.5 text-[13px]',
+              size === 'sm' ? 'h-6 text-[12px]' : 'h-7 text-[13px]',
+              iconOnly ? 'flex-1 justify-center' : size === 'sm' ? 'px-2' : 'px-2.5',
               active ? 'text-text' : 'text-muted hover:text-text',
             )}
           >
@@ -72,8 +87,16 @@ export function SegmentedControl<T extends string>({
               />
             )}
             {option.icon && <Icon name={option.icon} className="relative h-3.5 w-3.5" />}
-            <span className="relative">{option.label}</span>
+            <span className={cn('relative', iconOnly && 'sr-only')}>{option.label}</span>
           </button>
+        );
+
+        return iconOnly ? (
+          <Tooltip key={option.value} content={option.label}>
+            {segment}
+          </Tooltip>
+        ) : (
+          segment
         );
       })}
     </div>

@@ -7,9 +7,9 @@ import { Favicon } from '../ui/Favicon';
 import { SearchField } from '../ui/SearchField';
 import { Skeleton } from '../ui/Skeleton';
 import { trpc } from '../../lib/trpc/client';
+import { openUrlOrToast } from '../../lib/navigation';
 import { useBrowserStore } from '../../stores/browser.store';
 import { useAsyncData } from '../../hooks/useAsyncData';
-import { toast } from '../../stores/toast.store';
 
 /** Bookmarks with no folder are shown last, under this heading. */
 const UNFILED = '__unfiled__';
@@ -124,18 +124,8 @@ export function BookmarksPanel(): ReactElement {
     return { ordered, unfiled: unfiled ?? [] };
   }, [bookmarks, folders]);
 
-  const open = (bookmark: Bookmark): void => {
-    const { activeTabId, activeWorkspaceId } = useBrowserStore.getState();
-    if (activeTabId) {
-      void trpc.tabs.navigate
-        .mutate({ tabId: activeTabId, url: bookmark.url })
-        .catch(() => toast.error('Failed to open bookmark'));
-    } else if (activeWorkspaceId) {
-      void trpc.tabs.create
-        .mutate({ workspaceId: activeWorkspaceId, url: bookmark.url, active: true })
-        .catch(() => toast.error('Failed to open bookmark'));
-    }
-  };
+  const open = (bookmark: Bookmark): void =>
+    openUrlOrToast(bookmark.url, 'Failed to open bookmark');
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 pt-1">
