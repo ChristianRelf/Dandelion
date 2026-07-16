@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { History, Trash2 } from 'lucide-react';
-import { endOfDay, format, isToday, isYesterday, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import type { HistoryEntry } from '@shared/types';
 import { getHostname, prettifyUrl } from '@shared/utils';
+import { groupByDay, type DayGroup } from '../lib/history';
+import { openUrlOrToast } from '../lib/navigation';
 import { PageShell } from './PageShell';
 import { Button } from '../components/ui/Button';
 import { IconButton } from '../components/ui/IconButton';
@@ -17,24 +19,6 @@ import { trpc } from '../lib/trpc/client';
 import { useBrowserStore } from '../stores/browser.store';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { toast } from '../stores/toast.store';
-
-function dayLabel(timestamp: number): string {
-  const date = new Date(timestamp);
-  if (isToday(date)) return 'Today';
-  if (isYesterday(date)) return 'Yesterday';
-  return format(date, 'EEEE, d MMMM');
-}
-
-/**
- * A day's worth of history. `from`/`to` bound the same day the rows are grouped
- * by, so deleting the range removes exactly what the group displays.
- */
-interface DayGroup {
-  label: string;
-  from: number;
-  to: number;
-  items: HistoryEntry[];
-}
 
 /** Skeleton placeholders shown during the first load. */
 function LoadingRows(): ReactElement {
@@ -84,34 +68,7 @@ export function HistoryPage(): ReactElement {
     [],
   );
 
-  const groups = useMemo(() => {
-    const map = new Map<number, DayGroup>();
-    for (const entry of entries) {
-      const day = startOfDay(new Date(entry.lastVisitedAt));
-      const from = day.getTime();
-      let group = map.get(from);
-      if (!group) {
-        group = {
-          label: dayLabel(entry.lastVisitedAt),
-          from,
-          to: endOfDay(day).getTime(),
-          items: [],
-        };
-        map.set(from, group);
-      }
-      group.items.push(entry);
-    }
-    return [...map.values()].sort((a, b) => b.from - a.from);
-  }, [entries]);
-
-  const openUrl = (url: string): void => {
-    const { activeTabId } = useBrowserStore.getState();
-    if (activeTabId) {
-      void trpc.tabs.navigate
-        .mutate({ tabId: activeTabId, url })
-        .catch(() => toast.error('Failed to open page'));
-    }
-  };
+  const groups = useMemo(() => groupByDay(entries), [entries]);
 
   const remove = (entry: HistoryEntry): void => {
     if (!profile) return;
@@ -210,7 +167,7 @@ export function HistoryPage(): ReactElement {
                     title={primary}
                     subtitle={hasTitle ? prettifyUrl(entry.url) : getHostname(entry.url)}
                     meta={format(new Date(entry.lastVisitedAt), 'HH:mm')}
-                    onActivate={() => openUrl(entry.url)}
+                    onActivate={() => openUrlOrToast(entry.url, 'Failed to open page')}
                     actions={
                       <IconButton
                         size="sm"

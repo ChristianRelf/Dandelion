@@ -91,10 +91,11 @@ code.
 ## Sidebar
 
 - [x] Bookmarks
-- [ ] History
-- [ ] Downloads
-- [ ] Notes
-- [ ] Reading list
+- [x] History
+- [x] Downloads
+- [ ] Notes — needs storage of its own; nothing in the app persists user text yet
+- [ ] Reading list — needs storage, and a decision on whether it is a bookmark
+      folder with a read/unread flag or its own entity
 - [ ] Split screen controls
 
 ## Omnibox
