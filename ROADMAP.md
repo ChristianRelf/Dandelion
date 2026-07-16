@@ -71,7 +71,7 @@ code.
 - [x] Bookmark folders
 - [x] Import bookmarks
 - [x] Export bookmarks
-- [ ] Bookmark sidebar
+- [x] Bookmark sidebar
 
 ---
 
