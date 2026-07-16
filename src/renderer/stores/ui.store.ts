@@ -18,6 +18,8 @@ interface UiStore {
   aiSidebarOpen: boolean;
   /** Manual sidebar collapse. */
   sidebarCollapsed: boolean;
+  /** Toolbar download bubble. Pops open by itself when a download starts. */
+  downloadsPopoverOpen: boolean;
 
   openOmnibox: (initialValue?: string) => void;
   closeOmnibox: () => void;
@@ -35,6 +37,7 @@ interface UiStore {
   toggleAiSidebar: () => void;
   setAiSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  setDownloadsPopoverOpen: (open: boolean) => void;
 }
 
 export const useUiStore = create<UiStore>((set, get) => ({
@@ -47,6 +50,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   permissionActive: false,
   aiSidebarOpen: false,
   sidebarCollapsed: false,
+  downloadsPopoverOpen: false,
 
   openOmnibox: (initialValue = '') =>
     set({ omniboxOpen: true, omniboxInitialValue: initialValue, paletteOpen: false }),
@@ -65,6 +69,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   toggleAiSidebar: () => set({ aiSidebarOpen: !get().aiSidebarOpen }),
   setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
+  setDownloadsPopoverOpen: (downloadsPopoverOpen) => set({ downloadsPopoverOpen }),
 }));
 
 /**

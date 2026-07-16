@@ -6,7 +6,6 @@ import {
   BookOpen,
   Columns2,
   Command,
-  Download,
   RotateCw,
   X,
 } from 'lucide-react';
@@ -15,12 +14,12 @@ import { IconButton } from '../ui/IconButton';
 import { Tooltip } from '../ui/Tooltip';
 import { AddressPill } from './AddressPill';
 import { ZoomControl } from './ZoomControl';
+import { DownloadsPopover } from './DownloadsPopover';
 import { useActiveTab } from '../../hooks/useBrowser';
 import { selectSplitActive, useBrowserStore } from '../../stores/browser.store';
 import { useReaderStore } from '../../stores/reader.store';
 import { trpc } from '../../lib/trpc/client';
 import { dispatchCommand } from '../../lib/commands';
-import { useDownloadsStore, selectActiveDownloadCount } from '../../stores/downloads.store';
 
 /** The navigation + address + actions row above the content area. */
 export function Toolbar(): ReactElement {
@@ -29,7 +28,6 @@ export function Toolbar(): ReactElement {
   const readerTabId = useReaderStore((state) => state.tabId);
   const splitActive = useBrowserStore(selectSplitActive);
   const loading = tab?.status === 'loading';
-  const activeDownloads = useDownloadsStore(selectActiveDownloadCount);
   const [bookmarked, setBookmarked] = useState(false);
 
   const canBookmark = !!tab && !!tab.url && !isInternalUrl(tab.url);
@@ -133,23 +131,7 @@ export function Toolbar(): ReactElement {
             />
           </IconButton>
         </Tooltip>
-        <Tooltip content="Downloads" shortcut="⌘⇧J">
-          <IconButton
-            aria-label={activeDownloads > 0 ? `Downloads, ${activeDownloads} active` : 'Downloads'}
-            onClick={() => dispatchCommand('tools.downloads')}
-            className="relative"
-          >
-            <Download className="h-[18px] w-[18px]" />
-            {activeDownloads > 0 && (
-              <span
-                aria-live="polite"
-                className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-accent-fg tabular-nums"
-              >
-                {activeDownloads}
-              </span>
-            )}
-          </IconButton>
-        </Tooltip>
+        <DownloadsPopover />
         <Tooltip content="Command palette" shortcut="⌘K">
           <IconButton
             aria-label="Open command palette"
