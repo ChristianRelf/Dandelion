@@ -7,3 +7,8 @@ playwright-report/
 package-lock.json
 *.tsbuildinfo
 CHANGELOG.md
+
+# Agent configuration and instructions — hand-authored prose whose layout is
+# deliberate; Prettier's markdown rewrapping fights it and gains nothing.
+.claude/
+CLAUDE.md

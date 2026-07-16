@@ -37,9 +37,9 @@ export function Select<T extends string>({
       <DropdownMenu.Trigger
         aria-label={ariaLabel}
         className={cn(
-          'no-drag inline-flex h-[var(--field-height)] min-w-32 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-[13px] text-text',
+          'inline-flex h-[var(--field-height)] min-w-32 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-[13px] text-text no-drag',
           'transition-colors duration-[var(--duration-fast)] outline-none',
-          'hover:bg-surface-hover hover:border-line-strong data-[state=open]:border-accent data-[state=open]:bg-surface-hover',
+          'hover:border-line-strong hover:bg-surface-hover data-[state=open]:border-accent data-[state=open]:bg-surface-hover',
           className,
         )}
       >
@@ -50,7 +50,7 @@ export function Select<T extends string>({
         <DropdownMenu.Content
           align="end"
           sideOffset={6}
-          className="animate-pop z-[90] max-h-72 min-w-[var(--radix-dropdown-menu-trigger-width)] overflow-y-auto rounded-xl border border-line p-1 shadow-[var(--shadow-lg)] glass-strong scrollbar-slim"
+          className="z-[90] scrollbar-slim max-h-72 min-w-[var(--radix-dropdown-menu-trigger-width)] animate-pop overflow-y-auto rounded-xl border border-line p-1 shadow-[var(--shadow-lg)] glass-strong"
         >
           {options.map((option) => (
             <DropdownMenu.Item

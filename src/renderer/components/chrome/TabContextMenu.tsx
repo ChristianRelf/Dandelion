@@ -82,9 +82,7 @@ export function TabContextMenu({
           <ContextMenu.Separator className={menuSeparatorClass} />
 
           <ContextMenu.Sub>
-            <ContextMenu.SubTrigger className={menuItemClass}>
-              Add to group…
-            </ContextMenu.SubTrigger>
+            <ContextMenu.SubTrigger className={menuItemClass}>Add to group…</ContextMenu.SubTrigger>
             <ContextMenu.Portal>
               <ContextMenu.SubContent className={subContentClass} sideOffset={4}>
                 <ContextMenu.Item className={menuItemClass} onSelect={addToNewGroup}>

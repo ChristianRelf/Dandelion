@@ -31,7 +31,7 @@ export function AddressPill(): ReactElement {
       type="button"
       onClick={() => openOmnibox(display)}
       title={display || undefined}
-      className="group no-drag flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-surface px-3 text-[13px] transition-[background-color,border-color,transform] duration-[var(--duration-fast)] hover:border-line-strong hover:bg-surface-hover active:scale-[0.995]"
+      className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-full border border-line bg-surface px-3 text-[13px] transition-[background-color,border-color,transform] duration-[var(--duration-fast)] no-drag hover:border-line-strong hover:bg-surface-hover active:scale-[0.995]"
     >
       {leading}
       <span className="min-w-0 flex-1 truncate text-left text-muted group-hover:text-text">

@@ -19,7 +19,9 @@ const PANEL_TRANSITION = { duration: 0.24, ease: [0.16, 1, 0.3, 1] as const };
 
 /** The full browser chrome: titlebar, tabs, toolbar, content and all overlays. */
 export function Chrome(): ReactElement {
-  const layout = useBrowserStore((state) => state.settings?.behavior.defaultTabLayout ?? 'vertical');
+  const layout = useBrowserStore(
+    (state) => state.settings?.behavior.defaultTabLayout ?? 'vertical',
+  );
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const aiOpen = useUiStore((state) => state.aiSidebarOpen);
 

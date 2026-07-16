@@ -33,7 +33,7 @@ export function ConfirmDialog({
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm data-[state=open]:animate-[fade-in_120ms_ease-out]" />
         <Dialog.Content
           onOpenAutoFocus={(event) => event.preventDefault()}
-          className="animate-pop fixed top-1/2 left-1/2 z-[101] w-[400px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line p-5 shadow-[var(--shadow-lg)] glass-strong"
+          className="fixed top-1/2 left-1/2 z-[101] w-[400px] max-w-[92vw] animate-pop -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line p-5 shadow-[var(--shadow-lg)] glass-strong"
         >
           <Dialog.Title className="text-[15px] font-semibold text-text">{title}</Dialog.Title>
           {description && (

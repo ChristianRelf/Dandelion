@@ -18,9 +18,7 @@ interface AppInfo {
 }
 
 type UpdateResult =
-  | { tone: 'idle' }
-  | { tone: 'current'; message: string }
-  | { tone: 'available'; message: string };
+  { tone: 'idle' } | { tone: 'current'; message: string } | { tone: 'available'; message: string };
 
 const PLATFORM_LABELS: Record<string, string> = {
   darwin: 'macOS',

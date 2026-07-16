@@ -21,11 +21,12 @@ interface ExtensionInfo {
 }
 
 export function ExtensionsPage(): ReactElement {
-  const { status, data: extensions, error, reload } = useAsyncData<ExtensionInfo[]>(
-    () => trpc.extensions.list.query(),
-    [],
-    [],
-  );
+  const {
+    status,
+    data: extensions,
+    error,
+    reload,
+  } = useAsyncData<ExtensionInfo[]>(() => trpc.extensions.list.query(), [], []);
   const [loadingUnpacked, setLoadingUnpacked] = useState(false);
   const [removing, setRemoving] = useState<ExtensionInfo | null>(null);
 

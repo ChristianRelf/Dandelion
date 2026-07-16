@@ -13,8 +13,7 @@ import { trpc } from '../lib/trpc/client';
 import { useUiStore } from '../stores/ui.store';
 import { useBrowserStore } from '../stores/browser.store';
 
-const FOCUS_RING =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
+const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
 function greeting(): string {
   const hour = new Date().getHours();
@@ -70,7 +69,7 @@ export function NewTabPage(): ReactElement {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
-        className={`no-drag group flex w-[460px] max-w-full items-center gap-3 rounded-2xl border border-line px-4 py-3.5 text-left shadow-[var(--shadow-glass)] glass transition-colors hover:border-line-strong ${FOCUS_RING}`}
+        className={`group flex w-[460px] max-w-full items-center gap-3 rounded-2xl border border-line px-4 py-3.5 text-left shadow-[var(--shadow-glass)] glass transition-colors no-drag hover:border-line-strong ${FOCUS_RING}`}
       >
         <Search className="h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-muted" />
         <span className="flex-1 text-sm text-faint">Search the web or type a URL…</span>
@@ -106,7 +105,7 @@ export function NewTabPage(): ReactElement {
                       delay: 0.1 + index * 0.03,
                       ease: [0.16, 1, 0.3, 1],
                     }}
-                    className={`no-drag group flex flex-col items-center gap-2 rounded-2xl p-1 ${FOCUS_RING}`}
+                    className={`group flex flex-col items-center gap-2 rounded-2xl p-1 no-drag ${FOCUS_RING}`}
                   >
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-line bg-surface transition-colors group-hover:border-line-strong group-hover:bg-surface-hover">
                       <Favicon src={site.favicon} className="h-6 w-6" />

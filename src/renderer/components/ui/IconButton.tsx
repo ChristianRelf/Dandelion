@@ -16,7 +16,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       ref={ref}
       type={type}
       className={cn(
-        'no-drag inline-flex shrink-0 items-center justify-center rounded-lg text-muted',
+        'inline-flex shrink-0 items-center justify-center rounded-lg text-muted no-drag',
         'transition-[transform,background-color,color] duration-[var(--duration-fast)] ease-[var(--ease-standard)]',
         'hover:bg-surface-hover hover:text-text active:scale-[0.92]',
         'disabled:pointer-events-none disabled:opacity-35',

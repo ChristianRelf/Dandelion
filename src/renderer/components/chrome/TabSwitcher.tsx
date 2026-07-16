@@ -15,10 +15,7 @@ export function TabSwitcher(): ReactElement {
   const close = useUiStore((state) => state.closeTabSwitcher);
   const tabs = useOrderedTabs();
 
-  const mru = useMemo(
-    () => [...tabs].sort((a, b) => b.lastActiveAt - a.lastActiveAt),
-    [tabs],
-  );
+  const mru = useMemo(() => [...tabs].sort((a, b) => b.lastActiveAt - a.lastActiveAt), [tabs]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {

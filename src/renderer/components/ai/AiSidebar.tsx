@@ -9,7 +9,11 @@ import { useUiStore } from '../../stores/ui.store';
 import { useBrowserStore } from '../../stores/browser.store';
 import { useAiStore } from '../../stores/ai.store';
 
-const QUICK_ACTIONS: Array<{ task: Exclude<AiTask, 'chat'>; icon: typeof FileText; label: string }> = [
+const QUICK_ACTIONS: Array<{
+  task: Exclude<AiTask, 'chat'>;
+  icon: typeof FileText;
+  label: string;
+}> = [
   { task: 'summarize', icon: FileText, label: 'Summarise' },
   { task: 'explain', icon: Lightbulb, label: 'Explain' },
   { task: 'translate', icon: Languages, label: 'Translate' },
@@ -56,14 +60,15 @@ export function AiSidebar(): ReactElement {
 
   const runAction = (task: Exclude<AiTask, 'chat'>): void => {
     const tabId = useBrowserStore.getState().activeTabId;
-    if (tabId && !busy && configured) void useAiStore.getState().runPageAction(providerId, model, tabId, task);
+    if (tabId && !busy && configured)
+      void useAiStore.getState().runPageAction(providerId, model, tabId, task);
   };
 
   const empty = messages.length === 0 && !streaming;
 
   return (
     <aside className="flex h-full w-full flex-col py-2 pr-2">
-      <div className="glass flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line glass">
         <header className="flex items-center gap-2 border-b border-line px-3 py-2">
           <Sparkles className="h-4 w-4 shrink-0 text-accent" />
           <span className="flex-1 text-[13px] font-medium">Assistant</span>
@@ -98,7 +103,7 @@ export function AiSidebar(): ReactElement {
 
         <div
           ref={scrollRef}
-          className="scrollbar-slim flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
+          className="flex scrollbar-slim min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-3"
         >
           {empty && configured && (
             <p className="mt-6 text-center text-xs text-faint">

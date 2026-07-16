@@ -167,7 +167,7 @@ export function Omnibox(): ReactElement {
           onMouseDown={close}
         >
           <motion.div
-            className="glass-strong mt-[12vh] h-fit w-[640px] max-w-[92vw] overflow-hidden rounded-2xl border border-line shadow-[var(--shadow-lg)]"
+            className="mt-[12vh] h-fit w-[640px] max-w-[92vw] overflow-hidden rounded-2xl border border-line shadow-[var(--shadow-lg)] glass-strong"
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
@@ -235,7 +235,9 @@ export function Omnibox(): ReactElement {
                       {result.title}
                     </span>
                     {result.subtitle && (
-                      <span className="shrink-0 truncate text-xs text-faint">{result.subtitle}</span>
+                      <span className="shrink-0 truncate text-xs text-faint">
+                        {result.subtitle}
+                      </span>
                     )}
                   </div>
                 ))}

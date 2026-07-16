@@ -22,7 +22,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
     'bg-accent text-accent-fg shadow-[var(--shadow-sm)] hover:brightness-[1.07] active:brightness-95',
-  secondary: 'border border-line bg-surface text-text hover:bg-surface-hover hover:border-line-strong',
+  secondary:
+    'border border-line bg-surface text-text hover:bg-surface-hover hover:border-line-strong',
   ghost: 'text-muted hover:bg-surface-hover hover:text-text',
   subtle: 'bg-surface text-text hover:bg-surface-hover',
   danger: 'bg-danger-soft text-danger hover:bg-danger hover:text-white',
@@ -68,7 +69,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        'no-drag relative inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap',
+        'relative inline-flex shrink-0 items-center justify-center font-medium whitespace-nowrap no-drag',
         'transition-all duration-[var(--duration-fast)] ease-[var(--ease-standard)]',
         'active:scale-[0.98] disabled:pointer-events-none disabled:opacity-40',
         SIZES[size],

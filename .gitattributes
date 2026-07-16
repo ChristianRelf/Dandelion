@@ -1,0 +1,24 @@
+# Normalise line endings. Prettier is configured with `endOfLine: "lf"`, so
+# without this a Windows checkout (core.autocrlf=true) produces CRLF working
+# files and `npm run format:check` fails on every file in the repository.
+# Text is stored as LF in git and checked out as LF on every platform.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending converted.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.node binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.zip binary
+*.gz binary
+
+# Generated — keep out of diffs and language stats.
+package-lock.json linguist-generated=true -diff

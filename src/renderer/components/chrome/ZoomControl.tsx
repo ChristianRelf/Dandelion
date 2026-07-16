@@ -14,7 +14,11 @@ export function ZoomControl(): ReactElement {
   const [percent, setPercent] = useState(100);
 
   const refresh = (): void => {
-    if (tabId) void trpc.tabs.getZoom.query({ tabId }).then(setPercent).catch(() => undefined);
+    if (tabId)
+      void trpc.tabs.getZoom
+        .query({ tabId })
+        .then(setPercent)
+        .catch(() => undefined);
   };
 
   useEffect(() => {
@@ -39,7 +43,7 @@ export function ZoomControl(): ReactElement {
         <Popover.Content
           align="end"
           sideOffset={6}
-          className="animate-pop z-[80] flex items-center gap-1 rounded-xl border border-line p-1 shadow-[var(--shadow-lg)] glass-strong"
+          className="z-[80] flex animate-pop items-center gap-1 rounded-xl border border-line p-1 shadow-[var(--shadow-lg)] glass-strong"
         >
           <IconButton size="sm" onClick={() => step('view.zoomOut')} aria-label="Zoom out">
             <Minus className="h-4 w-4" />

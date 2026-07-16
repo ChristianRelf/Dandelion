@@ -1,6 +1,14 @@
 import type { ReactElement } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { Download as DownloadIcon, Folder, Pause, Play, ShieldAlert, Trash2, X } from 'lucide-react';
+import {
+  Download as DownloadIcon,
+  Folder,
+  Pause,
+  Play,
+  ShieldAlert,
+  Trash2,
+  X,
+} from 'lucide-react';
 import type { Download, DownloadState } from '@shared/types';
 import { formatBytes, formatDuration, formatRelativeTime, formatSpeed } from '@shared/utils';
 import { cn } from '../lib/cn';
@@ -34,7 +42,10 @@ function fileIconName(download: Download): string {
 
   const has = (...exts: string[]): boolean => exts.includes(ext);
 
-  if (mime.startsWith('image/') || has('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic')) {
+  if (
+    mime.startsWith('image/') ||
+    has('png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif', 'heic')
+  ) {
     return 'image';
   }
   if (mime.startsWith('video/') || has('mp4', 'mkv', 'mov', 'avi', 'webm', 'm4v')) return 'film';
@@ -52,7 +63,25 @@ function fileIconName(download: Download): string {
     return 'file-spreadsheet';
   }
   if (
-    has('js', 'ts', 'jsx', 'tsx', 'json', 'html', 'css', 'py', 'rs', 'go', 'java', 'c', 'cpp', 'sh', 'yml', 'yaml', 'xml') ||
+    has(
+      'js',
+      'ts',
+      'jsx',
+      'tsx',
+      'json',
+      'html',
+      'css',
+      'py',
+      'rs',
+      'go',
+      'java',
+      'c',
+      'cpp',
+      'sh',
+      'yml',
+      'yaml',
+      'xml',
+    ) ||
     mime.includes('json') ||
     mime.includes('javascript')
   ) {
@@ -99,20 +128,29 @@ function DownloadRow({ download }: { download: Download }): ReactElement {
   const { id, state } = download;
   const active = state === 'in_progress' || state === 'paused';
   const malicious = download.safety === 'malicious';
-  const progress = download.totalBytes > 0 ? Math.min(1, download.receivedBytes / download.totalBytes) : 0;
+  const progress =
+    download.totalBytes > 0 ? Math.min(1, download.receivedBytes / download.totalBytes) : 0;
   const percent = Math.round(progress * 100);
 
   const pause = (): void => {
-    void trpc.downloads.pause.mutate({ downloadId: id }).catch(() => toast.error('Could not pause download'));
+    void trpc.downloads.pause
+      .mutate({ downloadId: id })
+      .catch(() => toast.error('Could not pause download'));
   };
   const resume = (): void => {
-    void trpc.downloads.resume.mutate({ downloadId: id }).catch(() => toast.error('Could not resume download'));
+    void trpc.downloads.resume
+      .mutate({ downloadId: id })
+      .catch(() => toast.error('Could not resume download'));
   };
   const cancel = (): void => {
-    void trpc.downloads.cancel.mutate({ downloadId: id }).catch(() => toast.error('Could not cancel download'));
+    void trpc.downloads.cancel
+      .mutate({ downloadId: id })
+      .catch(() => toast.error('Could not cancel download'));
   };
   const openFile = (): void => {
-    void trpc.downloads.openFile.mutate({ downloadId: id }).catch(() => toast.error('Could not open file'));
+    void trpc.downloads.openFile
+      .mutate({ downloadId: id })
+      .catch(() => toast.error('Could not open file'));
   };
   const showInFolder = (): void => {
     void trpc.downloads.showInFolder
@@ -144,7 +182,9 @@ function DownloadRow({ download }: { download: Download }): ReactElement {
 
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-[13.5px] text-text">{download.filename}</span>
+          <span className="min-w-0 flex-1 truncate text-[13.5px] text-text">
+            {download.filename}
+          </span>
 
           {malicious && (
             <span
@@ -178,13 +218,23 @@ function DownloadRow({ download }: { download: Download }): ReactElement {
               </Button>
             )}
 
-            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
               {state === 'completed' && (
-                <IconButton size="sm" aria-label="Show in folder" title="Show in folder" onClick={showInFolder}>
+                <IconButton
+                  size="sm"
+                  aria-label="Show in folder"
+                  title="Show in folder"
+                  onClick={showInFolder}
+                >
                   <Folder className="h-4 w-4" />
                 </IconButton>
               )}
-              <IconButton size="sm" aria-label="Remove from list" title="Remove from list" onClick={remove}>
+              <IconButton
+                size="sm"
+                aria-label="Remove from list"
+                title="Remove from list"
+                onClick={remove}
+              >
                 <Trash2 className="h-4 w-4" />
               </IconButton>
             </div>
@@ -210,7 +260,9 @@ function DownloadRow({ download }: { download: Download }): ReactElement {
           </div>
         )}
 
-        <p className={cn('mt-1 truncate text-xs tabular-nums', sublineClass)}>{describe(download)}</p>
+        <p className={cn('mt-1 truncate text-xs tabular-nums', sublineClass)}>
+          {describe(download)}
+        </p>
       </div>
     </div>
   );

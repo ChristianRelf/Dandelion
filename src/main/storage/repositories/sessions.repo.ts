@@ -26,8 +26,7 @@ export class SessionsRepository {
 
   get(id: string): SessionSnapshot | null {
     const row = this.db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as
-      | SessionRow
-      | undefined;
+      SessionRow | undefined;
     return row ? this.rowToSnapshot(row) : null;
   }
 

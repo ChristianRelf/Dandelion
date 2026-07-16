@@ -322,7 +322,7 @@ function PasswordRow({
           <span
             className={cn(
               'block max-w-[180px] truncate font-mono text-xs',
-              revealed !== null ? 'select-all text-text' : 'text-faint',
+              revealed !== null ? 'text-text select-all' : 'text-faint',
             )}
           >
             {revealed ?? dots}
@@ -331,11 +331,7 @@ function PasswordRow({
         actions={
           <>
             <IconButton size="sm" aria-label="Copy password" onClick={() => void copyPassword()}>
-              {copied ? (
-                <Check className="h-4 w-4 text-success" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
+              {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
             </IconButton>
             <IconButton
               size="sm"
@@ -413,11 +409,7 @@ function UnlockedVault({
     data: entries,
     error,
     reload,
-  } = useAsyncData<PasswordEntry[]>(
-    () => trpc.vault.list.query({ profileId }),
-    [profileId],
-    [],
-  );
+  } = useAsyncData<PasswordEntry[]>(() => trpc.vault.list.query({ profileId }), [profileId], []);
 
   const count = status === 'ready' ? entries.length : vault.entryCount;
 

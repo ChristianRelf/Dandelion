@@ -21,9 +21,7 @@ function Block({ block }: { block: ReaderArticle['blocks'][number] }): ReactElem
     case 'h3':
       return <h3 className="mt-6 mb-2 text-lg font-semibold text-text">{block.text}</h3>;
     case 'li':
-      return (
-        <li className="ml-5 list-disc py-0.5 text-text/90 marker:text-faint">{block.text}</li>
-      );
+      return <li className="ml-5 list-disc py-0.5 text-text/90 marker:text-faint">{block.text}</li>;
     case 'blockquote':
       return (
         <blockquote className="my-4 border-l-2 border-accent pl-4 text-muted italic">
@@ -32,7 +30,7 @@ function Block({ block }: { block: ReaderArticle['blocks'][number] }): ReactElem
       );
     case 'pre':
       return (
-        <pre className="scrollbar-slim my-4 overflow-x-auto rounded-lg bg-surface p-3 font-mono text-[13px] text-muted">
+        <pre className="my-4 scrollbar-slim overflow-x-auto rounded-lg bg-surface p-3 font-mono text-[13px] text-muted">
           {block.text}
         </pre>
       );
