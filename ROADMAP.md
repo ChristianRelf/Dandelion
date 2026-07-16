@@ -37,7 +37,18 @@ code.
 - [x] Tab preview thumbnails
 - [x] Sleeping tabs
 - [x] Recently closed tabs
-- [ ] Reopen closed window
+- [ ] Reopen closed window — **blocked on a model decision**, see below
+
+> **Reopen closed window — open question.** Closing a window does not close its
+> tabs: `handleWindowClosed` drops them from memory but never removes them from
+> the database, so they are restored whenever that workspace is next opened.
+> Dandelion's model is workspace-centric — tabs belong to workspaces, windows
+> are views onto them — while "reopen closed window" is a window-centric Chrome
+> concept. Recreating the tabs explicitly would duplicate them (persistence
+> restores them too); leaning on persistence instead hits `restoreWorkspace`'s
+> reparent path and would steal tabs from another window on the same workspace.
+> Needs a decision on whether closing a window **closes** its tabs or **parks**
+> them, which changes session-restore semantics.
 
 ## Navigation
 
@@ -55,7 +66,7 @@ code.
 - [x] Download manager
 - [x] Progress popup
 - [x] Pause / Resume
-- [ ] Virus scan hooks
+- [ ] Virus scan hooks — needs a spec: which scanner, and what happens on a hit
 - [x] Open file location
 
 ## History
@@ -79,12 +90,20 @@ code.
 
 ## Sidebar
 
-- [ ] Bookmarks
+- [x] Bookmarks
 - [ ] History
 - [ ] Downloads
 - [ ] Notes
 - [ ] Reading list
 - [ ] Split screen controls
+
+## Omnibox
+
+- [ ] Weather answers — `enableWeather` and the `weather` result kind already
+      exist, but no provider ever produces one, so the setting is currently dead
+- [ ] Currency conversion — deliberately excluded from the unit converter
+      because it needs live rates; wants a cached provider and an offline story
+- [ ] Per-result actions (copy, open in new tab, remove from history)
 
 ## Split View
 
@@ -123,7 +142,8 @@ code.
 
 ## New Tab Page
 
-- [ ] Wallpapers
+- [ ] Wallpapers — `WorkspaceWallpaper` (colour/gradient/image, blur, overlay)
+      already exists as a type with no picker UI behind it
 - [ ] Weather widget
 - [x] Quick links
 - [x] Search box
@@ -264,12 +284,24 @@ code.
 - [x] Session restore
 - [ ] Automatic updates
 
+## Accessibility
+
+The specifics behind "Complete accessibility support" above.
+
+- [ ] Roving tabindex for the tab strips — every row is currently `tabIndex=0`,
+      so a strip is one tab stop per tab instead of one stop with arrow keys
+- [ ] Screen-reader pass (NVDA / VoiceOver) over the overlays: reader, sessions,
+      zoom popover, downloads bubble, tab switcher
+- [ ] High-contrast theme
+- [ ] Verify accent-on-surface contrast in light mode
+
 ## Security
 
 - [ ] Sandboxed renderer improvements
 - [x] Secure credential storage
 - [ ] Certificate viewer
-- [ ] Password breach detection
+- [ ] Password breach detection — `PasswordAuditIssue` exists as a type, but no
+      service implements the audit behind it
 
 ---
 
