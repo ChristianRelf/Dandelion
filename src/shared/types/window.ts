@@ -1,4 +1,5 @@
 import type { TabId, WindowId, WorkspaceId } from './ids';
+import type { SplitOrientation } from './tab';
 
 export interface WindowBounds {
   x: number;
@@ -19,4 +20,8 @@ export interface WindowState {
   /** Vertical (Arc/Zen) vs horizontal (Chrome) tab strip for this window. */
   tabLayout: 'vertical' | 'horizontal';
   sidebarCollapsed: boolean;
+  /** Tabs tiled side-by-side in this window; empty when not split. */
+  splitTabIds: TabId[];
+  /** Axis the split panes are arranged along. Only meaningful while split. */
+  splitOrientation: SplitOrientation;
 }

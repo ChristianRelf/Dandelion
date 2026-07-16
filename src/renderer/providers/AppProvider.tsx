@@ -58,12 +58,6 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
           const reader = useReaderStore.getState();
           if (reader.tabId === event.tab.id && event.tab.status === 'loading') reader.close();
         }
-        if (event.type === 'tab:activated') {
-          const ui = useUiStore.getState();
-          if (ui.splitTabIds.length > 0 && !ui.splitTabIds.includes(event.tabId)) {
-            ui.setSplitTabIds([]);
-          }
-        }
         if (event.type === 'app:command') handleUiCommand(event.commandId);
       }),
     [],

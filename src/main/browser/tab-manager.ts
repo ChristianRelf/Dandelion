@@ -4,6 +4,7 @@ import type {
   Profile,
   ReaderArticle,
   ReaderBlock,
+  SplitOrientation,
   Tab,
   TabGroup,
   TabGroupColor,
@@ -66,7 +67,6 @@ const round = (value: number): number => Math.round(value);
 export class TabManager {
   private readonly tabs = new Map<string, LiveTab>();
   private readonly recentlyClosed: ClosedTab[] = [];
-  private readonly splitOrientation = new Map<string, 'horizontal' | 'vertical'>();
 
   constructor(private readonly deps: TabManagerDeps) {
     this.deps.privacy.setTopUrlResolver((webContentsId) =>
@@ -159,7 +159,9 @@ export class TabManager {
 
     dandelionWindow.activeTabId = tabId;
     dandelionWindow.activeWorkspaceId = live.state.workspaceId;
-    dandelionWindow.splitTabIds = [];
+    // Choosing a tab outside the split exits split view; choosing one of the
+    // split's own panes keeps the arrangement.
+    if (!dandelionWindow.splitTabIds.includes(tabId)) dandelionWindow.splitTabIds = [];
     live.state.lastActiveAt = Date.now();
     live.state.asleep = false;
 
@@ -209,12 +211,29 @@ export class TabManager {
     this.deps.events.emit({ type: 'tab:removed', tabId, workspaceId });
 
     const dandelionWindow = windowId ? this.deps.windows.get(windowId) : null;
-    if (dandelionWindow && dandelionWindow.activeTabId === tabId) {
+    if (!dandelionWindow) return;
+
+    // A closed pane leaves the split, and a split needs two panes — so a lone
+    // survivor returns to the full content area.
+    const leftSplit = dandelionWindow.splitTabIds.includes(tabId);
+    if (leftSplit) {
+      const remaining = dandelionWindow.splitTabIds.filter((id) => id !== tabId);
+      dandelionWindow.splitTabIds = remaining.length >= 2 ? remaining : [];
+    }
+
+    if (dandelionWindow.activeTabId === tabId) {
       const neighbor = this.pickNeighbor(workspaceId, windowId, live.state.index);
       dandelionWindow.activeTabId = null;
-      if (neighbor) this.activate(neighbor);
-      else this.layout(dandelionWindow.id);
+      if (neighbor) {
+        this.activate(neighbor); // re-lays out and broadcasts the new state
+        return;
+      }
+    } else if (!leftSplit) {
+      return; // a background tab closed: the window's arrangement is unchanged
     }
+
+    this.layout(dandelionWindow.id);
+    this.deps.windows.broadcastState(dandelionWindow);
   }
 
   duplicate(tabId: string): Tab | null {
@@ -418,7 +437,7 @@ export class TabManager {
     }
   }
 
-  setSplit(windowId: string, tabIds: string[], orientation: 'horizontal' | 'vertical'): void {
+  setSplit(windowId: string, tabIds: string[], orientation: SplitOrientation): void {
     const dandelionWindow = this.deps.windows.get(windowId);
     if (!dandelionWindow) return;
     for (const tabId of tabIds) {
@@ -432,15 +451,17 @@ export class TabManager {
       }
     }
     dandelionWindow.splitTabIds = tabIds;
-    this.splitOrientation.set(windowId, orientation);
+    dandelionWindow.splitOrientation = orientation;
     this.layout(windowId);
+    this.deps.windows.broadcastState(dandelionWindow);
   }
 
   clearSplit(windowId: string): void {
     const dandelionWindow = this.deps.windows.get(windowId);
-    if (!dandelionWindow) return;
+    if (!dandelionWindow || dandelionWindow.splitTabIds.length === 0) return;
     dandelionWindow.splitTabIds = [];
     this.layout(windowId);
+    this.deps.windows.broadcastState(dandelionWindow);
   }
 
   /* ------------------------------------------------------------------ *
@@ -586,7 +607,11 @@ export class TabManager {
 
     const alreadyOpen = this.listByWorkspace(workspaceId);
     if (alreadyOpen.length > 0) {
-      const active = alreadyOpen[0]!;
+      // A renderer reload re-runs this for the workspace already on screen, so
+      // prefer the window's current tab — falling back to the first tab is only
+      // right when arriving from another workspace.
+      const current = alreadyOpen.find((tab) => tab.id === dandelionWindow.activeTabId);
+      const active = current ?? alreadyOpen[0]!;
       this.reparent(active.id, windowId);
       this.activate(active.id);
       return;
@@ -678,7 +703,7 @@ export class TabManager {
 
     const splitIds = dandelionWindow.splitTabIds;
     if (splitIds.length >= 2) {
-      const orientation = this.splitOrientation.get(windowId) ?? 'vertical';
+      const orientation = dandelionWindow.splitOrientation;
       const count = splitIds.length;
       splitIds.forEach((tabId, i) => {
         const live = this.tabs.get(tabId);
@@ -925,7 +950,6 @@ export class TabManager {
         this.tabs.delete(id);
       }
     }
-    this.splitOrientation.delete(windowId);
   }
 
   private pickNeighbor(workspaceId: string, windowId: string | null, index: number): string | null {

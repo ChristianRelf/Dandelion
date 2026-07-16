@@ -18,8 +18,6 @@ interface UiStore {
   aiSidebarOpen: boolean;
   /** Manual sidebar collapse. */
   sidebarCollapsed: boolean;
-  /** Tabs currently tiled side-by-side (renderer mirror of the split). */
-  splitTabIds: string[];
 
   openOmnibox: (initialValue?: string) => void;
   closeOmnibox: () => void;
@@ -37,7 +35,6 @@ interface UiStore {
   toggleAiSidebar: () => void;
   setAiSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
-  setSplitTabIds: (ids: string[]) => void;
 }
 
 export const useUiStore = create<UiStore>((set, get) => ({
@@ -50,7 +47,6 @@ export const useUiStore = create<UiStore>((set, get) => ({
   permissionActive: false,
   aiSidebarOpen: false,
   sidebarCollapsed: false,
-  splitTabIds: [],
 
   openOmnibox: (initialValue = '') =>
     set({ omniboxOpen: true, omniboxInitialValue: initialValue, paletteOpen: false }),
@@ -69,7 +65,6 @@ export const useUiStore = create<UiStore>((set, get) => ({
   toggleAiSidebar: () => set({ aiSidebarOpen: !get().aiSidebarOpen }),
   setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
-  setSplitTabIds: (splitTabIds) => set({ splitTabIds }),
 }));
 
 /**
