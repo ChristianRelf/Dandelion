@@ -15,6 +15,7 @@ import { Tooltip } from '../ui/Tooltip';
 import { AddressPill } from './AddressPill';
 import { ZoomControl } from './ZoomControl';
 import { DownloadsPopover } from './DownloadsPopover';
+import { UpdateChip } from './UpdateChip';
 import { useActiveTab } from '../../hooks/useBrowser';
 import { selectSplitActive, useBrowserStore } from '../../stores/browser.store';
 import { useReaderStore } from '../../stores/reader.store';
@@ -131,6 +132,7 @@ export function Toolbar(): ReactElement {
             />
           </IconButton>
         </Tooltip>
+        <UpdateChip />
         <DownloadsPopover />
         <Tooltip content="Command palette" shortcut="⌘K">
           <IconButton

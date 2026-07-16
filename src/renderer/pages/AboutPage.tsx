@@ -9,6 +9,7 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { openInternalPage } from '../lib/commands';
 import { toast } from '../stores/toast.store';
+import { useUpdateStore } from '../stores/update.store';
 import { trpc } from '../lib/trpc/client';
 
 interface AppInfo {
@@ -43,6 +44,8 @@ export function AboutPage(): ReactElement {
   const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<UpdateResult>({ tone: 'idle' });
 
+  const readyVersion = useUpdateStore((state) => state.readyVersion);
+
   const checkForUpdates = async (): Promise<void> => {
     setChecking(true);
     try {
@@ -51,7 +54,7 @@ export function AboutPage(): ReactElement {
         outcome.updateAvailable
           ? {
               tone: 'available',
-              message: `Version ${outcome.version} is available. Restart Dandelion to finish updating.`,
+              message: `Version ${outcome.version} is downloading. You'll be able to restart into it once it's ready.`,
             }
           : { tone: 'current', message: `You're on the latest version (${outcome.version}).` },
       );
@@ -61,6 +64,14 @@ export function AboutPage(): ReactElement {
     } finally {
       setChecking(false);
     }
+  };
+
+  const restart = (): void => {
+    void trpc.app.installUpdate.mutate().catch(() => {
+      toast.error('Could not install the update', {
+        description: 'Restart Dandelion to try again.',
+      });
+    });
   };
 
   return (
@@ -87,15 +98,21 @@ export function AboutPage(): ReactElement {
           split view, a command palette and a local-first privacy engine.
         </p>
 
-        <Button
-          variant="primary"
-          icon="refresh-cw"
-          loading={checking}
-          onClick={() => void checkForUpdates()}
-          className="mt-6"
-        >
-          Check for updates
-        </Button>
+        {readyVersion ? (
+          <Button variant="primary" icon="arrow-up-circle" onClick={restart} className="mt-6">
+            Restart to update to {readyVersion}
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            icon="refresh-cw"
+            loading={checking}
+            onClick={() => void checkForUpdates()}
+            className="mt-6"
+          >
+            Check for updates
+          </Button>
+        )}
 
         <div aria-live="polite" className="mt-3 min-h-[1.25rem] text-xs">
           {result.tone === 'available' && <span className="text-accent">{result.message}</span>}

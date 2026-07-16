@@ -33,6 +33,7 @@ export const DEFAULT_SETTINGS: Settings = {
     defaultTabLayout: 'vertical',
     confirmCloseMultipleTabs: true,
     warnOnQuitWithTabs: true,
+    automaticUpdates: true,
   },
   tabs: {
     sleepEnabled: true,

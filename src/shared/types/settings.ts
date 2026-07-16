@@ -33,6 +33,12 @@ export interface BehaviorSettings {
   defaultTabLayout: TabLayout;
   confirmCloseMultipleTabs: boolean;
   warnOnQuitWithTabs: boolean;
+  /**
+   * Check GitHub for new releases in the background and download them ready to
+   * install. Turning this off makes updates entirely manual — the check on the
+   * About page still works.
+   */
+  automaticUpdates: boolean;
 }
 
 export interface TabManagementSettings {
