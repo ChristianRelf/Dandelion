@@ -27,6 +27,15 @@ export class HistoryService {
     return this.repos.history.recordVisit(input);
   }
 
+  /**
+   * Correct an entry's title once the page reports one. A visit is recorded the
+   * moment it commits, before the document has parsed its `<title>`, so the
+   * title arrives after the entry does.
+   */
+  setTitle(profileId: string, url: string, title: string): void {
+    if (title && isRecordable(url)) this.repos.history.setTitle(profileId, url, title);
+  }
+
   setFavicon(profileId: string, url: string, favicon: string): void {
     if (isRecordable(url)) this.repos.history.setFavicon(profileId, url, favicon);
   }

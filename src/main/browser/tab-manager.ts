@@ -785,7 +785,9 @@ export class TabManager {
       live.state.pendingUrl = null;
       live.state.title = live.state.title || prettifyUrl(url);
       this.refreshNavState(live);
-      this.recordVisit(live, profile, url, 'typed');
+      // The tab deliberately keeps the old title until the new one arrives, so
+      // it is not this page's title — `page-title-updated` fills it in.
+      this.recordVisit(live, profile, url, 'typed', '');
       this.persist(live);
       this.emitUpdate(live);
       this.emitShieldReport(live, wc);
@@ -795,12 +797,14 @@ export class TabManager {
       if (!isMainFrame) return;
       live.state.url = url;
       this.refreshNavState(live);
-      this.recordVisit(live, profile, url, 'link');
+      // Same document, so the tab's title already belongs to this URL.
+      this.recordVisit(live, profile, url, 'link', live.state.title);
       this.emitUpdate(live);
     });
 
     wc.on('page-title-updated', (_event, title) => {
       live.state.title = title;
+      if (profile) this.deps.history.setTitle(profile.id, live.state.url, title);
       this.persist(live);
       this.emitUpdate(live);
     });
@@ -853,17 +857,24 @@ export class TabManager {
     live.state.navigation.canGoForward = wc.navigationHistory.canGoForward();
   }
 
+  /**
+   * Record a visit. `title` is passed explicitly rather than read from the tab,
+   * because on a cross-document navigation the tab still shows the previous
+   * page's title — recording that would label the entry with the wrong page.
+   * An empty title leaves any known title intact.
+   */
   private recordVisit(
     live: LiveTab,
     profile: Profile | null,
     url: string,
     transition: VisitTransition,
+    title: string,
   ): void {
     if (!profile || profile.isPrivate) return;
     this.deps.history.record({
       profileId: profile.id,
       url,
-      title: live.state.title,
+      title,
       transition,
       workspaceId: live.state.workspaceId,
     });
