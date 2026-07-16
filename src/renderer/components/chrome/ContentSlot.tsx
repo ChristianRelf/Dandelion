@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactElement } from 'react';
 import { trpc } from '../../lib/trpc/client';
 import { useUiStore } from '../../stores/ui.store';
+import { SplitDivider } from './SplitDivider';
 
 interface ContentSlotProps {
   /** Pixels of the slot to reserve at the top for in-content overlays. */
@@ -9,9 +10,15 @@ interface ContentSlotProps {
 
 /**
  * A layout placeholder that measures its on-screen rect and reports it to the
- * main process, which positions the active tab's `WebContentsView` to exactly
- * cover it. The view renders on top of the chrome, so this element itself stays
- * empty. Bounds are rounded to whole pixels to avoid a subpixel seam.
+ * main process, which positions the tab's `WebContentsView` to exactly cover it.
+ * The view renders on top of the chrome, so this element itself stays empty —
+ * except for the split divider, which lives in the gap the main process leaves
+ * between panes and is therefore the one piece of chrome no view covers.
+ *
+ * The inset is real padding rather than arithmetic on the reported rect, so the
+ * measured box *is* the region the content occupies and anything positioned
+ * inside it lines up with the panes. Bounds are rounded to whole pixels to
+ * avoid a subpixel seam.
  */
 export function ContentSlot({ topInset = 0 }: ContentSlotProps): ReactElement {
   const ref = useRef<HTMLDivElement>(null);
@@ -29,9 +36,9 @@ export function ContentSlot({ topInset = 0 }: ContentSlotProps): ReactElement {
         const rect = element.getBoundingClientRect();
         void trpc.layout.setContentBounds.mutate({
           x: Math.round(rect.x),
-          y: Math.round(rect.y + topInset),
+          y: Math.round(rect.y),
           width: Math.round(rect.width),
-          height: Math.round(rect.height - topInset),
+          height: Math.round(rect.height),
         });
       });
     };
@@ -47,5 +54,11 @@ export function ContentSlot({ topInset = 0 }: ContentSlotProps): ReactElement {
     };
   }, [sidebarCollapsed, aiOpen, topInset]);
 
-  return <div ref={ref} className="h-full w-full" />;
+  return (
+    <div className="h-full w-full" style={topInset ? { paddingTop: topInset } : undefined}>
+      <div ref={ref} className="relative h-full w-full">
+        <SplitDivider />
+      </div>
+    </div>
+  );
 }

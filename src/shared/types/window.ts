@@ -24,4 +24,9 @@ export interface WindowState {
   splitTabIds: TabId[];
   /** Axis the split panes are arranged along. Only meaningful while split. */
   splitOrientation: SplitOrientation;
+  /**
+   * Share of the content area given to the first pane, as a fraction. Only
+   * meaningful for a two-pane split — more panes are always divided evenly.
+   */
+  splitRatio: number;
 }

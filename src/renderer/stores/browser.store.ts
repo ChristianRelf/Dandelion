@@ -4,12 +4,14 @@ import type {
   Profile,
   Settings,
   SettingsPatch,
+  SplitOrientation,
   Tab,
   TabGroup,
   VaultState,
   WindowState,
   Workspace,
 } from '@shared/types';
+import { DEFAULT_SPLIT_RATIO } from '@shared/utils';
 import { trpc } from '../lib/trpc/client';
 
 function keyBy<T extends { id: string }>(items: T[]): Record<string, T> {
@@ -169,6 +171,16 @@ export function selectSplitTabIds(state: BrowserStore): string[] {
 /** Whether this window is currently showing a split. */
 export function selectSplitActive(state: BrowserStore): boolean {
   return selectSplitTabIds(state).length >= 2;
+}
+
+/** Axis the split panes are arranged along. */
+export function selectSplitOrientation(state: BrowserStore): SplitOrientation {
+  return state.windowState?.splitOrientation ?? 'vertical';
+}
+
+/** Share of the content area held by the first pane. */
+export function selectSplitRatio(state: BrowserStore): number {
+  return state.windowState?.splitRatio ?? DEFAULT_SPLIT_RATIO;
 }
 
 /** Tabs of the active workspace, ordered and split into pinned/regular. */
