@@ -80,6 +80,12 @@ export class HistoryRepository {
     return toEntry(row);
   }
 
+  setTitle(profileId: string, url: string, title: string): void {
+    this.db
+      .prepare('UPDATE history_entries SET title = ? WHERE profile_id = ? AND url = ?')
+      .run(title, profileId, url);
+  }
+
   setFavicon(profileId: string, url: string, favicon: string): void {
     this.db
       .prepare('UPDATE history_entries SET favicon = ? WHERE profile_id = ? AND url = ?')
