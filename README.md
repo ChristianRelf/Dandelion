@@ -11,7 +11,7 @@ an encrypted password vault · a pluggable AI assistant
 [![Electron](https://img.shields.io/badge/Electron-43-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tests](https://img.shields.io/badge/tests-35%20passing-3fb950?style=flat-square)](tests/)
+[![Tests](https://img.shields.io/badge/tests-91%20passing-3fb950?style=flat-square)](tests/)
 
 <img src="docs/images/new-tab-dark.png" alt="Dandelion's new tab page — a dandelion mark above a search field, with the vertical tab sidebar on the left" width="900">
 
@@ -21,7 +21,8 @@ an encrypted password vault · a pluggable AI assistant
 
 > **Status: working developer preview.** The browser boots, renders pages in isolated
 > `WebContentsView` tabs, blocks trackers, and drives every feature through a fully-typed
-> tRPC-over-IPC bridge. It is not yet packaged for general use — see [Known limits](#known-limits).
+> tRPC-over-IPC bridge. Windows and Linux builds are packaged and self-updating — but this is a
+> preview, so read [Known limits](#known-limits) first.
 
 ## Why Dandelion
 
@@ -66,6 +67,27 @@ permissions and profile isolation real rather than cosmetic.
 
 </div>
 
+## Download
+
+Builds for **Windows** and **Linux** are on the
+[releases page](https://github.com/ChristianRelf/Dandelion/releases).
+
+| Platform    | File                             |
+| ----------- | -------------------------------- |
+| Windows x64 | `Dandelion-<version>-x64.exe`    |
+| Linux x64   | `.AppImage` (portable) or `.deb` |
+
+Once installed, Dandelion keeps itself up to date: it checks in the background, downloads new
+versions, and applies them when you restart. You can turn that off in **Settings → Behavior**.
+
+> **Two honest caveats.** Builds are **unsigned**, so Windows SmartScreen will say "Windows protected
+> your PC" the first time — choose _More info → Run anyway_. And there is **no macOS build**:
+> macOS refuses to apply unsigned updates, so a Mac build would install once and then never update
+> again, which is worse than not shipping it. See [RELEASING.md](docs/RELEASING.md).
+>
+> Dandelion is a **developer preview**. Expect rough edges, and read
+> [Known limits](#known-limits) before making it your daily browser.
+
 ## Quick start
 
 ```bash
@@ -92,6 +114,7 @@ Requires **Node 20+**.
 | `npm test`                | Vitest unit + component tests                        |
 | `npm run test:e2e`        | Playwright end-to-end (builds first)                 |
 | `npm run dist`            | Package installers with electron-builder             |
+| `npm run icon`            | Regenerate the app icon from the seed-head mark      |
 
 ## Architecture at a glance
 
@@ -147,6 +170,7 @@ Dandelion is honest about what it isn't yet:
 - [Architecture](docs/ARCHITECTURE.md) — process model, entity model, every subsystem
 - [Developer guide](docs/DEVELOPER.md) — setup, workflows, adding features, debugging
 - [Project structure](docs/PROJECT_STRUCTURE.md) — what lives where and why
+- [Releasing](docs/RELEASING.md) — how a build ships and how updates reach installed clients
 - [Contributing](CONTRIBUTING.md) — conventions and the review checklist
 
 ## Contributing

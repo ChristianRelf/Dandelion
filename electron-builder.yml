@@ -23,10 +23,14 @@ publish:
   owner: ChristianRelf
   repo: Dandelion
 
+# x64 only: better-sqlite3 ships no win32-arm64 prebuild, so an arm64 target
+# compiles it from source and needs the ARM64 MSVC toolset — which fails on a
+# stock runner. Windows on ARM runs the x64 build under emulation, so nobody is
+# shut out; a native arm64 build wants a prebuilt binary for better-sqlite3.
 win:
   target:
     - target: nsis
-      arch: [x64, arm64]
+      arch: [x64]
   artifactName: ${productName}-${version}-${arch}.${ext}
 
 nsis:
