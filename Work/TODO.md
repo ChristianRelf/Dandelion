@@ -10,18 +10,18 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ### Reader mode
 
-- [ ] **P2** Extraction is a heuristic (best-container + block walk in [tab-manager.ts](src/main/browser/tab-manager.ts) `getReaderContent`). Swap in a real Readability pass for reliable article boundaries.
+- [ ] **P2** Extraction is a heuristic (best-container + block walk in [tab-manager.ts](../src/main/browser/tab-manager.ts) `getReaderContent`). Swap in a real Readability pass for reliable article boundaries.
 - [ ] **P3** Images with relative `src` can fail to load in the reader (no `<base>`/URL resolution).
 - [ ] **P3** No per-site "always use reader" preference; reader closes on navigation by design.
 
 ### Per-site zoom
 
 - [ ] **P2** Relies on Chromium's per-host session persistence — zoom is **not** persisted to the DB across app restarts. Add an origin→level store applied on `did-navigate`.
-- [ ] **P3** The toolbar zoom % is queried when the popover opens ([ZoomControl.tsx](src/renderer/components/chrome/ZoomControl.tsx)), not reactive. Add a `Tab.zoomFactor` field updated on `zoom-changed` for a live indicator.
+- [ ] **P3** The toolbar zoom % is queried when the popover opens ([ZoomControl.tsx](../src/renderer/components/chrome/ZoomControl.tsx)), not reactive. Add a `Tab.zoomFactor` field updated on `zoom-changed` for a live indicator.
 
 ### Split view
 
-- [ ] **P1** `splitTabIds`/orientation are not in `WindowState` or any event, so the renderer mirrors split state locally ([ui.store.ts](src/renderer/stores/ui.store.ts) `splitTabIds`). Serialize them so split survives reloads and is observable.
+- [ ] **P1** `splitTabIds`/orientation are not in `WindowState` or any event, so the renderer mirrors split state locally ([ui.store.ts](../src/renderer/stores/ui.store.ts) `splitTabIds`). Serialize them so split survives reloads and is observable.
 - [ ] **P2** Panes are always divided equally — `SplitViewLayout.sizes` is declared but unused. Add draggable pane dividers + a `setSplitSizes` proc.
 - [ ] **P2** `TabManager.activate()` clears the split server-side, so activating any non-split tab exits split. Intended, but revisit for a "keep split while switching" UX.
 - [ ] **P3** Split only supports 2 tabs from the UI; backend accepts N.
@@ -40,16 +40,16 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ### Saved sessions
 
-- [ ] **P2** Restore recreates tabs into their original/active workspace but does not restore window bounds, tab layout, groups, or pinned state precisely ([app-context.ts](src/main/app/app-context.ts) `restoreSession`).
+- [ ] **P2** Restore recreates tabs into their original/active workspace but does not restore window bounds, tab layout, groups, or pinned state precisely ([app-context.ts](../src/main/app/app-context.ts) `restoreSession`).
 - [ ] **P3** Sessions aren't user-nameable; the list title is derived from the lead tab. Add a `name` column + rename.
 
 ### Extensions on/off
 
-- [ ] **P2** The disabled set is in-memory ([extensions.service.ts](src/main/services/extensions.service.ts) `disabled` map) — consistent with the fact that extensions currently aren't reloaded on app start at all. Persist loaded extension paths + enabled state and reload on boot.
+- [ ] **P2** The disabled set is in-memory ([extensions.service.ts](../src/main/services/extensions.service.ts) `disabled` map) — consistent with the fact that extensions currently aren't reloaded on app start at all. Persist loaded extension paths + enabled state and reload on boot.
 
 ### AI assistant
 
-- [ ] **P2** Conversation persists only in-session (in [ai.store.ts](src/renderer/stores/ai.store.ts)), not to disk. Add a conversations repo + `ai.conversations.*` for history across restarts.
+- [ ] **P2** Conversation persists only in-session (in [ai.store.ts](../src/renderer/stores/ai.store.ts)), not to disk. Add a conversations repo + `ai.conversations.*` for history across restarts.
 - [ ] **P2** `ai.pageAction` (summarise/explain/translate) ignores the model picker and uses the provider's first model.
 - [ ] **P3** Responses render as plain text (`whitespace-pre-wrap`) — no markdown/code formatting.
 - [ ] **P3** Single conversation only (no threads); no per-message copy/regenerate.
@@ -64,13 +64,10 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ---
 
-## Bugs / rough edges (from the audits, not yet addressed)
+## Bugs
 
-- [ ] **P2** The rounded content frame doesn't clip the native `WebContentsView` — web pages render square-cornered inside the rounded frame ([ContentArea.tsx](src/renderer/components/chrome/ContentArea.tsx)). Round the native view in the main process, or accept + document.
-- [ ] **P2** `tools.print` (⌘P) forwards to the renderer but has no handler → it's a dead command. Add a main-side `webContents.print()` proc.
-- [ ] **P3** `tools.clearBrowsingData` opens Settings instead of a dedicated "Clear browsing data" dialog (a `privacy.clearData` dialog with time-range + category checkboxes).
-- [ ] **P3** `downloads.start` accepts a `savePath` that is ignored by `startOnSession`.
-- [ ] **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session" scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).
+Bugs live in [BUGS.md](BUGS.md) — this file tracks work that hasn't been built yet, not defects
+against what has.
 
 ---
 
@@ -86,16 +83,16 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ## Documentation
 
-- [ ] **P2** Update [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) with the chrome-over-content occlusion model (dimmed overlays vs. content top-inset) and the reader/split/zoom/sessions subsystems.
+- [ ] **P2** Update [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) with the chrome-over-content occlusion model (dimmed overlays vs. content top-inset) and the reader/split/zoom/sessions subsystems.
 - [ ] **P2** Document the design system (the `components/ui/*` primitives, tokens, `useAsyncData`) — a short "Design System" section or `docs/DESIGN_SYSTEM.md`.
-- [ ] **P3** Update [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) for the new files (reader/, sessions/, ai.store, reader.store, tab-preview.store, toast.store, etc.) and the new commands (`view.readerMode`, `view.splitView`, `tab.search`, `tools.sessions`, `tools.saveSession`).
-- [ ] **P3** Add a keyboard-shortcuts reference (the command registry in [commands.ts](src/shared/constants/commands.ts) is the source of truth).
+- [ ] **P3** Update [docs/PROJECT_STRUCTURE.md](../docs/PROJECT_STRUCTURE.md) for the new files (reader/, sessions/, ai.store, reader.store, tab-preview.store, toast.store, etc.) and the new commands (`view.readerMode`, `view.splitView`, `tab.search`, `tools.sessions`, `tools.saveSession`).
+- [ ] **P3** Add a keyboard-shortcuts reference (the command registry in [commands.ts](../src/shared/constants/commands.ts) is the source of truth).
 
 ---
 
 ## Performance
 
-- [ ] **P2** The renderer bundle is ~2.3 MB because [Icon.tsx](src/renderer/components/ui/Icon.tsx) imports the entire lucide `icons` set. Fine for a local Electron app, but switch to a curated map or `lucide-react/dynamic` to shrink it.
+- [ ] **P2** The renderer bundle is ~2.3 MB because [Icon.tsx](../src/renderer/components/ui/Icon.tsx) imports the entire lucide `icons` set. Fine for a local Electron app, but switch to a curated map or `lucide-react/dynamic` to shrink it.
 - [ ] **P3** Virtualize long lists (history/bookmarks) with `@tanstack/react-virtual` (already a dependency) once datasets grow large.
 - [ ] **P3** `selectOrderedTabs` re-sorts on every store mutation; memoize per `(tabs, activeWorkspaceId)` if tab counts get very high.
 
