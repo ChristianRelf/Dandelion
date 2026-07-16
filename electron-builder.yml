@@ -1,6 +1,6 @@
 appId: browser.dandelion.app
 productName: Dandelion
-copyright: Copyright © 2026 Dandelion Browser
+copyright: Copyright © 2026 Christian Relf
 
 directories:
   output: dist
@@ -16,11 +16,12 @@ asarUnpack:
   - '**/*.node'
   - node_modules/better-sqlite3/**
 
-# Squirrel/electron-updater metadata
+# electron-updater feed. GitHub Releases is the only distribution channel that
+# exists today; a generic feed needs a server to point at.
 publish:
-  provider: generic
-  url: https://updates.dandelion.browser/
-  channel: latest
+  provider: github
+  owner: ChristianRelf
+  repo: Dandelion
 
 win:
   target:
@@ -47,4 +48,4 @@ linux:
   target:
     - AppImage
     - deb
-  maintainer: Dandelion Browser <hello@dandelion.browser>
+  maintainer: Christian Relf <christianjamesrelf@gmail.com>

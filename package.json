@@ -3,13 +3,20 @@
   "version": "0.1.0",
   "description": "Dandelion — a fast, beautiful, private desktop web browser built on Electron, React and TypeScript.",
   "author": {
-    "name": "Dandelion Browser",
-    "email": "hello@dandelion.browser"
+    "name": "Christian Relf",
+    "url": "https://github.com/ChristianRelf"
   },
   "license": "MIT",
   "private": true,
   "main": "./out/main/index.js",
-  "homepage": "https://dandelion.browser",
+  "homepage": "https://github.com/ChristianRelf/Dandelion",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChristianRelf/Dandelion.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ChristianRelf/Dandelion/issues"
+  },
   "engines": {
     "node": ">=20.0.0"
   },
