@@ -6,6 +6,7 @@ import {
   BookOpen,
   Columns2,
   Command,
+  House,
   RotateCw,
   X,
 } from 'lucide-react';
@@ -85,6 +86,15 @@ export function Toolbar(): ReactElement {
             ) : (
               <RotateCw className="h-[18px] w-[18px]" />
             )}
+          </IconButton>
+        </Tooltip>
+        <Tooltip content="Home" shortcut="⌥Home">
+          <IconButton
+            aria-label="Go to home page"
+            disabled={!tab}
+            onClick={() => dispatchCommand('navigation.home')}
+          >
+            <House className="h-[18px] w-[18px]" />
           </IconButton>
         </Tooltip>
       </div>
