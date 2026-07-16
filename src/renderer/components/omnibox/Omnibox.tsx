@@ -93,8 +93,10 @@ export function Omnibox(): ReactElement {
       case 'action':
         if (result.actionId) dispatchCommand(result.actionId);
         break;
+      // Computed answers have no destination — copying is the useful action.
       case 'calculator':
       case 'unitConversion':
+      case 'timezone':
         void navigator.clipboard.writeText(result.title);
         toast.success('Copied to clipboard', { description: result.title });
         break;

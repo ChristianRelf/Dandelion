@@ -50,6 +50,9 @@ export interface SearchSettings {
   showBookmarkSuggestions: boolean;
   enableCalculator: boolean;
   enableUnitConversion: boolean;
+  enableTimezoneConversion: boolean;
+  /** Offer the clipboard's contents when it holds a URL and the omnibox opens. */
+  enableClipboardSuggestions: boolean;
   enableWeather: boolean;
   enableAiSuggestions: boolean;
   inlineAutocomplete: boolean;

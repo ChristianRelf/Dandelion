@@ -1,3 +1,4 @@
+import { clipboard } from 'electron';
 import type {
   Profile,
   SessionReason,
@@ -119,6 +120,7 @@ export class AppContext {
       search: this.search,
       settings: this.settings,
       tabs: this.tabs,
+      clipboard,
     });
     this.vault = new VaultService(this.repos, this.events, this.logger.child('vault'));
     this.ai = new AIService(

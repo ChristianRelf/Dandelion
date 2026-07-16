@@ -8,6 +8,8 @@ export type OmniboxResultKind =
   | 'openTab'
   | 'calculator'
   | 'unitConversion'
+  | 'timezone'
+  | 'clipboard'
   | 'weather'
   | 'action'
   | 'ai'
