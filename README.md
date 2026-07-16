@@ -1,36 +1,70 @@
+<div align="center">
+
 # 🌼 Dandelion
 
-**A fast, private, beautiful desktop web browser** built on Electron, React 19 and TypeScript.
-Workspaces, split view, a Raycast-style command palette, a local-first privacy engine, an
-encrypted password vault and a pluggable AI assistant — wrapped in a dark, glassy, handcrafted UI
-inspired by Arc, Zen, Safari, Linear and Raycast.
+**A fast, private, beautiful desktop web browser.**
 
-> Status: **working developer preview**. The full browser boots, renders web pages in isolated
-> `WebContentsView` tabs, blocks trackers, and drives every feature through a fully-typed
-> tRPC-over-IPC bridge.
+Workspaces · split view · a Raycast-style command palette · a local-first privacy engine ·
+an encrypted password vault · a pluggable AI assistant
+
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-f5c451.svg?style=flat-square)](LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-43-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Tests](https://img.shields.io/badge/tests-35%20passing-3fb950?style=flat-square)](tests/)
+
+<img src="docs/images/new-tab-dark.png" alt="Dandelion's new tab page — a dandelion mark above a search field, with the vertical tab sidebar on the left" width="900">
+
+</div>
 
 ---
 
-## Highlights
+> **Status: working developer preview.** The browser boots, renders pages in isolated
+> `WebContentsView` tabs, blocks trackers, and drives every feature through a fully-typed
+> tRPC-over-IPC bridge. It is not yet packaged for general use — see [Known limits](#known-limits).
 
-- **Real browser architecture** — the React app renders only the _chrome_; each tab is an isolated
-  `WebContentsView` (the modern successor to `BrowserView`) with its own process and session.
-- **Workspaces & profiles** — Arc-style "spaces" for organising tabs, on top of profiles that are
-  the true storage/security boundary (separate cookie jars, passwords, permissions, extensions).
-- **Vertical & horizontal tabs** — pinned, sleeping, grouped, drag-reordered, muteable, duplicable,
-  with split view, previews and recently-closed restore.
-- **Omnibox** — URLs, search, history, bookmarks, open-tab switching, an offline calculator and unit
-  converter, quick actions and live search suggestions, with inline autocomplete.
-- **Command palette** (`⌘K`) — every command and open tab, fuzzy-searchable, Raycast-style.
-- **Privacy engine** — request-level ad/tracker/fingerprinter blocking, HTTPS upgrades, DNT/GPC
-  headers and third-party-cookie stripping, with a per-tab shield report.
-- **Encrypted vault** — AES-256-GCM credentials under a scrypt-stretched master password, with a
-  password generator and auto-lock. Keys never touch disk in plaintext.
-- **AI assistant** — provider architecture for OpenAI / Anthropic / Google / local models with
-  streaming chat and page summarise/explain/translate. No API keys ship with the app.
-- **Everything else** — downloads with pause/resume/speed graphs, a searchable settings page,
-  history timeline, bookmark import/export, site permissions, cookie manager, Manifest-V3 extension
-  loading, secure DNS, incognito windows, and rebindable keyboard shortcuts.
+## Why Dandelion
+
+Most Electron "browsers" are a web view in a window. Dandelion is built like an actual browser: the
+React app renders **only the chrome**, and every tab is a separate `WebContentsView` with its own
+process and session partition. That boundary is what makes tab sleeping, split view, per-site
+permissions and profile isolation real rather than cosmetic.
+
+## Features
+
+|                         |                                                                                                                           |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| **Real architecture**   | Each tab is an isolated `WebContentsView` — own process, own session, sandboxed, context-isolated.                        |
+| **Workspaces**          | Arc-style spaces for grouping tabs, layered on profiles — the true storage boundary (cookies, passwords, permissions).    |
+| **Tabs, done properly** | Vertical or horizontal. Pinned, sleeping, grouped, drag-reordered, muteable, with previews and recently-closed restore.   |
+| **Omnibox**             | URLs, search, history, bookmarks, tab switching, an offline calculator and unit converter, with inline autocomplete.      |
+| **Command palette**     | `⌘K` / `Ctrl+K` — every command and open tab, fuzzy-searchable.                                                           |
+| **Privacy engine**      | Request-level ad/tracker/fingerprinter blocking, HTTPS upgrades, DNT/GPC headers, per-tab shield report.                  |
+| **Encrypted vault**     | AES-256-GCM credentials under a scrypt-stretched master password. Keys never touch disk in plaintext.                     |
+| **AI assistant**        | Bring-your-own-key providers (OpenAI · Anthropic · Google · local) with streaming chat and page actions. No keys shipped. |
+| **Everything else**     | Downloads with pause/resume, searchable settings, history timeline, cookie manager, MV3 extensions, secure DNS.           |
+
+## Screenshots
+
+<div align="center">
+
+<img src="docs/images/command-palette-dark.png" alt="The command palette open over a dimmed browser window, listing commands with their keyboard shortcuts" width="820">
+
+<em>The command palette — every command and open tab, one fuzzy search away.</em>
+
+<br><br>
+
+<img src="docs/images/settings-dark.png" alt="Dandelion's settings page showing appearance options: theme, accent colour, blur intensity, corner radius" width="820">
+
+<em>Settings — searchable, with System / Light / Dark / OLED themes and a live accent.</em>
+
+<br><br>
+
+<img src="docs/images/new-tab.png" alt="Dandelion's new tab page in the light theme" width="820">
+
+<em>Light theme. Dandelion follows your system by default.</em>
+
+</div>
 
 ## Quick start
 
@@ -39,6 +73,8 @@ npm install          # install dependencies
 npm run rebuild      # rebuild better-sqlite3 for Electron's ABI (once, after install)
 npm run dev          # launch the browser with hot reload
 ```
+
+Requires **Node 20+**.
 
 > **Sandbox note:** some CI/sandbox environments export `ELECTRON_RUN_AS_NODE=1`, which turns
 > Electron into a plain Node runtime (no window). If the app doesn't open, launch with
@@ -57,20 +93,15 @@ npm run dev          # launch the browser with hot reload
 | `npm run test:e2e`        | Playwright end-to-end (builds first)                 |
 | `npm run dist`            | Package installers with electron-builder             |
 
-## Tech stack
-
-Electron 43 · React 19 · TypeScript 5.9 · Vite 7 / electron-vite · Tailwind CSS v4 · Motion ·
-Zustand 5 · tRPC 11 · Zod 4 · better-sqlite3 · Vitest 4 · Playwright · ESLint · Prettier.
-
 ## Architecture at a glance
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ MAIN PROCESS (Node) — the "browser process"                  │
-│  AppContext (DI) · WindowManager · TabManager (WebContentsView)│
-│  SessionManager · SQLite + repositories · services · tRPC host│
-└───────────────┬───────────────────────────┬─────────────────┘
-     contextBridge (preload)          attaches N views
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ MAIN PROCESS (Node) — the "browser process"                      │
+│  AppContext (DI) · WindowManager · TabManager (WebContentsView)  │
+│  SessionManager · SQLite + repositories · services · tRPC host   │
+└───────────────┬────────────────────────────┬────────────────────┘
+     contextBridge (preload)           attaches N views
    ┌────────────▼───────────┐   ┌────────────▼─────────────────┐
    │ RENDERER (React chrome)│   │ WebContentsView per tab       │
    │ titlebar·tabs·omnibox  │   │ (isolated, sandboxed, own     │
@@ -84,12 +115,10 @@ third-party adapter) plus a typed event channel for main → renderer push.
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the deep dive, and
 [`docs/PROJECT_STRUCTURE.md`](docs/PROJECT_STRUCTURE.md) for a folder-by-folder tour.
 
-## Documentation
+## Tech stack
 
-- [Architecture](docs/ARCHITECTURE.md) — process model, entity model, every subsystem
-- [Developer guide](docs/DEVELOPER.md) — setup, workflows, adding features, debugging
-- [Project structure](docs/PROJECT_STRUCTURE.md) — what lives where and why
-- [Contributing](CONTRIBUTING.md) — conventions and the review checklist
+Electron 43 · React 19 · TypeScript 5.9 · Vite 7 / electron-vite · Tailwind CSS v4 · Motion ·
+Zustand 5 · tRPC 11 · Zod 4 · better-sqlite3 · Vitest 4 · Playwright · ESLint · Prettier.
 
 ## Security model
 
@@ -99,6 +128,30 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the deep dive, and
 - Passwords are sealed with AES-256-GCM under a scrypt-derived key; the data key exists in memory
   only while unlocked and is zeroed on lock.
 - API keys are encrypted with the OS keychain via Electron `safeStorage`.
+
+## Known limits
+
+Dandelion is honest about what it isn't yet:
+
+- **Google sign-in does not work.** Google refuses to authenticate inside Chromium-embedding
+  applications, and classifies Dandelion as one. This affects every Electron-based browser, and
+  switching engines would not fix it — Electron already ships real Chromium, and Google's own error
+  page names other real-Chromium embedders too.
+- Sync is local-only; there is no sync backend yet.
+- The AI assistant needs your own API key — none ship with the app.
+- See [TODO.md](TODO.md) for the tracked list of rough edges.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — process model, entity model, every subsystem
+- [Developer guide](docs/DEVELOPER.md) — setup, workflows, adding features, debugging
+- [Project structure](docs/PROJECT_STRUCTURE.md) — what lives where and why
+- [Contributing](CONTRIBUTING.md) — conventions and the review checklist
+
+## Contributing
+
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first — it covers the
+branch-first workflow, commit conventions and the review checklist the project holds itself to.
 
 ## License
 
