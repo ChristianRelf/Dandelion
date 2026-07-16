@@ -1,7 +1,8 @@
 # Dandelion — Known Bugs
 
 Defects found while auditing the browser. A bug here is something **broken against what already
-exists** — not work that hasn't been built yet. Planned features live in [TODO.md](TODO.md).
+exists** — not work that hasn't been built yet. Planned features live in [TODO.md](TODO.md), and
+defects that have been fixed move to [BUGS-FIXED.md](BUGS-FIXED.md).
 
 Priorities: **P1** = fix before a public release · **P2** = noticeable / worth fixing · **P3** =
 rough edge.
@@ -13,35 +14,6 @@ not yet isolated.
 
 ## Privacy engine
 
-### P1 · Confirmed · Third-party cookie blocking strips cookies from first-party navigations
-
-`blockThirdPartyCookies` is on by default and deletes the `Cookie` header from any request it deems
-third-party ([privacy.service.ts:98-105](../src/main/services/privacy/privacy.service.ts#L98-L105)).
-It decides third-party by comparing the request against `live.state.url` — the tab's **last
-committed** URL ([tab-manager.ts:958-963](../src/main/browser/tab-manager.ts#L958-L963)).
-
-A top-level navigation's request is sent _before_ the new URL commits, so the comparison runs against
-the **previous** page. Navigating to any site from a different site — or from `dandelion://newtab` —
-classifies the destination as third-party against itself and strips its cookies.
-
-**Reproduction.** Driving the real Google sign-in flow, the entire entry chain went out cookieless:
-
-```
-GET https://accounts.google.com/ServiceLogin
-GET https://accounts.google.com/InteractiveLogin?dsh=...
-GET https://accounts.google.com/v3/signin/identifier?dsh=...
-```
-
-`rootDomain("newtab") !== "google.com"` → treated as third-party → `Cookie` deleted.
-
-**Impact.** The first request of _every_ cross-site navigation loses its cookies, so any site
-requiring a session appears logged-out on first hit. This is not Google-specific.
-
-**Fix.** A top-level document request is first-party by definition: skip stripping when
-`details.resourceType === 'mainFrame'`, and resolve the top URL from `details.frame?.top?.url`
-(live at request time) rather than the lagging tab state. Verified to reduce stripped requests to
-zero on the same flow. Needs a unit test over the first/third-party classifier.
-
 ### P2 · Confirmed · Third-party cookies are stored, only never sent
 
 The same feature deletes the `Cookie` **request** header but there is no `onHeadersReceived`, so
@@ -50,6 +22,32 @@ written to disk — the feature does not deliver the privacy it advertises in th
 UI. Either strip `Set-Cookie` too, or narrow the claim.
 
 ## Tabs & windows
+
+### P1 · Confirmed · `Ctrl/Cmd+N` steals a tab out of the window you were using
+
+Opening a new window moves the *current* window's active tab into the new one. Window 1's content
+area goes blank while its tab strip still renders that tab as active; clicking it does nothing
+visible, because it now drives window 2.
+
+**Reproduction.** Browse to a page, press `Ctrl+N`. The new window shows the tab you were just on;
+the original is left empty.
+
+**Why.** `openWindow()` ([app-context.ts](../src/main/app/app-context.ts)) creates the window with
+`activeWorkspaceId = null`. The new renderer's `bootstrap()` queries `initialState`, where
+`dandelionWindow?.activeWorkspaceId ?? workspaces[0]?.id` falls through to **the workspace window 1
+already has**. `restoreWorkspace` then hits its "already open" branch — `listByWorkspace` is not
+window-filtered — and `reparent()`s window 1's live tab into window 2. Window 1's `layout()` is
+never re-run, and `tab:activated` for window 2 is filtered out by the renderer's `windowId` check,
+so window 1's chrome never learns the tab left.
+
+`window.newPrivate` is unaffected precisely because it pre-sets `created.activeWorkspaceId` before
+the renderer boots; `window.new` does not, which is the asymmetry that exposes this.
+
+**Why it is still open.** The mechanical fix (filter `alreadyOpen` by `windowId`) is not sufficient:
+the code then falls through to the `persisted` branch and re-materialises the *same* stored tabs
+into the new window, duplicating them. It needs a decision first — **may two windows share a
+workspace?** If yes, tab lists must become window-scoped throughout; if no, `Ctrl+N` should create
+or adopt its own workspace. Deferred from v0.2.1 as design work, not a patch.
 
 ### P1 · Confirmed · Every popup is blocked — `window.open()` returns `null`
 

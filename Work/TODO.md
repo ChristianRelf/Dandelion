@@ -64,16 +64,48 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ---
 
+## Settings the UI offers but nothing implements
+
+Found during the v0.2.1 audit. These are recorded here rather than in [BUGS.md](BUGS.md) because
+nothing is broken against what exists — the backing feature was never built. They are listed
+together because the honest options are the same for each: **build it, or stop advertising it.**
+
+- [ ] **P1** **Auto-sleep never runs.** Settings → Tabs offers "Sleep inactive tabs" (default **on**)
+      and a "Sleep after — 30 min" slider described as _"Free memory from tabs you haven't used in a
+      while."_ Nothing in `src/main/` ever reads `tabs.sleepEnabled` or `tabs.sleepAfterMinutes`;
+      there is no timer. `TabManager.sleep()` is only ever called manually (`tab.sleep`, the context
+      menu). `tabs.sleepPinnedTabs` _is_ read, which makes the feature look wired and suggests the
+      driving sweep was simply never added. Needs an interval over `lastActiveAt` calling the
+      existing `sleep()`. The split-pane guard it depends on was fixed in v0.2.1.
+- [ ] **P2** `security.safeBrowsing` and `security.isolateSites` render as live toggles and are read
+      nowhere in the main process.
+- [ ] **P3** `privacy.httpsOnlyMode`, `security.safeBrowsingLevel` and `security.warnOnInsecureForms`
+      exist in the schema, defaults and types with neither a consumer nor any UI.
+- [ ] **P3** `behavior.newTabPage` is honoured by `TabManager` but has no Settings row — it can only
+      ever be the default. (`behavior.homePage` gained one in v0.2.1; this is its sibling.)
+
+---
+
+## Latent, not currently reachable
+
+- [ ] **P3** `wireWebContents` captures `profile` in a closure at materialise time
+      ([tab-manager.ts](../src/main/browser/tab-manager.ts)), so `move()`ing a tab across workspaces
+      would keep recording history under the **old** profile. The IPC surface exposes it
+      (`moveTabInput` carries `workspaceId`) but no UI caller passes it, so it cannot be hit today.
+      Fix before wiring any cross-workspace tab move.
+
+---
+
 ## Bugs
 
 Bugs live in [BUGS.md](BUGS.md) — this file tracks work that hasn't been built yet, not defects
-against what has.
+against what has. Fixed ones move to [BUGS-FIXED.md](BUGS-FIXED.md).
 
 ---
 
 ## Testing
 
-- [ ] **P1** Re-run the Playwright e2e suite against a **throwaway/fixture profile** (it currently drives the live user profile and would add test tabs). Add a `DANDELION_USER_DATA` override or a temp `--user-data-dir` for tests.
+- [ ] **P1** Re-run the Playwright e2e suite against a **throwaway/fixture profile** (it currently drives the live user profile and would add test tabs). **No code change is needed:** `paths.ts` reads `app.getPath('userData')` without overriding it, so Electron's own `--user-data-dir` switch redirects the whole profile. Verified during the v0.2.1 audit by driving the built app with `electron.launch({ args: [APP, '--user-data-dir=<mkdtemp>'] })`. Add it to `app.spec.ts`'s launch args.
 - [ ] **P1** Unit tests for the new backend logic: reader extraction shape, `restoreSession`, `extensions.setEnabled`, tab-group CRUD, zoom percent mapping.
 - [ ] **P2** Store tests: `ai.store` (streaming reducer, error path), `reader.store`, `tab-preview.store`, `toast.store`, `useAsyncData` (race/stale-response handling).
 - [ ] **P2** Component/integration tests for the new primitives (`Button`, `Select`, `SegmentedControl`, `List`, `EmptyState`, `ConfirmDialog`).

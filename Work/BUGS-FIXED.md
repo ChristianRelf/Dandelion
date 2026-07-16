@@ -1,0 +1,105 @@
+# Dandelion — Fixed Bugs
+
+Defects that have been fixed, with the root cause and what pins them. Open defects live in
+[BUGS.md](BUGS.md); unbuilt work lives in [TODO.md](TODO.md).
+
+Kept so a regression is recognised rather than re-diagnosed from scratch.
+
+---
+
+## v0.2.1
+
+### P1 · Third-party cookie blocking stripped cookies from first-party navigations
+
+`blockThirdPartyCookies` is on by default and deleted the `Cookie` header from any request it deemed
+third-party. It decided third-party by comparing the request against the tab's **last committed**
+URL, resolved through a `topUrlResolver` callback into `TabManager`.
+
+A top-level navigation's request is sent _before_ the new URL commits, so the comparison ran against
+the **previous** page. Navigating to any site from a different site — or from `dandelion://newtab` —
+classified the destination as third-party against itself and stripped its cookies. Every cross-site
+navigation lost its cookies on the first request, so any site requiring a session appeared
+logged-out on first hit. Reproduced against the real Google sign-in flow, where the entire entry
+chain went out cookieless.
+
+**Root cause.** A live request was judged against lagging state. `new URL('dandelion://newtab')`
+also parses `newtab` as a hostname, so an internal page reads as a domain matching nothing — but
+that was a symptom, not the cause: navigating from _any_ other origin classified the same way.
+
+**Fix.** A top-level document request is first-party by definition, so `mainFrame` is never
+stripped. Everything else is judged against the document owning its frame tree, read live from
+`details.frame.top.url` instead of tab state. The `topUrlResolver` coupling was removed entirely
+rather than patched. The decision now lives in a pure function,
+[`third-party.ts`](../src/main/services/privacy/third-party.ts) `shouldStripCookies`.
+
+**Pinned by** [tests/unit/third-party.test.ts](../tests/unit/third-party.test.ts) — including the
+exact reproduction (`mainFrame` from `dandelion://newtab` to `accounts.google.com`).
+
+### P1 · Camera permission checks consulted the microphone rule
+
+`setPermissionCheckHandler` dropped Electron's 4th `details` argument, which carries `mediaType`.
+`handleCheck` therefore called `mapPermission(permission)` with no media types, and
+`mediaTypes?.includes('video')` on `undefined` is falsy — so **`media` could never map to `camera`
+on the check path**. The *request* path forwarded `mediaTypes` correctly, so grants were written as
+`camera` and read back as `microphone`.
+
+Two consequences: a camera grant looked absent (reported denied despite an explicit grant), and —
+the security half — an explicit camera **Block** was bypassed whenever the microphone was allowed,
+because the check found the microphone's `allow`.
+
+**Fix.** Forward `details.mediaType` into `handleCheck` and normalise it to the array shape
+`mapPermission` already expects, so both paths resolve the same `PermissionType`.
+
+**Pinned by** [tests/unit/permission-check.test.ts](../tests/unit/permission-check.test.ts).
+
+### P1 · Downloads silently overwrote an existing file of the same name
+
+Downloading `report.pdf` twice destroyed the first copy — no prompt, no rename, no warning. This was
+the **default** path, since `askWhereToSaveDownloads` defaults to `false`.
+
+**Root cause.** Chromium uniquifies download targets itself (`report (1).pdf`), but only while it
+owns the decision. Calling `item.setSavePath()` opts out of that routine entirely, so the fixed path
+was written straight through, truncating the existing file.
+
+**Fix.** `uniqueSavePath` walks `name (n).ext` until a free path is found before `setSavePath`.
+
+**Pinned by** [tests/unit/unique-save-path.test.ts](../tests/unit/unique-save-path.test.ts),
+including extension-less files and dotfiles.
+
+### P2 · `Ctrl/Cmd+9` (Switch to Last Tab) was a dead command
+
+The ordinal prefix guard in [command-executor.ts](../src/main/app/command-executor.ts) ran before
+the switch and swallowed the id: `'tab.select.last'` matched `startsWith('tab.select.')`,
+`Number('last')` is `NaN`, so the guard returned having done nothing. `case 'tab.select.last'` was
+unreachable, and the `-1` sentinel in `selectTabByOrdinal` was dead with it.
+
+**Fix.** The guard is now digits-only (`/^tab\.select\.(\d+)$/`), so `tab.select.last` reaches the
+switch that already handled it.
+
+### P2 · Duplicate Tab opened the duplicate in the wrong window
+
+`TabManager.duplicate()` never forwarded the source tab's `windowId`, so `createTab` fell back to
+`windows.first()` — the *first-created* window, not the caller's. With two windows open, duplicating
+a tab in the second window put the copy in the first (and raised it). If that window was on another
+workspace, nothing appeared to happen at all.
+
+**Fix.** `duplicate()` passes `windowId: live.state.windowId`.
+
+### P3 · Sleeping a split pane left a dead half in the window
+
+`sleep()` guarded the active tab but not split membership, so sleeping the *other* half of a split
+destroyed its view while `splitTabIds` still listed it. `layout()` then skipped it on the null-view
+guard, leaving a blank rect until the tab was clicked again.
+
+**Fix.** The guard now also refuses to sleep a tab in `splitTabIds` — a pane on screen is by
+definition not inactive. This also protects the auto-sleep sweep, if that is ever built.
+
+### P3 · Reopened tabs lost their pinned state, position and window
+
+`close()` faithfully recorded `pinned` and `index` into the `ClosedTab`, and `reopenClosed()`
+discarded both — so `Ctrl+Shift+T` returned a pinned tab unpinned and appended to the end of the
+strip. It also always reopened in `windows.first()`, since `ClosedTab` had no `windowId`.
+
+**Fix.** `ClosedTab` gained `windowId`; `reopenClosed(windowId?)` restores `index` and re-applies
+`pinned`, and reopens in the window that asked for it (as every browser does), falling back to the
+window it was closed from.
