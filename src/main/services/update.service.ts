@@ -13,7 +13,7 @@ export interface UpdateCheckResult {
 
 /**
  * Wraps `electron-updater` behind a small surface. Update checking is disabled
- * in development; in production it uses the generic feed configured in
+ * in development; in production it uses the GitHub Releases feed configured in
  * `electron-builder.yml`.
  */
 export class UpdateService {
