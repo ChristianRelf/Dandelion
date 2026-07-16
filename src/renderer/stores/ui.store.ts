@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+export type SidebarPanel = 'tabs' | 'bookmarks';
+
 interface UiStore {
   /** Omnibox (address bar / command bar) is focused and showing results. */
   omniboxOpen: boolean;
@@ -20,6 +22,8 @@ interface UiStore {
   sidebarCollapsed: boolean;
   /** Toolbar download bubble. Pops open by itself when a download starts. */
   downloadsPopoverOpen: boolean;
+  /** Which panel the vertical sidebar is showing. */
+  sidebarPanel: SidebarPanel;
 
   openOmnibox: (initialValue?: string) => void;
   closeOmnibox: () => void;
@@ -38,6 +42,7 @@ interface UiStore {
   setAiSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setDownloadsPopoverOpen: (open: boolean) => void;
+  setSidebarPanel: (panel: SidebarPanel) => void;
 }
 
 export const useUiStore = create<UiStore>((set, get) => ({
@@ -51,6 +56,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   aiSidebarOpen: false,
   sidebarCollapsed: false,
   downloadsPopoverOpen: false,
+  sidebarPanel: 'tabs',
 
   openOmnibox: (initialValue = '') =>
     set({ omniboxOpen: true, omniboxInitialValue: initialValue, paletteOpen: false }),
@@ -70,6 +76,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
   setDownloadsPopoverOpen: (downloadsPopoverOpen) => set({ downloadsPopoverOpen }),
+  setSidebarPanel: (sidebarPanel) => set({ sidebarPanel }),
 }));
 
 /**

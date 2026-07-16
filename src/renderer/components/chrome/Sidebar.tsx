@@ -9,8 +9,37 @@ import { TAB_GROUP_COLORS } from '../../lib/tab-colors';
 import { TabItem } from './TabItem';
 import { TabGroupHeader } from './TabGroupHeader';
 import { WorkspaceBar } from './WorkspaceBar';
+import { BookmarksPanel } from './BookmarksPanel';
+import { SegmentedControl, type SegmentOption } from '../ui/SegmentedControl';
+import { useUiStore, type SidebarPanel } from '../../stores/ui.store';
 
 const END = '__end__';
+
+const PANEL_OPTIONS: Array<SegmentOption<SidebarPanel>> = [
+  { value: 'tabs', label: 'Tabs', icon: 'panel-top' },
+  { value: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
+];
+
+/** Switches the sidebar between the tab strip and the bookmarks panel. */
+function PanelSwitch({
+  value,
+  onChange,
+}: {
+  value: SidebarPanel;
+  onChange: (panel: SidebarPanel) => void;
+}): ReactElement {
+  return (
+    <div className="px-2 pt-1">
+      <SegmentedControl
+        size="sm"
+        value={value}
+        options={PANEL_OPTIONS}
+        onChange={onChange}
+        aria-label="Sidebar panel"
+      />
+    </div>
+  );
+}
 
 const itemMotion = {
   initial: { opacity: 0, height: 0 },
@@ -25,6 +54,8 @@ export function Sidebar(): ReactElement {
   const groups = useGroups();
   const activeTabId = useBrowserStore((state) => state.activeTabId);
   const activeWorkspaceId = useBrowserStore((state) => state.activeWorkspaceId);
+  const panel = useUiStore((state) => state.sidebarPanel);
+  const setPanel = useUiStore((state) => state.setSidebarPanel);
   const [drag, setDrag] = useState<{ id: string; overId: string | null } | null>(null);
 
   const { pinned, grouped, ungrouped } = useMemo(() => {
@@ -76,8 +107,19 @@ export function Sidebar(): ReactElement {
     void trpc.tabs.removeGroup.mutate({ groupId });
   };
 
+  if (panel === 'bookmarks') {
+    return (
+      <aside className="flex h-full w-[248px] shrink-0 flex-col">
+        <PanelSwitch value={panel} onChange={setPanel} />
+        <BookmarksPanel />
+        <WorkspaceBar />
+      </aside>
+    );
+  }
+
   return (
     <aside className="flex h-full w-[248px] shrink-0 flex-col">
+      <PanelSwitch value={panel} onChange={setPanel} />
       <div
         role="tablist"
         aria-orientation="vertical"
