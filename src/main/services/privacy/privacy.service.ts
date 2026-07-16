@@ -1,9 +1,10 @@
-import type { Session } from 'electron';
+import type { OnBeforeSendHeadersListenerDetails, Session } from 'electron';
 import type { BlockedResourceKind, ShieldReport } from '@shared/types';
-import { getHostname, rootDomain } from '@shared/utils';
+import { getHostname } from '@shared/utils';
 import type { Logger } from '../../core/logger';
 import type { SettingsService } from '../settings.service';
 import { BlockEngine } from './block-engine';
+import { shouldStripCookies } from './third-party';
 
 interface ShieldCounters {
   ads: number;
@@ -34,10 +35,20 @@ function isLocalHost(host: string): boolean {
   );
 }
 
-function isThirdParty(topUrl: string, requestUrl: string): boolean {
-  const top = rootDomain(getHostname(topUrl));
-  const req = rootDomain(getHostname(requestUrl));
-  return Boolean(top) && Boolean(req) && top !== req;
+/**
+ * The document that owns this request's frame tree, read live. A tab's committed
+ * URL still names the previous page while a navigation is in flight, so it
+ * cannot answer this.
+ */
+function topUrlForRequest(details: OnBeforeSendHeadersListenerDetails): string | null {
+  try {
+    const top = details.frame?.top;
+    if (!top || top.isDestroyed()) return null;
+    return top.url || null;
+  } catch {
+    // The frame can be disposed between the request and this callback.
+    return null;
+  }
 }
 
 /**
@@ -48,18 +59,12 @@ function isThirdParty(topUrl: string, requestUrl: string): boolean {
 export class PrivacyService {
   readonly engine = new BlockEngine();
   private readonly counters = new Map<number, ShieldCounters>();
-  private topUrlResolver: (webContentsId: number) => string | null = () => null;
 
   constructor(
     private readonly settings: SettingsService,
     private readonly logger: Logger,
   ) {
     this.logger.info(`privacy engine ready (${this.engine.size} rules loaded)`);
-  }
-
-  /** TabManager supplies this so third-party detection knows the document URL. */
-  setTopUrlResolver(resolver: (webContentsId: number) => string | null): void {
-    this.topUrlResolver = resolver;
   }
 
   configureSession(session: Session): void {
@@ -95,9 +100,9 @@ export class PrivacyService {
       if (privacy.doNotTrack) headers['DNT'] = '1';
       if (privacy.globalPrivacyControl) headers['Sec-GPC'] = '1';
 
-      if (privacy.blockThirdPartyCookies && typeof details.webContentsId === 'number') {
-        const topUrl = this.topUrlResolver(details.webContentsId);
-        if (topUrl && isThirdParty(topUrl, details.url)) {
+      if (privacy.blockThirdPartyCookies) {
+        const topUrl = topUrlForRequest(details);
+        if (shouldStripCookies(details.resourceType, topUrl, details.url)) {
           delete headers['Cookie'];
           delete headers['cookie'];
           this.bump(details.webContentsId, 'thirdPartyCookie');

@@ -4,6 +4,13 @@ import type { AppContext } from './app-context';
 import type { DandelionWindow } from '../browser/dandelion-window';
 
 /**
+ * `tab.select.1` … `tab.select.8`. Deliberately digits-only: `tab.select.last`
+ * shares the prefix but is answered by the switch below, and a looser test would
+ * swallow it.
+ */
+const TAB_ORDINAL_COMMAND = /^tab\.select\.(\d+)$/;
+
+/**
  * Executes a command by id. Navigation/tab/window commands act directly on the
  * main-process managers so they work even while web content is focused; UI
  * commands (palette, address bar, sidebar) are focused-and-forwarded to the
@@ -20,9 +27,9 @@ export function executeCommand(ctx: AppContext, commandId: string, windowId: str
     dandelionWindow.browserWindow.webContents.send(IPC.event, { type: 'app:command', commandId });
   };
 
-  if (commandId.startsWith('tab.select.')) {
-    const ordinal = Number(commandId.slice('tab.select.'.length));
-    if (Number.isFinite(ordinal)) selectTabByOrdinal(ctx, dandelionWindow, ordinal - 1);
+  const ordinalMatch = TAB_ORDINAL_COMMAND.exec(commandId);
+  if (ordinalMatch) {
+    selectTabByOrdinal(ctx, dandelionWindow, Number(ordinalMatch[1]) - 1);
     return;
   }
 
@@ -36,7 +43,7 @@ export function executeCommand(ctx: AppContext, commandId: string, windowId: str
       if (activeTabId) ctx.tabs.close(activeTabId);
       return;
     case 'tab.reopenClosed':
-      ctx.tabs.reopenClosed();
+      ctx.tabs.reopenClosed(dandelionWindow?.id);
       return;
     case 'tab.duplicate':
       if (activeTabId) ctx.tabs.duplicate(activeTabId);

@@ -89,8 +89,8 @@ export class SessionManager {
       );
     });
 
-    target.setPermissionCheckHandler((_webContents, permission, requestingOrigin) =>
-      this.permissions.handleCheck(profile, permission, requestingOrigin),
+    target.setPermissionCheckHandler((_webContents, permission, requestingOrigin, details) =>
+      this.permissions.handleCheck(profile, permission, requestingOrigin, details?.mediaType),
     );
 
     target.on('will-download', (_event, item) => {
