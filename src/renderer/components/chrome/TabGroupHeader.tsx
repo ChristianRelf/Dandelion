@@ -55,7 +55,10 @@ export function TabGroupHeader({ group, count, onCloseGroup }: TabGroupHeaderPro
                 !group.collapsed && 'rotate-90',
               )}
             />
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color.hex }} />
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ backgroundColor: color.hex }}
+            />
             {editing ? (
               <input
                 ref={inputRef}

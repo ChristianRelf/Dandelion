@@ -144,7 +144,7 @@ export function TabItem({
           }}
           className={cn(
             'shrink-0 rounded-md p-0.5 text-faint transition-[opacity,background-color,color]',
-            'opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-surface-active hover:text-text focus-visible:opacity-100',
+            'opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-surface-active hover:text-text focus-visible:opacity-100',
             active && 'opacity-100',
           )}
           aria-label={`Close ${label}`}

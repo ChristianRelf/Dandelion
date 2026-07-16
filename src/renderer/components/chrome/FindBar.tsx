@@ -38,7 +38,12 @@ export function FindBar(): ReactElement {
   const run = (value: string, forward: boolean): void => {
     if (!activeTabId) return;
     if (value) {
-      void trpc.tabs.findInPage.mutate({ tabId: activeTabId, query: value, forward, matchCase: false });
+      void trpc.tabs.findInPage.mutate({
+        tabId: activeTabId,
+        query: value,
+        forward,
+        matchCase: false,
+      });
     } else {
       void trpc.tabs.stopFind.mutate({ tabId: activeTabId, action: 'clearSelection' });
       setMatches({ active: 0, total: 0 });

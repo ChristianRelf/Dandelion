@@ -72,7 +72,7 @@ export function ListRow({
       )}
       {meta && <div className="shrink-0 text-xs text-faint tabular-nums">{meta}</div>}
       {actions && (
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
           {actions}
         </div>
       )}

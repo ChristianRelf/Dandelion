@@ -34,7 +34,7 @@ function StripTab({ tab, active }: { tab: Tab; active: boolean }): ReactElement 
           if (event.button === 1) void trpc.tabs.close.mutate({ tabId: tab.id });
         }}
         className={cn(
-          'group no-drag flex h-7 min-w-[44px] max-w-[220px] flex-1 shrink cursor-default items-center gap-2 rounded-lg px-2 text-[13px]',
+          'group flex h-7 max-w-[220px] min-w-[44px] flex-1 shrink cursor-default items-center gap-2 rounded-lg px-2 text-[13px] no-drag',
           'transition-[background-color,color] duration-[var(--duration-fast)]',
           active
             ? 'bg-surface-active text-text shadow-[var(--shadow-sm)]'
@@ -53,7 +53,7 @@ function StripTab({ tab, active }: { tab: Tab; active: boolean }): ReactElement 
             event.stopPropagation();
             void trpc.tabs.close.mutate({ tabId: tab.id });
           }}
-          className="shrink-0 rounded-md p-0.5 text-faint opacity-0 transition-[opacity,background-color,color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-surface-active hover:text-text focus-visible:opacity-100"
+          className="shrink-0 rounded-md p-0.5 text-faint opacity-0 transition-[opacity,background-color,color] group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-surface-active hover:text-text focus-visible:opacity-100"
           aria-label={`Close ${label}`}
         >
           <X className="h-3.5 w-3.5" />
@@ -70,7 +70,7 @@ export function HorizontalTabStrip(): ReactElement {
   const activeWorkspaceId = useBrowserStore((state) => state.activeWorkspaceId);
 
   return (
-    <div className="drag flex h-9 shrink-0 items-center gap-1 px-2">
+    <div className="flex h-9 shrink-0 items-center gap-1 px-2 drag">
       <div
         role="tablist"
         aria-label="Tabs"

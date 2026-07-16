@@ -77,7 +77,12 @@ export function PermissionPrompt(): ReactElement {
                 {PERMISSION_LABELS[request.type] ?? `use ${request.type}`}.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button ref={allowRef} variant="primary" size="sm" onClick={() => respond('allow', true)}>
+                <Button
+                  ref={allowRef}
+                  variant="primary"
+                  size="sm"
+                  onClick={() => respond('allow', true)}
+                >
                   Allow
                 </Button>
                 <Button variant="secondary" size="sm" onClick={() => respond('allow', false)}>

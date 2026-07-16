@@ -217,7 +217,7 @@ function AccentPicker({
       })}
       <label
         title="Custom colour"
-        className="relative ml-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-surface-hover hover:text-text focus-within:ring-2 focus-within:ring-accent"
+        className="relative ml-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors focus-within:ring-2 focus-within:ring-accent hover:bg-surface-hover hover:text-text"
       >
         <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2} />
         <input
@@ -374,21 +374,23 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
     toast.success('Settings reset');
   };
 
-  const shortcutRows: RowDef[] = COMMANDS.filter((command) => command.defaultKeys).map((command) => {
-    const binding = s.shortcuts.find((entry) => entry.action === command.id);
-    const keys = binding?.keys ?? command.defaultKeys ?? '';
-    return {
-      title: command.title,
-      keywords: `${command.id} ${keys} ${displayTokens(keys).join(' ')}`,
-      control: (
-        <ShortcutRow
-          command={command}
-          keys={keys}
-          onSet={(next) => void setShortcut(command.id, next)}
-        />
-      ),
-    };
-  });
+  const shortcutRows: RowDef[] = COMMANDS.filter((command) => command.defaultKeys).map(
+    (command) => {
+      const binding = s.shortcuts.find((entry) => entry.action === command.id);
+      const keys = binding?.keys ?? command.defaultKeys ?? '';
+      return {
+        title: command.title,
+        keywords: `${command.id} ${keys} ${displayTokens(keys).join(' ')}`,
+        control: (
+          <ShortcutRow
+            command={command}
+            keys={keys}
+            onSet={(next) => void setShortcut(command.id, next)}
+          />
+        ),
+      };
+    },
+  );
 
   const sections: SectionDef[] = [
     {
@@ -643,11 +645,15 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
       label: 'Privacy & Security',
       icon: 'shield',
       rows: [
-        toggleRow('Block ads', s.privacy.blockAds, (value) =>
-          void patch({ privacy: { blockAds: value } }),
+        toggleRow(
+          'Block ads',
+          s.privacy.blockAds,
+          (value) => void patch({ privacy: { blockAds: value } }),
         ),
-        toggleRow('Block trackers', s.privacy.blockTrackers, (value) =>
-          void patch({ privacy: { blockTrackers: value } }),
+        toggleRow(
+          'Block trackers',
+          s.privacy.blockTrackers,
+          (value) => void patch({ privacy: { blockTrackers: value } }),
         ),
         toggleRow(
           'Block fingerprinting',
@@ -684,11 +690,15 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
             void patch({ privacy: { secureDns: { ...s.privacy.secureDns, enabled: value } } }),
           { keywords: 'doh dns over https encrypted resolver' },
         ),
-        toggleRow('Safe Browsing', s.security.safeBrowsing, (value) =>
-          void patch({ security: { safeBrowsing: value } }),
+        toggleRow(
+          'Safe Browsing',
+          s.security.safeBrowsing,
+          (value) => void patch({ security: { safeBrowsing: value } }),
         ),
-        toggleRow('Scan downloads', s.security.scanDownloads, (value) =>
-          void patch({ security: { scanDownloads: value } }),
+        toggleRow(
+          'Scan downloads',
+          s.security.scanDownloads,
+          (value) => void patch({ security: { scanDownloads: value } }),
         ),
         toggleRow(
           'Site isolation',
@@ -811,7 +821,9 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
 
   const scrollToSection = (id: string): void => {
     setActiveSection(id);
-    document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document
+      .getElementById(`section-${id}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
@@ -874,7 +886,7 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           </div>
         </header>
 
-        <div className="glass sticky top-0 z-20 border-b border-line">
+        <div className="sticky top-0 z-20 border-b border-line glass">
           <div className="mx-auto max-w-2xl px-6 py-3">
             <SearchField
               value={search}

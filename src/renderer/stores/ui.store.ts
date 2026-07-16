@@ -78,9 +78,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
  * instead of being occluded by the native web view.
  */
 export function selectContentDimmed(state: UiStore): boolean {
-  return (
-    state.omniboxOpen || state.paletteOpen || state.tabSwitcherOpen || state.permissionActive
-  );
+  return state.omniboxOpen || state.paletteOpen || state.tabSwitcherOpen || state.permissionActive;
 }
 
 /**

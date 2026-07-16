@@ -100,7 +100,12 @@ function PermissionsSkeleton(): ReactElement {
 
 export function PermissionsPage(): ReactElement {
   const profile = useBrowserStore((state) => state.profile);
-  const { status, data: rules, error, reload } = useAsyncData<SitePermissionRule[]>(
+  const {
+    status,
+    data: rules,
+    error,
+    reload,
+  } = useAsyncData<SitePermissionRule[]>(
     () => (profile ? trpc.permissions.list.query({ profileId: profile.id }) : Promise.resolve([])),
     [profile?.id],
     [],

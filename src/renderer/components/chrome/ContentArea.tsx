@@ -19,7 +19,9 @@ import { PermissionPrompt } from './PermissionPrompt';
  */
 export function ContentArea(): ReactElement {
   const tab = useActiveTab();
-  const layout = useBrowserStore((state) => state.settings?.behavior.defaultTabLayout ?? 'vertical');
+  const layout = useBrowserStore(
+    (state) => state.settings?.behavior.defaultTabLayout ?? 'vertical',
+  );
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const topInset = useUiStore(selectContentTopInset);
   const readerTabId = useReaderStore((state) => state.tabId);

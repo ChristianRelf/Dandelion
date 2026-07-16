@@ -53,7 +53,7 @@ export function Toolbar(): ReactElement {
 
   return (
     <div className="flex h-[var(--toolbar-height)] shrink-0 items-center gap-1 px-2 drag">
-      <div className="no-drag flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 no-drag">
         <Tooltip content="Back" shortcut="⌥←">
           <IconButton
             aria-label="Go back"
@@ -82,7 +82,11 @@ export function Toolbar(): ReactElement {
               else void trpc.tabs.reload.mutate({ tabId: tab.id });
             }}
           >
-            {loading ? <X className="h-[18px] w-[18px]" /> : <RotateCw className="h-[18px] w-[18px]" />}
+            {loading ? (
+              <X className="h-[18px] w-[18px]" />
+            ) : (
+              <RotateCw className="h-[18px] w-[18px]" />
+            )}
           </IconButton>
         </Tooltip>
       </div>
@@ -93,13 +97,13 @@ export function Toolbar(): ReactElement {
         <button
           type="button"
           onClick={() => dispatchCommand('view.splitView')}
-          className="no-drag flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 text-[12px] font-medium text-accent transition-colors hover:brightness-110"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-lg bg-accent-soft px-2.5 text-[12px] font-medium text-accent transition-colors no-drag hover:brightness-110"
         >
           <Columns2 className="h-3.5 w-3.5" /> Exit split
         </button>
       )}
 
-      <div className="no-drag flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5 no-drag">
         <Tooltip content="Reader mode">
           <IconButton
             aria-label="Toggle reader mode"
@@ -124,15 +128,15 @@ export function Toolbar(): ReactElement {
             }}
           >
             <Bookmark
-              className={bookmarked ? 'h-[18px] w-[18px] fill-accent text-accent' : 'h-[18px] w-[18px]'}
+              className={
+                bookmarked ? 'h-[18px] w-[18px] fill-accent text-accent' : 'h-[18px] w-[18px]'
+              }
             />
           </IconButton>
         </Tooltip>
         <Tooltip content="Downloads" shortcut="⌘⇧J">
           <IconButton
-            aria-label={
-              activeDownloads > 0 ? `Downloads, ${activeDownloads} active` : 'Downloads'
-            }
+            aria-label={activeDownloads > 0 ? `Downloads, ${activeDownloads} active` : 'Downloads'}
             onClick={() => dispatchCommand('tools.downloads')}
             className="relative"
           >

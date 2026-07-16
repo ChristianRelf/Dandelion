@@ -21,11 +21,11 @@ const REASON_LABEL: Record<SessionSummary['reason'], string> = {
 };
 
 function SessionsBody({ close }: { close: () => void }): ReactElement {
-  const { status, data: sessions, reload } = useAsyncData<SessionSummary[]>(
-    () => trpc.sessions.list.query(),
-    [],
-    [],
-  );
+  const {
+    status,
+    data: sessions,
+    reload,
+  } = useAsyncData<SessionSummary[]>(() => trpc.sessions.list.query(), [], []);
 
   const saveCurrent = (): void => {
     void trpc.sessions.saveCurrent
@@ -48,7 +48,10 @@ function SessionsBody({ close }: { close: () => void }): ReactElement {
   };
 
   const remove = (session: SessionSummary): void => {
-    void trpc.sessions.remove.mutate({ id: session.id }).then(reload).catch(() => undefined);
+    void trpc.sessions.remove
+      .mutate({ id: session.id })
+      .then(reload)
+      .catch(() => undefined);
   };
 
   return (
@@ -134,7 +137,7 @@ export function SessionsDialog(): ReactElement {
     <Dialog.Root open={open} onOpenChange={(next) => !next && close()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm data-[state=open]:animate-[fade-in_120ms_ease-out]" />
-        <Dialog.Content className="animate-pop fixed top-1/2 left-1/2 z-[101] max-h-[80vh] w-[520px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line p-5 shadow-[var(--shadow-lg)] glass-strong scrollbar-slim">
+        <Dialog.Content className="fixed top-1/2 left-1/2 z-[101] scrollbar-slim max-h-[80vh] w-[520px] max-w-[92vw] animate-pop -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line p-5 shadow-[var(--shadow-lg)] glass-strong">
           {open && <SessionsBody close={close} />}
         </Dialog.Content>
       </Dialog.Portal>

@@ -12,9 +12,23 @@ import { Button } from '../ui/Button';
 import { toast } from '../../stores/toast.store';
 import { trpc } from '../../lib/trpc/client';
 import { useBrowserStore } from '../../stores/browser.store';
-import { menuContentClass, menuItemClass, menuItemDangerClass, menuSeparatorClass } from '../ui/menu-styles';
+import {
+  menuContentClass,
+  menuItemClass,
+  menuItemDangerClass,
+  menuSeparatorClass,
+} from '../ui/menu-styles';
 
-const ACCENTS = ['#f5c451', '#60a5fa', '#4ade80', '#f472b6', '#a78bfa', '#22d3ee', '#fb923c', '#f87171'];
+const ACCENTS = [
+  '#f5c451',
+  '#60a5fa',
+  '#4ade80',
+  '#f472b6',
+  '#a78bfa',
+  '#22d3ee',
+  '#fb923c',
+  '#f87171',
+];
 
 /** Space switcher pinned to the bottom of the sidebar, with rename/recolour/reorder. */
 export function WorkspaceBar(): ReactElement {
@@ -104,7 +118,9 @@ export function WorkspaceBar(): ReactElement {
                 onClick={() => void useBrowserStore.getState().switchWorkspace(workspace.id)}
                 className={cn(
                   'flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color] duration-[var(--duration-fast)] active:scale-95',
-                  active ? 'bg-surface-active' : 'text-muted hover:bg-surface-hover hover:text-text',
+                  active
+                    ? 'bg-surface-active'
+                    : 'text-muted hover:bg-surface-hover hover:text-text',
                   dragId === workspace.id && 'opacity-40',
                 )}
                 style={active ? { color: workspace.accentColor } : undefined}
@@ -164,8 +180,10 @@ export function WorkspaceBar(): ReactElement {
       <Dialog.Root open={renaming !== null} onOpenChange={(open) => !open && setRenaming(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm data-[state=open]:animate-[fade-in_120ms_ease-out]" />
-          <Dialog.Content className="animate-pop fixed top-1/2 left-1/2 z-[101] w-[360px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line p-5 shadow-[var(--shadow-lg)] glass-strong">
-            <Dialog.Title className="text-[15px] font-semibold text-text">Rename space</Dialog.Title>
+          <Dialog.Content className="fixed top-1/2 left-1/2 z-[101] w-[360px] max-w-[92vw] animate-pop -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line p-5 shadow-[var(--shadow-lg)] glass-strong">
+            <Dialog.Title className="text-[15px] font-semibold text-text">
+              Rename space
+            </Dialog.Title>
             <input
               ref={renameRef}
               value={name}
