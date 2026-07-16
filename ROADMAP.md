@@ -53,7 +53,7 @@ code.
 ## Downloads
 
 - [x] Download manager
-- [ ] Progress popup
+- [x] Progress popup
 - [x] Pause / Resume
 - [ ] Virus scan hooks
 - [x] Open file location
