@@ -14,7 +14,8 @@ import type {
   Settings,
   SettingsPatch,
 } from '@shared/types';
-import { COMMANDS } from '@shared/constants';
+import { COMMANDS, INTERNAL_PAGES } from '@shared/constants';
+import { looksLikeUrl, normalizeUrl } from '@shared/utils';
 import { Switch } from '../components/ui/Switch';
 import { Slider } from '../components/ui/Slider';
 import { Select } from '../components/ui/Select';
@@ -340,6 +341,7 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
   const [engines, setEngines] = useState<SearchEngine[]>([]);
   const [aiKey, setAiKey] = useState('');
   const [savingKey, setSavingKey] = useState(false);
+  const [homePage, setHomePage] = useState(s.behavior.homePage);
   const [confirmReset, setConfirmReset] = useState(false);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS_META[0].id);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -347,6 +349,23 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
   useEffect(() => {
     void trpc.search.listEngines.query().then(setEngines);
   }, []);
+
+  // The field is uncontrolled between commits, so it must resync when the value
+  // changes elsewhere — resetting all settings is the case that bites.
+  useEffect(() => setHomePage(s.behavior.homePage), [s.behavior.homePage]);
+
+  /** Committed on blur/Enter rather than per keystroke — each patch is an IPC round-trip. */
+  const commitHomePage = async (): Promise<void> => {
+    const raw = homePage.trim();
+    if (raw && !looksLikeUrl(raw)) {
+      toast.error('Home page must be a web address');
+      setHomePage(s.behavior.homePage);
+      return;
+    }
+    const next = raw ? normalizeUrl(raw) : INTERNAL_PAGES.newTab;
+    setHomePage(next);
+    if (next !== s.behavior.homePage) await patch({ behavior: { homePage: next } });
+  };
 
   const saveApiKey = async (): Promise<void> => {
     const key = aiKey.trim();
@@ -512,6 +531,26 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
                 { value: 'always', label: 'Restore previous tabs' },
                 { value: 'never', label: 'Open a fresh start' },
               ]}
+            />
+          ),
+        },
+        {
+          title: 'Home page',
+          description: 'Where the Home button and ⌥Home go.',
+          keywords: 'homepage home button start address url',
+          control: (
+            <input
+              type="text"
+              value={homePage}
+              onChange={(event) => setHomePage(event.target.value)}
+              onBlur={() => void commitHomePage()}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') event.currentTarget.blur();
+              }}
+              placeholder={INTERNAL_PAGES.newTab}
+              aria-label="Home page"
+              spellCheck={false}
+              className="h-[var(--field-height)] w-56 rounded-lg border border-line bg-bg-elevated px-3 text-[13px] text-text transition-colors outline-none placeholder:text-faint focus:border-accent"
             />
           ),
         },
