@@ -283,7 +283,9 @@ code.
 - [ ] Complete accessibility support
 - [ ] Crash recovery
 - [x] Session restore
-- [ ] Automatic updates
+- [x] Automatic updates — Windows and Linux. macOS cannot apply unsigned
+      updates, so it needs an Apple Developer certificate first; see
+      [RELEASING.md](docs/RELEASING.md)
 
 ## Accessibility
 

@@ -73,4 +73,17 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  // Build-time scripts. CommonJS because Electron only supports an ESM main
+  // process via a package.json entry, and they report progress to a terminal.
+  {
+    files: ['scripts/**/*.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { ...globals.node },
+    },
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+      'no-console': 'off',
+    },
+  },
 );
