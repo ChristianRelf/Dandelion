@@ -1,4 +1,5 @@
-import { join } from 'node:path';
+import { existsSync } from 'node:fs';
+import { join, parse } from 'node:path';
 import { shell, type DownloadItem, type Session } from 'electron';
 import type { Download, DownloadSafety, DownloadState, Profile } from '@shared/types';
 import { createId } from '@shared/utils';
@@ -16,6 +17,31 @@ export type SafetyScanner = (
 
 const defaultScanner: SafetyScanner = (filePath) =>
   /\.(exe|scr|bat|cmd|com|msi|ps1|jar|vbs|js|dmg|pkg)$/i.test(filePath) ? 'unknown' : 'safe';
+
+/**
+ * A free path for `filename` in `dir`, walking `name (1).ext`, `name (2).ext` …
+ * until one is unused.
+ *
+ * Chromium uniquifies download targets itself, but only while it owns the
+ * decision — calling `item.setSavePath()` opts out of that routine entirely, so
+ * without this a second download of the same name truncates the first.
+ *
+ * `taken` is injected so the walk can be tested without touching the disk.
+ */
+export function uniqueSavePath(
+  dir: string,
+  filename: string,
+  taken: (path: string) => boolean = existsSync,
+): string {
+  const first = join(dir, filename);
+  if (!taken(first)) return first;
+
+  const { name, ext } = parse(filename);
+  for (let n = 1; ; n += 1) {
+    const candidate = join(dir, `${name} (${n})${ext}`);
+    if (!taken(candidate)) return candidate;
+  }
+}
 
 interface LiveDownload {
   item: DownloadItem;
@@ -59,7 +85,7 @@ export class DownloadsService {
 
     if (!settings.behavior.askWhereToSaveDownloads) {
       const dir = settings.behavior.downloadDirectory ?? defaultDownloadsDir();
-      item.setSavePath(join(dir, filename));
+      item.setSavePath(uniqueSavePath(dir, filename));
     }
 
     const now = Date.now();
