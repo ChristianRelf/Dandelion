@@ -109,6 +109,8 @@ export interface ClosedTab {
   title: string;
   favicon: string | null;
   workspaceId: WorkspaceId;
+  /** The window it was closed from, so it can return there if that window is gone. */
+  windowId: WindowId | null;
   groupId: TabGroupId | null;
   pinned: boolean;
   index: number;

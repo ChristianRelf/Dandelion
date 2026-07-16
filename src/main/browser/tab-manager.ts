@@ -75,9 +75,6 @@ export class TabManager {
   private readonly recentlyClosed: ClosedTab[] = [];
 
   constructor(private readonly deps: TabManagerDeps) {
-    this.deps.privacy.setTopUrlResolver((webContentsId) =>
-      this.topUrlForWebContents(webContentsId),
-    );
     this.deps.permissions.setTabResolver((webContents) => this.tabIdForWebContents(webContents));
     this.deps.windows.onWindowClosed((windowId) => this.handleWindowClosed(windowId));
   }
@@ -201,6 +198,7 @@ export class TabManager {
         title: live.state.title,
         favicon: live.state.favicon,
         workspaceId,
+        windowId,
         groupId: live.state.groupId,
         pinned: live.state.pinned,
         index: live.state.index,
@@ -251,18 +249,28 @@ export class TabManager {
       groupId: live.state.groupId,
       index: live.state.index + 1,
       active: true,
+      windowId: live.state.windowId ?? undefined,
     });
   }
 
-  reopenClosed(): Tab | null {
+  /**
+   * Restores the most recently closed tab where it was — same slot, same pinned
+   * state. It reopens in `windowId` (the window asking for it, as every browser
+   * does), falling back to the window it was closed from.
+   */
+  reopenClosed(windowId?: string): Tab | null {
     const closed = this.recentlyClosed.shift();
     if (!closed) return null;
-    return this.createTab({
+    const tab = this.createTab({
       workspaceId: closed.workspaceId,
       url: closed.url,
       groupId: closed.groupId,
+      index: closed.index,
       active: true,
+      windowId: windowId ?? closed.windowId ?? undefined,
     });
+    if (closed.pinned) this.setPinned(tab.id, true);
+    return tab;
   }
 
   /* ------------------------------------------------------------------ *
@@ -344,7 +352,10 @@ export class TabManager {
     if (!live || live.state.asleep) return;
     if (live.state.pinned && !this.deps.settings.get().tabs.sleepPinnedTabs) return;
     const dandelionWindow = live.state.windowId ? this.deps.windows.get(live.state.windowId) : null;
-    if (dandelionWindow?.activeTabId === tabId) return; // never sleep the active tab
+    // A tab on screen is not inactive. That includes the other half of a split,
+    // which keeps its pane in the layout and would leave a dead rect behind.
+    if (dandelionWindow?.activeTabId === tabId) return;
+    if (dandelionWindow?.splitTabIds.includes(tabId)) return;
     this.destroyView(live);
     live.state.asleep = true;
     this.emitUpdate(live);
@@ -1001,13 +1012,6 @@ export class TabManager {
     const workspace = this.deps.workspaces.get(workspaceId);
     if (!workspace) return null;
     return this.deps.profiles.get(workspace.profileId);
-  }
-
-  private topUrlForWebContents(webContentsId: number): string | null {
-    for (const live of this.tabs.values()) {
-      if (live.view && live.view.webContents.id === webContentsId) return live.state.url;
-    }
-    return null;
   }
 
   private tabIdForWebContents(webContents: WebContents): string | null {
