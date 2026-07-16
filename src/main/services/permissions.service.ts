@@ -137,8 +137,16 @@ export class PermissionsService {
   }
 
   /** Wired into `session.setPermissionCheckHandler` (synchronous). */
-  handleCheck(profile: Profile, permission: string, requestingOrigin: string): boolean {
-    const type = mapPermission(permission);
+  handleCheck(
+    profile: Profile,
+    permission: string,
+    requestingOrigin: string,
+    mediaType?: 'video' | 'audio' | 'unknown',
+  ): boolean {
+    // Electron reports one `mediaType` when checking but a `mediaTypes` array
+    // when requesting. Without this, a camera check resolves against the
+    // microphone rule — reading back the wrong decision for both.
+    const type = mapPermission(permission, mediaType ? [mediaType] : undefined);
     if (!type) return false;
     const rule = this.repos.permissions.get(profile.id, requestingOrigin, type);
     return rule?.decision === 'allow';
