@@ -1,0 +1,50 @@
+appId: browser.dandelion.app
+productName: Dandelion
+copyright: Copyright © 2026 Dandelion Browser
+
+directories:
+  output: dist
+  buildResources: build
+
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+
+# Native modules must remain unpacked so Electron can dlopen the .node binary.
+asarUnpack:
+  - '**/*.node'
+  - node_modules/better-sqlite3/**
+
+# Squirrel/electron-updater metadata
+publish:
+  provider: generic
+  url: https://updates.dandelion.browser/
+  channel: latest
+
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  artifactName: ${productName}-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+linux:
+  category: Network
+  target:
+    - AppImage
+    - deb
+  maintainer: Dandelion Browser <hello@dandelion.browser>

@@ -1,0 +1,266 @@
+import type { OmniboxResult, Tab } from '@shared/types';
+import {
+  buildSearchUrl,
+  classifyOmniboxInput,
+  convertUnits,
+  createId,
+  evaluateExpression,
+  prettifyUrl,
+} from '@shared/utils';
+import { COMMANDS } from '@shared/constants';
+import type { HistoryService } from './history.service';
+import type { BookmarksService } from './bookmarks.service';
+import type { SearchService } from './search.service';
+import type { SettingsService } from './settings.service';
+
+export interface TabsProvider {
+  listAll(): Tab[];
+}
+
+export interface OmniboxDeps {
+  history: HistoryService;
+  bookmarks: BookmarksService;
+  search: SearchService;
+  settings: SettingsService;
+  tabs: TabsProvider;
+}
+
+type ResultSeed = Pick<OmniboxResult, 'kind' | 'title' | 'score'> & Partial<OmniboxResult>;
+
+function makeResult(seed: ResultSeed): OmniboxResult {
+  return {
+    id: createId('r'),
+    subtitle: null,
+    url: null,
+    icon: null,
+    inlineCompletion: null,
+    actionId: null,
+    tabId: null,
+    ...seed,
+  };
+}
+
+/**
+ * Aggregates ranked omnibox results from every provider — direct URL, default
+ * search, open tabs, history, bookmarks, commands, an offline calculator and
+ * unit converter, plus live network search suggestions.
+ */
+export class OmniboxService {
+  constructor(private readonly deps: OmniboxDeps) {}
+
+  async query(input: string, profileId: string, limit: number): Promise<OmniboxResult[]> {
+    const trimmed = input.trim();
+    if (!trimmed) return this.emptyState(profileId, limit);
+
+    const search = this.deps.settings.get().search;
+    const results: OmniboxResult[] = [];
+    const intent = classifyOmniboxInput(trimmed);
+
+    // Primary action.
+    if (intent.kind === 'url') {
+      results.push(
+        makeResult({
+          kind: 'url',
+          title: prettifyUrl(intent.url),
+          subtitle: 'Open site',
+          url: intent.url,
+          icon: 'globe',
+          score: 1,
+        }),
+      );
+    } else {
+      const engine = this.deps.search.getDefault();
+      results.push(
+        makeResult({
+          kind: 'search',
+          title: trimmed,
+          subtitle: `Search ${engine.name}`,
+          url: buildSearchUrl(engine.searchUrl, trimmed),
+          icon: 'search',
+          score: 0.95,
+        }),
+      );
+    }
+
+    // Calculator.
+    if (search.enableCalculator) {
+      const calc = evaluateExpression(trimmed);
+      if (calc) {
+        results.push(
+          makeResult({
+            kind: 'calculator',
+            title: calc.formatted,
+            subtitle: `= ${calc.expression}`,
+            icon: 'calculator',
+            score: 0.99,
+          }),
+        );
+      }
+    }
+
+    // Unit conversion.
+    if (search.enableUnitConversion) {
+      const conversion = convertUnits(trimmed);
+      if (conversion) {
+        results.push(
+          makeResult({
+            kind: 'unitConversion',
+            title: `${conversion.formatted} ${conversion.toUnit}`,
+            subtitle: conversion.input,
+            icon: 'ruler',
+            score: 0.99,
+          }),
+        );
+      }
+    }
+
+    // Open tabs.
+    const lower = trimmed.toLowerCase();
+    for (const tab of this.deps.tabs.listAll()) {
+      if (tab.title.toLowerCase().includes(lower) || tab.url.toLowerCase().includes(lower)) {
+        results.push(
+          makeResult({
+            kind: 'openTab',
+            title: tab.title || prettifyUrl(tab.url),
+            subtitle: `Switch to tab · ${prettifyUrl(tab.url)}`,
+            icon: 'panel-top',
+            tabId: tab.id,
+            score: 0.9,
+          }),
+        );
+      }
+      if (results.filter((r) => r.kind === 'openTab').length >= 3) break;
+    }
+
+    // History.
+    if (search.showHistorySuggestions) {
+      for (const entry of this.deps.history.prefixMatch(profileId, trimmed, 4)) {
+        results.push(
+          makeResult({
+            kind: 'history',
+            title: entry.title || prettifyUrl(entry.url),
+            subtitle: prettifyUrl(entry.url),
+            url: entry.url,
+            icon: 'history',
+            score: 0.72,
+          }),
+        );
+      }
+    }
+
+    // Bookmarks.
+    if (search.showBookmarkSuggestions) {
+      for (const bookmark of this.deps.bookmarks.list(profileId, undefined, trimmed).slice(0, 3)) {
+        results.push(
+          makeResult({
+            kind: 'bookmark',
+            title: bookmark.title || prettifyUrl(bookmark.url),
+            subtitle: prettifyUrl(bookmark.url),
+            url: bookmark.url,
+            icon: 'bookmark',
+            score: 0.76,
+          }),
+        );
+      }
+    }
+
+    // Commands.
+    for (const command of COMMANDS) {
+      if (!command.palette) continue;
+      if (command.title.toLowerCase().includes(lower)) {
+        results.push(
+          makeResult({
+            kind: 'action',
+            title: command.title,
+            subtitle: 'Run command',
+            icon: command.icon,
+            actionId: command.id,
+            score: 0.55,
+          }),
+        );
+      }
+      if (results.filter((r) => r.kind === 'action').length >= 2) break;
+    }
+
+    // Live search suggestions (network).
+    if (search.searchSuggestions && intent.kind === 'search') {
+      const engine = this.deps.search.getDefault();
+      for (const suggestion of (await this.fetchSuggestions(trimmed)).slice(0, 4)) {
+        if (suggestion.toLowerCase() === lower) continue;
+        results.push(
+          makeResult({
+            kind: 'suggestion',
+            title: suggestion,
+            subtitle: `Search ${engine.name}`,
+            url: buildSearchUrl(engine.searchUrl, suggestion),
+            icon: 'search',
+            score: 0.66,
+          }),
+        );
+      }
+    }
+
+    return this.finalize(results, trimmed, limit);
+  }
+
+  private finalize(results: OmniboxResult[], input: string, limit: number): OmniboxResult[] {
+    // Deduplicate by destination URL (keep highest score).
+    const byKey = new Map<string, OmniboxResult>();
+    for (const result of results) {
+      const key = result.url ? `url:${result.url}` : `${result.kind}:${result.title}`;
+      const existing = byKey.get(key);
+      if (!existing || result.score > existing.score) byKey.set(key, result);
+    }
+
+    const ranked = [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, limit);
+
+    // Inline autocomplete: complete to the best matching history/URL result.
+    const completionSource = ranked.find(
+      (r) => r.url && prettifyUrl(r.url).toLowerCase().startsWith(input.toLowerCase()),
+    );
+    if (completionSource?.url) {
+      const pretty = prettifyUrl(completionSource.url);
+      const primary = ranked[0];
+      if (primary && pretty.toLowerCase().startsWith(input.toLowerCase())) {
+        primary.inlineCompletion = pretty.slice(input.length);
+      }
+    }
+
+    return ranked;
+  }
+
+  private emptyState(profileId: string, limit: number): OmniboxResult[] {
+    return this.deps.history.topSites(profileId, limit).map((entry) =>
+      makeResult({
+        kind: 'history',
+        title: entry.title || prettifyUrl(entry.url),
+        subtitle: prettifyUrl(entry.url),
+        url: entry.url,
+        icon: 'history',
+        score: entry.visitCount,
+      }),
+    );
+  }
+
+  private async fetchSuggestions(query: string): Promise<string[]> {
+    const engine = this.deps.search.getDefault();
+    if (!engine.suggestUrl) return [];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1500);
+    try {
+      const response = await fetch(buildSearchUrl(engine.suggestUrl, query), {
+        signal: controller.signal,
+      });
+      const data: unknown = await response.json();
+      // OpenSearch suggestions: [query, [suggestion, …]].
+      if (Array.isArray(data) && Array.isArray(data[1])) {
+        return (data[1] as unknown[]).filter((item): item is string => typeof item === 'string');
+      }
+      return [];
+    } catch {
+      return [];
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}

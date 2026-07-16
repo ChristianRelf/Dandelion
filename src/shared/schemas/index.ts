@@ -1,0 +1,9 @@
+export * as common from './common';
+export * as tabsSchema from './tabs.schema';
+export * as workspacesSchema from './workspaces.schema';
+export * as browsingSchema from './browsing.schema';
+export * as privacySchema from './privacy.schema';
+export * as vaultSchema from './vault.schema';
+export * as omniboxSchema from './omnibox.schema';
+export * as aiSchema from './ai.schema';
+export * as settingsSchema from './settings.schema';

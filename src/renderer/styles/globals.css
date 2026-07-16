@@ -1,0 +1,315 @@
+@import 'tailwindcss';
+
+/*
+ * Dandelion design system.
+ *
+ * Semantic tokens are exposed to Tailwind via `@theme` and resolve to CSS
+ * variables, so a single `data-theme` / `data-oled` switch on <html> re-skins
+ * every utility (`bg-surface`, `text-muted`, `border-line`, …) at runtime.
+ *
+ * The system is intentionally small: one accent, a five-step neutral text
+ * ramp, three surface elevations, two border strengths, a 5-step radius scale,
+ * a 3-step shadow scale and a 3-step motion scale. Everything on screen is
+ * composed from these — nothing is bespoke.
+ */
+@theme {
+  --color-bg: var(--bg);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-active: var(--surface-active);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial,
+    sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* The radius family scales together via `--radius-scale` (driven by the
+   * "Corner radius" setting), so rounding stays proportional everywhere. */
+  --radius-xs: calc(6px * var(--radius-scale, 1));
+  --radius-sm: calc(8px * var(--radius-scale, 1));
+  --radius-md: calc(12px * var(--radius-scale, 1));
+  --radius-lg: calc(16px * var(--radius-scale, 1));
+  --radius-xl: calc(22px * var(--radius-scale, 1));
+  --radius-2xl: calc(28px * var(--radius-scale, 1));
+
+  /* Motion scale — durations tuned so nothing ever feels sluggish. */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 260ms;
+}
+
+/* ---- Theme palettes ---------------------------------------------------- */
+
+:root,
+:root[data-theme='dark'] {
+  --bg: #0b0b0d;
+  --bg-elevated: #141417;
+  --surface: rgba(255, 255, 255, 0.045);
+  --surface-hover: rgba(255, 255, 255, 0.07);
+  --surface-active: rgba(255, 255, 255, 0.1);
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.14);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --faint: #6b6b74;
+  --accent: #f5c451;
+  --accent-soft: color-mix(in oklab, var(--accent) 16%, transparent);
+  --accent-fg: #1a1205;
+  --danger: #f87171;
+  --danger-soft: color-mix(in oklab, var(--danger) 16%, transparent);
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 6px 20px -6px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 20px 50px -16px rgba(0, 0, 0, 0.7);
+  --shadow-glass: 0 12px 40px -12px rgba(0, 0, 0, 0.6);
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  --bg: #f6f6f7;
+  --bg-elevated: #ffffff;
+  --surface: rgba(0, 0, 0, 0.035);
+  --surface-hover: rgba(0, 0, 0, 0.06);
+  --surface-active: rgba(0, 0, 0, 0.09);
+  --line: rgba(0, 0, 0, 0.08);
+  --line-strong: rgba(0, 0, 0, 0.14);
+  --text: #18181b;
+  --muted: #52525b;
+  --faint: #a1a1aa;
+  --accent: #d99e1f;
+  --accent-soft: color-mix(in oklab, var(--accent) 14%, transparent);
+  --accent-fg: #ffffff;
+  --danger: #dc2626;
+  --danger-soft: color-mix(in oklab, var(--danger) 12%, transparent);
+  --success: #16a34a;
+  --warning: #d97706;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 6px 20px -6px rgba(0, 0, 0, 0.14);
+  --shadow-lg: 0 20px 50px -16px rgba(0, 0, 0, 0.22);
+  --shadow-glass: 0 12px 40px -12px rgba(0, 0, 0, 0.18);
+  color-scheme: light;
+}
+
+:root[data-theme='dark'][data-oled='true'] {
+  --bg: #000000;
+  --bg-elevated: #0a0a0a;
+  --surface: rgba(255, 255, 255, 0.05);
+}
+
+/* ---- Density ----------------------------------------------------------- */
+/*
+ * Density-aware sizing tokens. Chrome elements (tabs, toolbar, list rows,
+ * form fields) read these so a single `data-density` switch retunes the whole
+ * interface without touching component code.
+ */
+:root {
+  --tab-height: 34px;
+  --toolbar-height: 46px;
+  --row-py: 0.75rem;
+  --field-height: 34px;
+  --glass-blur: 24px;
+  --glass-opacity: 72%;
+  --glass-opacity-strong: 86%;
+}
+
+:root[data-density='compact'] {
+  --tab-height: 29px;
+  --toolbar-height: 40px;
+  --row-py: 0.5rem;
+  --field-height: 30px;
+}
+
+/* ---- Base -------------------------------------------------------------- */
+
+@layer base {
+  * {
+    border-color: var(--line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-synthesis-weight: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+  }
+
+  /* Text entry surfaces stay selectable/editable. */
+  input,
+  textarea,
+  [contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+
+  /* A single consistent focus-visible treatment for everything keyboard-driven. */
+  :focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Honour the reduce-motion preference (settings toggle mirrors to
+ * `data-reduce-motion`, or the OS-level media query). Motion-driven React
+ * components are handled separately by <MotionConfig>; this covers all CSS
+ * transitions, animations and smooth scrolling.
+ */
+:root[data-reduce-motion='true'] *,
+:root[data-reduce-motion='true'] *::before,
+:root[data-reduce-motion='true'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ---- Utilities --------------------------------------------------------- */
+
+@utility drag {
+  -webkit-app-region: drag;
+}
+@utility no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* Thin, unobtrusive scrollbars for scrollable regions. */
+@utility scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: var(--muted);
+    background-clip: padding-box;
+  }
+}
+
+/* Fully hidden scrollbars for horizontal strips that scroll programmatically. */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility glass {
+  background: color-mix(in oklab, var(--bg-elevated) var(--glass-opacity, 72%), transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(150%);
+}
+
+/* A slightly more opaque glass for large overlay panels. */
+@utility glass-strong {
+  background: color-mix(in oklab, var(--bg-elevated) var(--glass-opacity-strong, 86%), transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(160%);
+}
+
+/* Loading placeholder shimmer for skeleton states. */
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-hover) 37%,
+    var(--surface) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+/* ---- Keyframes --------------------------------------------------------- */
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Popover / menu entrance — subtle rise + scale from the trigger edge. */
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-2px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* Radix content entrance driven by `data-[state=open]`. */
+@utility animate-pop {
+  transform-origin: var(--radix-popper-transform-origin, center);
+  animation: pop-in var(--duration-fast) var(--ease-out);
+}
