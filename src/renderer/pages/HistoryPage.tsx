@@ -1,13 +1,22 @@
-import { useCallback, useEffect, useMemo, useState, type ReactElement } from 'react';
-import { History, Search, Trash2, X } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactElement } from 'react';
+import { History, Trash2 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import type { HistoryEntry } from '@shared/types';
 import { getHostname, prettifyUrl } from '@shared/utils';
 import { PageShell } from './PageShell';
-import { Favicon } from '../components/ui/Favicon';
+import { Button } from '../components/ui/Button';
 import { IconButton } from '../components/ui/IconButton';
+import { EmptyState } from '../components/ui/EmptyState';
+import { SearchField } from '../components/ui/SearchField';
+import { ListContainer, ListRow } from '../components/ui/List';
+import { IconTile } from '../components/ui/IconTile';
+import { Skeleton } from '../components/ui/Skeleton';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { Favicon } from '../components/ui/Favicon';
 import { trpc } from '../lib/trpc/client';
 import { useBrowserStore } from '../stores/browser.store';
+import { useAsyncData } from '../hooks/useAsyncData';
+import { toast } from '../stores/toast.store';
 
 function dayLabel(timestamp: number): string {
   const date = new Date(timestamp);
@@ -16,23 +25,52 @@ function dayLabel(timestamp: number): string {
   return format(date, 'EEEE, d MMMM');
 }
 
+/** Skeleton placeholders shown during the first load. */
+function LoadingRows(): ReactElement {
+  return (
+    <ListContainer>
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div
+          key={index}
+          className="flex items-center gap-3 px-3"
+          style={{ paddingBlock: 'var(--row-py)' }}
+        >
+          <Skeleton className="h-8 w-8 rounded-lg" />
+          <div className="flex-1 space-y-1.5">
+            <Skeleton className="h-3.5 w-2/5" />
+            <Skeleton className="h-3 w-1/4" />
+          </div>
+          <Skeleton className="h-3 w-10" />
+        </div>
+      ))}
+    </ListContainer>
+  );
+}
+
 export function HistoryPage(): ReactElement {
   const profile = useBrowserStore((state) => state.profile);
   const [query, setQuery] = useState('');
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-
-  const load = useCallback(() => {
-    if (profile) {
-      void trpc.history.search
-        .query({ profileId: profile.id, query, limit: 400, offset: 0 })
-        .then(setEntries);
-    }
-  }, [profile, query]);
+  const [debounced, setDebounced] = useState('');
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(load, 150);
+    const timer = setTimeout(() => setDebounced(query), 150);
     return () => clearTimeout(timer);
-  }, [load]);
+  }, [query]);
+
+  const {
+    status,
+    data: entries,
+    error,
+    reload,
+  } = useAsyncData<HistoryEntry[]>(
+    () =>
+      profile
+        ? trpc.history.search.query({ profileId: profile.id, query: debounced, limit: 200 })
+        : Promise.resolve([]),
+    [profile?.id, debounced],
+    [],
+  );
 
   const groups = useMemo(() => {
     const map = new Map<string, HistoryEntry[]>();
@@ -45,15 +83,107 @@ export function HistoryPage(): ReactElement {
     return [...map.entries()];
   }, [entries]);
 
-  const remove = (entry: HistoryEntry): void => {
-    if (!profile) return;
-    void trpc.history.delete.mutate({ profileId: profile.id, entryIds: [entry.id] }).then(load);
-  };
-
   const openUrl = (url: string): void => {
     const { activeTabId } = useBrowserStore.getState();
-    if (activeTabId) void trpc.tabs.navigate.mutate({ tabId: activeTabId, url });
+    if (activeTabId) {
+      void trpc.tabs.navigate
+        .mutate({ tabId: activeTabId, url })
+        .catch(() => toast.error('Failed to open page'));
+    }
   };
+
+  const remove = (entry: HistoryEntry): void => {
+    if (!profile) return;
+    void trpc.history.delete
+      .mutate({ profileId: profile.id, entryIds: [entry.id] })
+      .then(() => reload())
+      .catch(() => toast.error('Failed to remove history entry'));
+  };
+
+  const clearAll = (): void => {
+    if (!profile) return;
+    void trpc.history.clear
+      .mutate({ profileId: profile.id })
+      .then(() => {
+        toast.success('History cleared');
+        reload();
+      })
+      .catch(() => toast.error('Failed to clear history'));
+  };
+
+  function renderBody(): ReactElement {
+    if (status === 'loading' && entries.length === 0) return <LoadingRows />;
+    if (status === 'error') {
+      return (
+        <EmptyState
+          icon="triangle-alert"
+          title="Couldn't load history"
+          description={error ?? undefined}
+          action={
+            <Button icon="rotate-cw" onClick={reload}>
+              Retry
+            </Button>
+          }
+        />
+      );
+    }
+    if (entries.length === 0) {
+      return query.trim() ? (
+        <EmptyState
+          icon="search"
+          title="No results"
+          description={`Nothing in your history matched "${query.trim()}".`}
+        />
+      ) : (
+        <EmptyState
+          icon="history"
+          title="No history yet"
+          description="Pages you visit will show up here, grouped by day."
+        />
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {groups.map(([label, items]) => (
+          <section key={label}>
+            <h2 className="sticky top-0 z-10 mb-2 bg-bg/85 py-2 text-[11px] font-semibold tracking-wider text-faint uppercase backdrop-blur-sm">
+              {label}
+            </h2>
+            <ListContainer>
+              {items.map((entry) => {
+                const hasTitle = Boolean(entry.title.trim());
+                const primary = hasTitle ? entry.title : prettifyUrl(entry.url);
+                return (
+                  <ListRow
+                    key={entry.id}
+                    leading={
+                      <IconTile size="sm">
+                        <Favicon src={entry.favicon} className="h-4 w-4" />
+                      </IconTile>
+                    }
+                    title={primary}
+                    subtitle={hasTitle ? prettifyUrl(entry.url) : getHostname(entry.url)}
+                    meta={format(new Date(entry.lastVisitedAt), 'HH:mm')}
+                    onActivate={() => openUrl(entry.url)}
+                    actions={
+                      <IconButton
+                        size="sm"
+                        aria-label={`Remove ${primary} from history`}
+                        onClick={() => remove(entry)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </IconButton>
+                    }
+                  />
+                );
+              })}
+            </ListContainer>
+          </section>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <PageShell
@@ -61,68 +191,36 @@ export function HistoryPage(): ReactElement {
       description="Everything you've visited, grouped by day."
       icon={<History className="h-5 w-5" />}
       actions={
-        <button
-          type="button"
-          onClick={() =>
-            profile && void trpc.history.clear.mutate({ profileId: profile.id }).then(load)
-          }
-          className="flex items-center gap-1.5 rounded-lg bg-surface px-3 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-hover hover:text-text"
+        <Button
+          variant="secondary"
+          size="sm"
+          icon="trash-2"
+          disabled={status !== 'ready' || entries.length === 0}
+          onClick={() => setConfirmOpen(true)}
         >
-          <Trash2 className="h-4 w-4" /> Clear all
-        </button>
+          Clear all
+        </Button>
       }
     >
-      <div className="mb-5 flex items-center gap-2 rounded-xl border border-line bg-surface px-3">
-        <Search className="h-4 w-4 text-faint" />
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="Search history"
-          className="flex-1 bg-transparent py-2.5 text-sm text-text outline-none placeholder:text-faint"
-        />
-      </div>
+      <SearchField
+        value={query}
+        onChange={setQuery}
+        placeholder="Search history"
+        aria-label="Search history"
+        className="mb-5"
+      />
 
-      {groups.length === 0 && (
-        <p className="py-16 text-center text-sm text-faint">No history yet.</p>
-      )}
+      {renderBody()}
 
-      {groups.map(([label, items]) => (
-        <section key={label} className="mb-6">
-          <h2 className="mb-2 text-[11px] font-medium tracking-wide text-faint uppercase">
-            {label}
-          </h2>
-          <div className="overflow-hidden rounded-xl border border-line">
-            {items.map((entry) => (
-              <div
-                key={entry.id}
-                className="group flex items-center gap-3 border-b border-line px-3 py-2 last:border-b-0 hover:bg-surface-hover"
-              >
-                <span className="w-12 shrink-0 text-xs text-faint tabular-nums">
-                  {format(new Date(entry.lastVisitedAt), 'HH:mm')}
-                </span>
-                <Favicon src={entry.favicon} className="h-4 w-4 shrink-0" />
-                <button
-                  type="button"
-                  onClick={() => openUrl(entry.url)}
-                  className="min-w-0 flex-1 truncate text-left text-[13.5px] text-text"
-                >
-                  {entry.title || prettifyUrl(entry.url)}
-                </button>
-                <span className="hidden max-w-56 shrink-0 truncate text-xs text-faint sm:block">
-                  {getHostname(entry.url)}
-                </span>
-                <IconButton
-                  size="sm"
-                  className="opacity-0 group-hover:opacity-100"
-                  onClick={() => remove(entry)}
-                >
-                  <X className="h-4 w-4" />
-                </IconButton>
-              </div>
-            ))}
-          </div>
-        </section>
-      ))}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="Clear all history?"
+        description="This permanently removes every page from your browsing history. This can't be undone."
+        confirmLabel="Clear history"
+        destructive
+        onConfirm={clearAll}
+      />
     </PageShell>
   );
 }

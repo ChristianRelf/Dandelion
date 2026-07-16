@@ -8,6 +8,8 @@ interface UiStore {
   paletteOpen: boolean;
   /** Quick tab switcher (MRU). */
   tabSwitcherOpen: boolean;
+  /** Saved-sessions manager dialog. */
+  sessionsOpen: boolean;
   /** In-page find bar. */
   findOpen: boolean;
   /** A site-permission prompt is currently on screen. */
@@ -16,6 +18,8 @@ interface UiStore {
   aiSidebarOpen: boolean;
   /** Manual sidebar collapse. */
   sidebarCollapsed: boolean;
+  /** Tabs currently tiled side-by-side (renderer mirror of the split). */
+  splitTabIds: string[];
 
   openOmnibox: (initialValue?: string) => void;
   closeOmnibox: () => void;
@@ -24,6 +28,8 @@ interface UiStore {
   togglePalette: () => void;
   openTabSwitcher: () => void;
   closeTabSwitcher: () => void;
+  openSessions: () => void;
+  closeSessions: () => void;
   openFind: () => void;
   toggleFind: () => void;
   closeFind: () => void;
@@ -31,6 +37,7 @@ interface UiStore {
   toggleAiSidebar: () => void;
   setAiSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
+  setSplitTabIds: (ids: string[]) => void;
 }
 
 export const useUiStore = create<UiStore>((set, get) => ({
@@ -38,10 +45,12 @@ export const useUiStore = create<UiStore>((set, get) => ({
   omniboxInitialValue: '',
   paletteOpen: false,
   tabSwitcherOpen: false,
+  sessionsOpen: false,
   findOpen: false,
   permissionActive: false,
   aiSidebarOpen: false,
   sidebarCollapsed: false,
+  splitTabIds: [],
 
   openOmnibox: (initialValue = '') =>
     set({ omniboxOpen: true, omniboxInitialValue: initialValue, paletteOpen: false }),
@@ -51,6 +60,8 @@ export const useUiStore = create<UiStore>((set, get) => ({
   togglePalette: () => set({ paletteOpen: !get().paletteOpen, omniboxOpen: false }),
   openTabSwitcher: () => set({ tabSwitcherOpen: true, paletteOpen: false, omniboxOpen: false }),
   closeTabSwitcher: () => set({ tabSwitcherOpen: false }),
+  openSessions: () => set({ sessionsOpen: true, paletteOpen: false }),
+  closeSessions: () => set({ sessionsOpen: false }),
   openFind: () => set({ findOpen: true }),
   toggleFind: () => set({ findOpen: !get().findOpen }),
   closeFind: () => set({ findOpen: false }),
@@ -58,6 +69,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   toggleAiSidebar: () => set({ aiSidebarOpen: !get().aiSidebarOpen }),
   setAiSidebarOpen: (aiSidebarOpen) => set({ aiSidebarOpen }),
   toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
+  setSplitTabIds: (splitTabIds) => set({ splitTabIds }),
 }));
 
 /**

@@ -376,6 +376,23 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     palette: true,
   },
   {
+    id: 'tools.sessions',
+    title: 'Saved Sessions…',
+    category: 'tools',
+    icon: 'layers',
+    defaultKeys: null,
+    palette: true,
+    keywords: ['restore', 'session', 'reopen'],
+  },
+  {
+    id: 'tools.saveSession',
+    title: 'Save Current Session',
+    category: 'tools',
+    icon: 'save',
+    defaultKeys: null,
+    palette: true,
+  },
+  {
     id: 'tools.devtools',
     title: 'Toggle Developer Tools',
     category: 'developer',

@@ -63,10 +63,9 @@ export function useAsyncData<T>(
     );
   }, []);
 
+  // `deps` is the caller-supplied dependency list for the fetcher; `load` is stable.
   useEffect(() => {
     load();
-    // `deps` is the caller-supplied dependency list for the fetcher.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps);
 
   return { status, data, error, reload: load };

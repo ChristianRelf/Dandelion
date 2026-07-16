@@ -8,6 +8,7 @@ import { vaultRoutes } from './routers/vault.router';
 import { aiRoutes, omniboxRoutes, searchRoutes } from './routers/discovery.router';
 import { settingsRoutes, syncRoutes } from './routers/settings.router';
 import { extensionRoutes } from './routers/extensions.router';
+import { sessionRoutes } from './routers/sessions.router';
 
 /** The complete typed API surface exposed to the renderer over IPC. */
 export const appRouter = router({
@@ -30,6 +31,7 @@ export const appRouter = router({
   settings: settingsRoutes,
   sync: syncRoutes,
   extensions: extensionRoutes,
+  sessions: sessionRoutes,
 });
 
 export type AppRouter = typeof appRouter;

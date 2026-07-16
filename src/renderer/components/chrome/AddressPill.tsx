@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { Globe, Lock, Sparkles, TriangleAlert } from 'lucide-react';
+import { Lock, Sparkles, TriangleAlert } from 'lucide-react';
 import { prettifyUrl } from '@shared/utils';
 import { isInternalUrl } from '@shared/constants';
 import { Spinner } from '../ui/Spinner';

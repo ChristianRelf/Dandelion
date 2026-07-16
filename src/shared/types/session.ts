@@ -29,3 +29,13 @@ export interface SessionSnapshot {
   createdAt: number;
   windows: SessionWindow[];
 }
+
+/** A lightweight description of a saved session for the sessions list. */
+export interface SessionSummary {
+  id: SessionSnapshotId;
+  reason: SessionReason;
+  createdAt: number;
+  tabCount: number;
+  /** A human-friendly title derived from the snapshot's tabs. */
+  title: string;
+}

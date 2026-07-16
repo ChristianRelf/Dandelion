@@ -1,8 +1,10 @@
 import { DEFAULT_ACCENT, INTERNAL_PAGES } from '@shared/constants';
 import { trpc } from './trpc/client';
 import { nextGroupColor } from './tab-colors';
-import { useBrowserStore } from '../stores/browser.store';
+import { selectOrderedTabs, useBrowserStore } from '../stores/browser.store';
 import { useUiStore } from '../stores/ui.store';
+import { useReaderStore } from '../stores/reader.store';
+import { toast } from '../stores/toast.store';
 
 /** Commands the renderer handles locally (everything else runs in main). */
 const UI_COMMANDS = new Set([
@@ -25,11 +27,77 @@ const UI_COMMANDS = new Set([
   'tab.search',
   'tabGroup.create',
   'tabGroup.collapseAll',
+  'tools.sessions',
+  'tools.saveSession',
   'workspace.next',
   'workspace.previous',
   'workspace.create',
   'workspace.switcher',
 ]);
+
+async function createWorkspace(): Promise<void> {
+  const { profile } = useBrowserStore.getState();
+  if (!profile) return;
+  const workspace = await trpc.workspaces.create.mutate({
+    profileId: profile.id,
+    name: 'New Space',
+    icon: 'sparkles',
+    accentColor: DEFAULT_ACCENT,
+  });
+  await useBrowserStore.getState().refreshWorkspaces();
+  await useBrowserStore.getState().switchWorkspace(workspace.id);
+}
+
+function groupActiveTab(): void {
+  const { activeTabId, activeWorkspaceId, tabs, groups } = useBrowserStore.getState();
+  if (!activeTabId || !activeWorkspaceId) return;
+  void trpc.tabs.createGroup.mutate({
+    workspaceId: activeWorkspaceId,
+    name: 'New group',
+    color: nextGroupColor(Object.keys(groups).length),
+    tabIds: [activeTabId],
+  });
+  void tabs; // (kept for clarity: the active tab is the sole initial member)
+}
+
+function collapseAllGroups(): void {
+  for (const group of Object.values(useBrowserStore.getState().groups)) {
+    if (!group.collapsed) void trpc.tabs.updateGroup.mutate({ groupId: group.id, collapsed: true });
+  }
+}
+
+function viewSource(): void {
+  const { activeTabId, tabs } = useBrowserStore.getState();
+  const tab = activeTabId ? tabs[activeTabId] : null;
+  if (tab && tab.url && !tab.url.startsWith('view-source:')) {
+    void trpc.tabs.create.mutate({
+      workspaceId: tab.workspaceId,
+      url: `view-source:${tab.url}`,
+      active: true,
+    });
+  }
+}
+
+function toggleSplitView(): void {
+  const ui = useUiStore.getState();
+  const browser = useBrowserStore.getState();
+  if (ui.splitTabIds.length >= 2) {
+    void trpc.tabs.clearSplit.mutate();
+    ui.setSplitTabIds([]);
+    return;
+  }
+  const ordered = selectOrderedTabs(browser);
+  const active = browser.activeTabId;
+  const other = ordered.find((tab) => tab.id !== active);
+  if (active && other) {
+    void trpc.tabs.setSplit.mutate({
+      windowId: browser.windowId,
+      tabIds: [active, other.id],
+      orientation: 'vertical',
+    });
+    ui.setSplitTabIds([active, other.id]);
+  }
+}
 
 export async function openInternalPage(url: string): Promise<void> {
   const { activeTabId, activeWorkspaceId } = useBrowserStore.getState();
@@ -110,11 +178,43 @@ export function handleUiCommand(commandId: string): void {
     case 'tools.bookmarkPage':
       void toggleBookmarkActive();
       return;
+    case 'tools.viewSource':
+      viewSource();
+      return;
+    case 'tools.clearBrowsingData':
+      void openInternalPage(INTERNAL_PAGES.settings);
+      return;
+    case 'tab.search':
+      ui.openTabSwitcher();
+      return;
+    case 'tools.sessions':
+      ui.openSessions();
+      return;
+    case 'tools.saveSession':
+      void trpc.sessions.saveCurrent.mutate().then(() => toast.success('Session saved'));
+      return;
+    case 'tabGroup.create':
+      groupActiveTab();
+      return;
+    case 'tabGroup.collapseAll':
+      collapseAllGroups();
+      return;
+    case 'view.splitView':
+      toggleSplitView();
+      return;
+    case 'view.readerMode': {
+      const { activeTabId } = useBrowserStore.getState();
+      if (activeTabId) useReaderStore.getState().toggle(activeTabId);
+      return;
+    }
     case 'workspace.next':
       void cycleWorkspace(1);
       return;
     case 'workspace.previous':
       void cycleWorkspace(-1);
+      return;
+    case 'workspace.create':
+      void createWorkspace();
       return;
     case 'workspace.switcher':
       ui.openPalette();

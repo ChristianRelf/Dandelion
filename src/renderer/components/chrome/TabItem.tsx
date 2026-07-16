@@ -1,4 +1,4 @@
-import type { DragEvent, KeyboardEvent, ReactElement } from 'react';
+import { useEffect, useRef, type DragEvent, type KeyboardEvent, type ReactElement } from 'react';
 import { Pin, Volume2, VolumeX, X } from 'lucide-react';
 import type { Tab } from '@shared/types';
 import { prettifyUrl } from '@shared/utils';
@@ -7,6 +7,7 @@ import { cn } from '../../lib/cn';
 import { Favicon } from '../ui/Favicon';
 import { Spinner } from '../ui/Spinner';
 import { trpc } from '../../lib/trpc/client';
+import { useTabPreviewStore } from '../../stores/tab-preview.store';
 import { TabContextMenu } from './TabContextMenu';
 
 interface TabItemProps {
@@ -38,6 +39,15 @@ export function TabItem({
 }: TabItemProps): ReactElement {
   const isNewTab = tab.url === INTERNAL_PAGES.newTab;
   const label = tab.title || (isNewTab ? 'New Tab' : prettifyUrl(tab.url));
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(
+    () => () => {
+      clearTimeout(hoverTimer.current);
+      useTabPreviewStore.getState().hide(tab.id);
+    },
+    [tab.id],
+  );
 
   const activate = (): void => void trpc.tabs.activate.mutate({ tabId: tab.id });
   const onKeyDown = (event: KeyboardEvent): void => {
@@ -62,6 +72,22 @@ export function TabItem({
         onDrop={onDrop}
         onClick={activate}
         onKeyDown={onKeyDown}
+        onMouseEnter={(event) => {
+          const rect = event.currentTarget.getBoundingClientRect();
+          clearTimeout(hoverTimer.current);
+          hoverTimer.current = setTimeout(() => {
+            useTabPreviewStore.getState().show(tab.id, {
+              top: rect.top,
+              left: rect.left,
+              width: rect.width,
+              height: rect.height,
+            });
+          }, 450);
+        }}
+        onMouseLeave={() => {
+          clearTimeout(hoverTimer.current);
+          useTabPreviewStore.getState().hide(tab.id);
+        }}
         onAuxClick={(event) => {
           if (event.button === 1) void trpc.tabs.close.mutate({ tabId: tab.id });
         }}

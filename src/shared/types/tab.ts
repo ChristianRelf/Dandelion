@@ -81,6 +81,28 @@ export interface TabThumbnail {
   capturedAt: number;
 }
 
+export type ReaderBlockType = 'h1' | 'h2' | 'h3' | 'p' | 'li' | 'blockquote' | 'pre' | 'img';
+
+/** A single extracted content block for reader mode (plain text, never raw HTML). */
+export interface ReaderBlock {
+  type: ReaderBlockType;
+  text?: string;
+  src?: string;
+  alt?: string;
+}
+
+/** Distilled, reader-friendly article content extracted from a page. */
+export interface ReaderArticle {
+  url: string;
+  title: string;
+  byline: string;
+  siteName: string;
+  blocks: ReaderBlock[];
+  /** Total character length of the extracted text (for read-time estimates). */
+  length: number;
+  excerpt: string;
+}
+
 /** A recently-closed tab retained for restoration (Ctrl/Cmd+Shift+T). */
 export interface ClosedTab {
   url: string;

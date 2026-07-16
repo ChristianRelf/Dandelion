@@ -127,4 +127,10 @@ export const tabRoutes = router({
   capture: publicProcedure
     .input(tabRef)
     .mutation(({ ctx, input }) => ctx.app.tabs.captureThumbnail(input.tabId)),
+  getZoom: publicProcedure
+    .input(tabRef)
+    .query(({ ctx, input }) => ctx.app.tabs.getZoomPercent(input.tabId)),
+  getReaderContent: publicProcedure
+    .input(tabRef)
+    .query(({ ctx, input }) => ctx.app.tabs.getReaderContent(input.tabId)),
 });

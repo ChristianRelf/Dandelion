@@ -2,6 +2,8 @@ import { useEffect, type ReactElement, type ReactNode } from 'react';
 import { MotionConfig } from 'motion/react';
 import { selectAccent, useBrowserStore } from '../stores/browser.store';
 import { useDownloadsStore } from '../stores/downloads.store';
+import { useAiStore } from '../stores/ai.store';
+import { useReaderStore } from '../stores/reader.store';
 import { selectContentDimmed, useUiStore } from '../stores/ui.store';
 import { onBrowserEvent } from '../lib/events';
 import { applyAppearance, watchSystemTheme } from '../lib/theme';
@@ -31,8 +33,13 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
   const themeMode = settings?.appearance.themeMode;
   const windowId = useBrowserStore((state) => state.windowId);
   const profileId = useBrowserStore((state) => state.profile?.id);
+  const activeTabId = useBrowserStore((state) => state.activeTabId);
   const reduceMotion = settings?.appearance.reduceMotion ?? false;
   const dimmed = useUiStore(selectContentDimmed);
+  const readerTabId = useReaderStore((state) => state.tabId);
+  // The native web view must be hidden while an overlay is up or reader mode
+  // has replaced the active tab's content.
+  const hideContent = dimmed || (readerTabId !== null && readerTabId === activeTabId);
 
   useEffect(() => {
     void useBrowserStore.getState().bootstrap();
@@ -44,6 +51,18 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
         useBrowserStore.getState().applyEvent(event);
         if (event.type === 'download:created' || event.type === 'download:updated') {
           useDownloadsStore.getState().apply(event.download);
+        }
+        if (event.type === 'ai:chunk') useAiStore.getState().applyChunk(event.chunk);
+        if (event.type === 'tab:updated') {
+          // A navigation invalidates the distilled reader content for that tab.
+          const reader = useReaderStore.getState();
+          if (reader.tabId === event.tab.id && event.tab.status === 'loading') reader.close();
+        }
+        if (event.type === 'tab:activated') {
+          const ui = useUiStore.getState();
+          if (ui.splitTabIds.length > 0 && !ui.splitTabIds.includes(event.tabId)) {
+            ui.setSplitTabIds([]);
+          }
         }
         if (event.type === 'app:command') handleUiCommand(event.commandId);
       }),
@@ -65,8 +84,8 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
 
   useEffect(() => {
     if (!windowId) return;
-    void trpc.layout.setContentVisible.mutate({ visible: !dimmed });
-  }, [dimmed, windowId]);
+    void trpc.layout.setContentVisible.mutate({ visible: !hideContent });
+  }, [hideContent, windowId]);
 
   useEffect(() => {
     if (profileId) void useDownloadsStore.getState().load(profileId);

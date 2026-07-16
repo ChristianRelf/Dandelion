@@ -4,7 +4,9 @@ import { cn } from '../../lib/cn';
 import { useActiveTab } from '../../hooks/useBrowser';
 import { useBrowserStore } from '../../stores/browser.store';
 import { selectContentTopInset, useUiStore } from '../../stores/ui.store';
+import { useReaderStore } from '../../stores/reader.store';
 import { InternalPage } from '../../pages/InternalPage';
+import { ReaderView } from '../reader/ReaderView';
 import { ContentSlot } from './ContentSlot';
 import { FindBar } from './FindBar';
 import { PermissionPrompt } from './PermissionPrompt';
@@ -20,7 +22,9 @@ export function ContentArea(): ReactElement {
   const layout = useBrowserStore((state) => state.settings?.behavior.defaultTabLayout ?? 'vertical');
   const sidebarCollapsed = useUiStore((state) => state.sidebarCollapsed);
   const topInset = useUiStore(selectContentTopInset);
+  const readerTabId = useReaderStore((state) => state.tabId);
   const internalPage = tab && isInternalUrl(tab.url) ? internalPageOf(tab.url) : null;
+  const readerActive = !!tab && readerTabId === tab.id;
   const sidebarVisible = layout === 'vertical' && !sidebarCollapsed;
 
   return (
@@ -30,7 +34,9 @@ export function ContentArea(): ReactElement {
         sidebarVisible ? 'ml-0' : 'ml-2',
       )}
     >
-      {internalPage ? (
+      {readerActive ? (
+        <ReaderView />
+      ) : internalPage ? (
         <div
           className="scrollbar-slim h-full w-full overflow-y-auto"
           style={topInset ? { paddingTop: topInset } : undefined}

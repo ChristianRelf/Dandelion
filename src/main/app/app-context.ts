@@ -1,4 +1,12 @@
-import type { Profile, SessionReason, SessionTab, SessionWindow, Workspace } from '@shared/types';
+import type {
+  Profile,
+  SessionReason,
+  SessionSnapshot,
+  SessionSummary,
+  SessionTab,
+  SessionWindow,
+  Workspace,
+} from '@shared/types';
 import { createId } from '@shared/utils';
 import { rootLogger, type Logger } from '../core/logger';
 import { EventBus } from '../core/event-bus';
@@ -144,7 +152,7 @@ export class AppContext {
   }
 
   /** Capture a restorable snapshot of all windows and tabs. */
-  saveSession(reason: SessionReason): void {
+  saveSession(reason: SessionReason): SessionSnapshot {
     const windows: SessionWindow[] = this.windows.all().map((dandelionWindow) => {
       const tabs: SessionTab[] = this.tabs
         .listAll()
@@ -169,8 +177,61 @@ export class AppContext {
       };
     });
 
-    this.repos.sessions.save({ id: createId('session'), reason, createdAt: Date.now(), windows });
-    this.repos.sessions.prune(10);
+    const snapshot: SessionSnapshot = {
+      id: createId('session'),
+      reason,
+      createdAt: Date.now(),
+      windows,
+    };
+    this.repos.sessions.save(snapshot);
+    this.repos.sessions.prune(15);
+    return snapshot;
+  }
+
+  /** Recent saved sessions, most recent first. */
+  listSessions(): SessionSummary[] {
+    return this.repos.sessions.list(15).map((snapshot) => {
+      const tabs = snapshot.windows.flatMap((window) => window.tabs);
+      const lead = tabs.find((tab) => tab.active) ?? tabs[0];
+      return {
+        id: snapshot.id,
+        reason: snapshot.reason,
+        createdAt: snapshot.createdAt,
+        tabCount: tabs.length,
+        title: lead ? lead.title || lead.url : 'Empty session',
+      };
+    });
+  }
+
+  /** Reopen a saved session's tabs, preferring each tab's original workspace. */
+  restoreSession(id: string): number {
+    const snapshot = this.repos.sessions.get(id);
+    const window = this.windows.first();
+    const fallbackWorkspace = window?.activeWorkspaceId;
+    if (!snapshot || !window || !fallbackWorkspace) return 0;
+
+    const tabs = snapshot.windows.flatMap((snapshotWindow) => snapshotWindow.tabs);
+    let restored = 0;
+    let firstId: string | null = null;
+    for (const tab of tabs) {
+      const targetWorkspace: string = this.workspaces.get(tab.workspaceId)
+        ? tab.workspaceId
+        : fallbackWorkspace;
+      const created = this.tabs.createTab({
+        workspaceId: targetWorkspace,
+        url: tab.url,
+        active: false,
+        windowId: window.id,
+      });
+      if (!firstId && targetWorkspace === fallbackWorkspace) firstId = created.id;
+      restored += 1;
+    }
+    if (firstId) this.tabs.activate(firstId);
+    return restored;
+  }
+
+  removeSession(id: string): void {
+    this.repos.sessions.remove(id);
   }
 
   shutdown(): void {

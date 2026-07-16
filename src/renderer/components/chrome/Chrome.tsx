@@ -11,6 +11,8 @@ import { ContentArea } from './ContentArea';
 import { Omnibox } from '../omnibox/Omnibox';
 import { CommandPalette } from '../palette/CommandPalette';
 import { TabSwitcher } from './TabSwitcher';
+import { TabPreview } from './TabPreview';
+import { SessionsDialog } from '../sessions/SessionsDialog';
 import { AiSidebar } from '../ai/AiSidebar';
 
 const PANEL_TRANSITION = { duration: 0.24, ease: [0.16, 1, 0.3, 1] as const };
@@ -81,6 +83,8 @@ export function Chrome(): ReactElement {
         <Omnibox />
         <CommandPalette />
         <TabSwitcher />
+        <TabPreview />
+        <SessionsDialog />
       </div>
     </TooltipProvider>
   );

@@ -2,6 +2,8 @@ import { WebContentsView, type WebContents } from 'electron';
 import type {
   ClosedTab,
   Profile,
+  ReaderArticle,
+  ReaderBlock,
   Tab,
   TabGroup,
   TabGroupColor,
@@ -333,6 +335,12 @@ export class TabManager {
     if (wc) wc.setZoomLevel(wc.getZoomLevel() + delta);
   }
 
+  /** Current zoom as a percentage (100 = default). Chromium persists this per host. */
+  getZoomPercent(tabId: string): number {
+    const wc = this.tabs.get(tabId)?.view?.webContents;
+    return wc ? Math.round(wc.getZoomFactor() * 100) : 100;
+  }
+
   /* ------------------------------------------------------------------ *
    * Ordering, groups, split view
    * ------------------------------------------------------------------ */
@@ -460,6 +468,74 @@ export class TabManager {
         true,
       );
       return { url: live.state.url, title: live.state.title, text: String(text) };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Distil the page into reader-friendly content blocks. The extraction runs in
+   * the page and returns only plain text + image URLs (never HTML), so the
+   * chrome renderer can display it safely without any markup injection.
+   */
+  async getReaderContent(tabId: string): Promise<ReaderArticle | null> {
+    const live = this.tabs.get(tabId);
+    const wc = live?.view?.webContents;
+    if (!wc || !live) return null;
+    const script = `(function () {
+      function txt(el) { return (el.innerText || el.textContent || '').replace(/\\s+/g, ' ').trim(); }
+      var selectors = ['article','main','[role="main"]','.post-content','.article-content','.entry-content','.article-body','#content','.content'];
+      var pool = [];
+      selectors.forEach(function (s) { pool = pool.concat(Array.prototype.slice.call(document.querySelectorAll(s))); });
+      if (pool.length === 0) pool = [document.body];
+      var container = null, best = 0;
+      pool.forEach(function (el) {
+        var score = 0;
+        el.querySelectorAll('p').forEach(function (p) { var l = txt(p).length; if (l > 40) score += l; });
+        if (score > best) { best = score; container = el; }
+      });
+      if (!container) container = document.body;
+      var blocks = [], total = 0;
+      var nodes = container.querySelectorAll('h1,h2,h3,p,li,blockquote,pre,img');
+      for (var i = 0; i < nodes.length && blocks.length < 500; i++) {
+        var el = nodes[i], tag = el.tagName.toLowerCase();
+        if (tag === 'img') { var src = el.currentSrc || el.src; if (src && src.indexOf('data:') !== 0) blocks.push({ type: 'img', src: src, alt: el.alt || '' }); continue; }
+        var t = txt(el);
+        if (t.length < 2) continue;
+        blocks.push({ type: tag, text: t });
+        total += t.length;
+      }
+      var h1 = document.querySelector('h1');
+      var author = document.querySelector('[rel="author"], .author, .byline, [itemprop="author"]');
+      return {
+        title: (h1 && txt(h1)) || document.title || '',
+        byline: author ? txt(author) : '',
+        siteName: location.hostname.replace(/^www\\./, ''),
+        blocks: blocks,
+        length: total,
+        excerpt: blocks.filter(function (b) { return b.type === 'p'; }).map(function (b) { return b.text; }).join(' ').slice(0, 280)
+      };
+    })()`;
+    try {
+      const raw = (await wc.executeJavaScript(script, true)) as {
+        title?: string;
+        byline?: string;
+        siteName?: string;
+        blocks?: ReaderBlock[];
+        length?: number;
+        excerpt?: string;
+      } | null;
+      const blocks = Array.isArray(raw?.blocks) ? raw.blocks.slice(0, 500) : [];
+      if (blocks.length === 0) return null;
+      return {
+        url: live.state.url,
+        title: String(raw?.title ?? live.state.title ?? ''),
+        byline: String(raw?.byline ?? ''),
+        siteName: String(raw?.siteName ?? ''),
+        blocks,
+        length: Number(raw?.length ?? 0),
+        excerpt: String(raw?.excerpt ?? ''),
+      };
     } catch {
       return null;
     }

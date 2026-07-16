@@ -24,6 +24,17 @@ export class SessionsRepository {
     return this.rowToSnapshot(row);
   }
 
+  get(id: string): SessionSnapshot | null {
+    const row = this.db.prepare('SELECT * FROM sessions WHERE id = ?').get(id) as
+      | SessionRow
+      | undefined;
+    return row ? this.rowToSnapshot(row) : null;
+  }
+
+  remove(id: string): void {
+    this.db.prepare('DELETE FROM sessions WHERE id = ?').run(id);
+  }
+
   list(limit: number): SessionSnapshot[] {
     const rows = this.db
       .prepare('SELECT * FROM sessions ORDER BY created_at DESC LIMIT ?')

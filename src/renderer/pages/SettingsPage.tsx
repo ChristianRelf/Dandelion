@@ -6,76 +6,90 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react';
-import {
-  Cog,
-  KeyboardIcon,
-  MousePointerClick,
-  Palette,
-  Search,
-  Shield,
-  Sparkles,
-  SquareStack,
-} from 'lucide-react';
-import type { SearchEngine, Settings, SettingsPatch } from '@shared/types';
-import { COMMANDS, getCommand } from '@shared/constants';
-import { PageShell } from './PageShell';
+import { motion } from 'motion/react';
+import type {
+  AiProviderId,
+  CommandDescriptor,
+  SearchEngine,
+  Settings,
+  SettingsPatch,
+} from '@shared/types';
+import { COMMANDS } from '@shared/constants';
 import { Switch } from '../components/ui/Switch';
 import { Slider } from '../components/ui/Slider';
+import { Select } from '../components/ui/Select';
+import { SegmentedControl } from '../components/ui/SegmentedControl';
+import { SearchField } from '../components/ui/SearchField';
+import { Button } from '../components/ui/Button';
 import { Kbd } from '../components/ui/Kbd';
+import { Icon } from '../components/ui/Icon';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { Skeleton } from '../components/ui/Skeleton';
+import { toast } from '../stores/toast.store';
 import { trpc } from '../lib/trpc/client';
 import { useBrowserStore } from '../stores/browser.store';
+import { cn } from '../lib/cn';
 
-type Patch = (patch: SettingsPatch) => Promise<void>;
+type PatchFn = (patch: SettingsPatch) => Promise<void>;
 
-function Select<T extends string>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T;
-  options: Array<{ value: T; label: string }>;
-  onChange: (value: T) => void;
-}): ReactElement {
-  return (
-    <select
-      value={value}
-      onChange={(event) => onChange(event.target.value as T)}
-      className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-[13px] text-text outline-none"
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  );
-}
-
-function Row({
-  title,
-  description,
-  control,
-  search,
-}: {
+interface RowDef {
   title: string;
   description?: string;
+  /** Extra terms folded into search matching but never displayed. */
+  keywords?: string;
   control: ReactNode;
-  search: string;
-}): ReactElement | null {
-  if (search && !`${title} ${description ?? ''}`.toLowerCase().includes(search.toLowerCase())) {
-    return null;
-  }
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-line px-4 py-3 last:border-b-0">
-      <div className="min-w-0">
-        <p className="text-[13.5px] text-text">{title}</p>
-        {description && <p className="mt-0.5 text-xs text-muted">{description}</p>}
-      </div>
-      <div className="shrink-0">{control}</div>
-    </div>
-  );
 }
 
+interface SectionDef {
+  id: string;
+  label: string;
+  icon: string;
+  rows: RowDef[];
+}
+
+const SECTIONS_META = [
+  { id: 'appearance', label: 'Appearance', icon: 'palette' },
+  { id: 'behavior', label: 'Behaviour', icon: 'mouse-pointer-click' },
+  { id: 'tabs', label: 'Tabs', icon: 'square-stack' },
+  { id: 'search', label: 'Search', icon: 'search' },
+  { id: 'privacy', label: 'Privacy & Security', icon: 'shield' },
+  { id: 'ai', label: 'AI', icon: 'sparkles' },
+  { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'keyboard' },
+] as const;
+
+const ACCENT_PRESETS = [
+  '#f5c451',
+  '#f59e0b',
+  '#ef4444',
+  '#ec4899',
+  '#a855f7',
+  '#3b82f6',
+  '#14b8a6',
+  '#22c55e',
+];
+
+const KEY_SYMBOLS: Record<string, string> = {
+  CmdOrCtrl: '⌘',
+  Control: 'Ctrl',
+  ArrowUp: '↑',
+  ArrowDown: '↓',
+  ArrowLeft: '←',
+  ArrowRight: '→',
+  Backslash: '\\',
+  Plus: '+',
+  Minus: '−',
+  Comma: ',',
+  Escape: 'Esc',
+  Delete: 'Del',
+};
+
+/** Split an accelerator like `CmdOrCtrl+Shift+T` into display-ready key chips. */
+function displayTokens(keys: string): string[] {
+  if (!keys) return [];
+  return keys.split('+').map((token) => KEY_SYMBOLS[token] ?? token);
+}
+
+/** Build an Electron-style accelerator from a keyboard event, or `null`. */
 function acceleratorFromEvent(event: KeyboardEvent): string | null {
   const parts: string[] = [];
   if (event.metaKey || event.ctrlKey) parts.push('CmdOrCtrl');
@@ -87,653 +101,838 @@ function acceleratorFromEvent(event: KeyboardEvent): string | null {
   return parts.join('+');
 }
 
-const SECTIONS = [
-  { id: 'appearance', label: 'Appearance', icon: Palette },
-  { id: 'behavior', label: 'Behaviour', icon: MousePointerClick },
-  { id: 'tabs', label: 'Tabs', icon: SquareStack },
-  { id: 'search', label: 'Search', icon: Search },
-  { id: 'privacy', label: 'Privacy & Security', icon: Shield },
-  { id: 'ai', label: 'AI', icon: Sparkles },
-  { id: 'shortcuts', label: 'Shortcuts', icon: KeyboardIcon },
-] as const;
+function rowMatches(row: RowDef, query: string): boolean {
+  return `${row.title} ${row.description ?? ''} ${row.keywords ?? ''}`
+    .toLowerCase()
+    .includes(query);
+}
 
-function SectionCard({
-  id,
-  title,
-  children,
-}: {
-  id: string;
-  title: string;
-  children: ReactNode;
-}): ReactElement {
+/** A boolean row backed by a Switch. */
+function toggleRow(
+  title: string,
+  checked: boolean,
+  onCheckedChange: (value: boolean) => void,
+  extra?: { description?: string; keywords?: string },
+): RowDef {
+  return {
+    title,
+    description: extra?.description,
+    keywords: extra?.keywords,
+    control: <Switch checked={checked} onCheckedChange={onCheckedChange} />,
+  };
+}
+
+/** A numeric row backed by a Slider with a live formatted read-out. */
+function sliderRow(
+  title: string,
+  value: number,
+  min: number,
+  max: number,
+  onValueChange: (value: number) => void,
+  format: (value: number) => string,
+  extra?: { step?: number; description?: string; keywords?: string },
+): RowDef {
+  return {
+    title,
+    description: extra?.description,
+    keywords: extra?.keywords,
+    control: (
+      <div className="flex items-center gap-3">
+        <Slider
+          value={value}
+          min={min}
+          max={max}
+          step={extra?.step ?? 1}
+          onValueChange={onValueChange}
+        />
+        <span className="w-16 shrink-0 text-right text-xs text-muted tabular-nums">
+          {format(value)}
+        </span>
+      </div>
+    ),
+  };
+}
+
+function SettingsRow({ row }: { row: RowDef }): ReactElement {
   return (
-    <section id={`section-${id}`} className="mb-8 scroll-mt-4">
-      <h2 className="mb-2 px-1 text-[11px] font-semibold tracking-wide text-faint uppercase">
-        {title}
-      </h2>
-      <div className="overflow-hidden rounded-xl border border-line bg-surface">{children}</div>
+    <div
+      style={{ paddingBlock: 'var(--row-py)' }}
+      className="flex items-center justify-between gap-4 border-b border-line px-4 last:border-b-0"
+    >
+      <div className="min-w-0">
+        <p className="text-[13.5px] leading-snug text-text">{row.title}</p>
+        {row.description && (
+          <p className="mt-0.5 text-xs leading-relaxed text-muted">{row.description}</p>
+        )}
+      </div>
+      <div className="flex shrink-0 items-center justify-end">{row.control}</div>
+    </div>
+  );
+}
+
+function SettingsSection({ section }: { section: SectionDef }): ReactElement {
+  return (
+    <section id={`section-${section.id}`} data-section-id={section.id} className="scroll-mt-20">
+      <div className="mb-2.5 flex items-center gap-2 px-1">
+        <Icon name={section.icon} className="h-4 w-4 text-faint" strokeWidth={2} />
+        <h2 className="text-[13px] font-semibold tracking-tight text-text">{section.label}</h2>
+      </div>
+      <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-sm)]">
+        {section.rows.map((row) => (
+          <SettingsRow key={row.title} row={row} />
+        ))}
+      </div>
     </section>
   );
 }
 
-export function SettingsPage(): ReactElement {
-  const settings = useBrowserStore((state) => state.settings);
-  const patch = useBrowserStore((state) => state.patchSettings) as Patch;
+function AccentPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+}): ReactElement {
+  const current = value.toLowerCase();
+  return (
+    <div className="flex items-center gap-1.5">
+      {ACCENT_PRESETS.map((color) => {
+        const active = current === color;
+        return (
+          <button
+            key={color}
+            type="button"
+            aria-label={`Accent colour ${color}`}
+            aria-pressed={active}
+            onClick={() => onChange(color)}
+            style={{ backgroundColor: color }}
+            className={cn(
+              'h-5 w-5 rounded-full transition-transform hover:scale-110',
+              active
+                ? 'shadow-[0_0_0_2px_var(--bg-elevated),0_0_0_4px_var(--text)]'
+                : 'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]',
+            )}
+          />
+        );
+      })}
+      <label
+        title="Custom colour"
+        className="relative ml-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors hover:bg-surface-hover hover:text-text focus-within:ring-2 focus-within:ring-accent"
+      >
+        <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2} />
+        <input
+          type="color"
+          aria-label="Custom accent colour"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+        />
+      </label>
+    </div>
+  );
+}
+
+function ShortcutRow({
+  command,
+  keys,
+  onSet,
+}: {
+  command: CommandDescriptor;
+  keys: string;
+  onSet: (keys: string) => void;
+}): ReactElement {
+  const [recording, setRecording] = useState(false);
+  const defaultKeys = command.defaultKeys ?? '';
+  const isCustom = keys !== defaultKeys;
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
+    if (!recording) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === 'Escape') {
+      setRecording(false);
+      return;
+    }
+    const accelerator = acceleratorFromEvent(event);
+    if (accelerator) {
+      onSet(accelerator);
+      setRecording(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {isCustom && !recording && (
+        <Button variant="ghost" size="sm" onClick={() => onSet(defaultKeys)}>
+          Reset
+        </Button>
+      )}
+      <button
+        type="button"
+        onClick={() => setRecording(true)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => setRecording(false)}
+        aria-label={
+          recording
+            ? `Recording shortcut for ${command.title}. Press keys, or Escape to cancel.`
+            : `Change the shortcut for ${command.title}`
+        }
+        className={cn(
+          'inline-flex h-8 min-w-[112px] items-center justify-center gap-1 rounded-lg px-2.5',
+          'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent',
+          recording ? 'bg-accent-soft ring-1 ring-accent' : 'bg-surface hover:bg-surface-hover',
+        )}
+      >
+        {recording ? (
+          <span className="text-xs font-medium text-accent">Press keys…</span>
+        ) : (
+          displayTokens(keys).map((token, index) => <Kbd key={`${token}-${index}`}>{token}</Kbd>)
+        )}
+      </button>
+    </div>
+  );
+}
+
+function SettingsSkeleton(): ReactElement {
+  return (
+    <div className="flex h-full bg-bg text-text">
+      <nav className="flex w-56 shrink-0 flex-col gap-1.5 border-r border-line px-3 py-4">
+        <div className="mb-3 flex items-center gap-2.5 px-2">
+          <Skeleton className="h-7 w-7 rounded-lg" />
+          <Skeleton className="h-4 w-20" />
+        </div>
+        {Array.from({ length: 7 }).map((_, index) => (
+          <Skeleton key={index} className="h-9 w-full rounded-lg" />
+        ))}
+      </nav>
+      <div className="min-w-0 flex-1 overflow-hidden">
+        <div className="mx-auto max-w-2xl px-6 pt-8">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="mt-2 h-4 w-72" />
+          <Skeleton className="mt-6 h-[38px] w-full rounded-xl" />
+          <div className="mt-8 space-y-8">
+            {Array.from({ length: 2 }).map((_, section) => (
+              <div key={section}>
+                <Skeleton className="mb-2.5 h-4 w-28" />
+                <div className="space-y-4 rounded-2xl border border-line bg-surface p-4">
+                  {Array.from({ length: 4 }).map((_, row) => (
+                    <div key={row} className="flex items-center justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <Skeleton className="h-3.5 w-40" />
+                        <Skeleton className="h-3 w-56" />
+                      </div>
+                      <Skeleton className="h-[22px] w-[38px] rounded-full" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn }): ReactElement {
+  const s = settings;
   const [search, setSearch] = useState('');
   const [engines, setEngines] = useState<SearchEngine[]>([]);
   const [aiKey, setAiKey] = useState('');
-  const [recording, setRecording] = useState<string | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [savingKey, setSavingKey] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>(SECTIONS_META[0].id);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void trpc.search.listEngines.query().then(setEngines);
   }, []);
 
-  if (!settings)
-    return (
-      <PageShell title="Settings">
-        <div />
-      </PageShell>
-    );
-  const s: Settings = settings;
+  const saveApiKey = async (): Promise<void> => {
+    const key = aiKey.trim();
+    if (!key) return;
+    setSavingKey(true);
+    try {
+      await trpc.ai.configure.mutate({ providerId: s.ai.defaultProvider, apiKey: key });
+      toast.success('API key saved');
+      setAiKey('');
+    } catch {
+      toast.error('Could not save the API key');
+    } finally {
+      setSavingKey(false);
+    }
+  };
 
-  const scrollTo = (id: string): void => {
-    document
-      .getElementById(`section-${id}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const setShortcut = async (action: string, keys: string): Promise<void> => {
+    const next = await trpc.settings.setShortcut.mutate({ action, keys, enabled: true });
+    useBrowserStore.setState({ settings: next });
+  };
+
+  const resetAll = async (): Promise<void> => {
+    const next = await trpc.settings.reset.mutate();
+    useBrowserStore.setState({ settings: next });
+    toast.success('Settings reset');
+  };
+
+  const shortcutRows: RowDef[] = COMMANDS.filter((command) => command.defaultKeys).map((command) => {
+    const binding = s.shortcuts.find((entry) => entry.action === command.id);
+    const keys = binding?.keys ?? command.defaultKeys ?? '';
+    return {
+      title: command.title,
+      keywords: `${command.id} ${keys} ${displayTokens(keys).join(' ')}`,
+      control: (
+        <ShortcutRow
+          command={command}
+          keys={keys}
+          onSet={(next) => void setShortcut(command.id, next)}
+        />
+      ),
+    };
+  });
+
+  const sections: SectionDef[] = [
+    {
+      id: 'appearance',
+      label: 'Appearance',
+      icon: 'palette',
+      rows: [
+        {
+          title: 'Theme',
+          keywords: 'appearance dark light oled system colour scheme',
+          control: (
+            <SegmentedControl
+              aria-label="Theme"
+              value={s.appearance.themeMode}
+              onChange={(value) => void patch({ appearance: { themeMode: value } })}
+              options={[
+                { value: 'system', label: 'System', icon: 'monitor' },
+                { value: 'light', label: 'Light', icon: 'sun' },
+                { value: 'dark', label: 'Dark', icon: 'moon' },
+                { value: 'oled', label: 'OLED', icon: 'contrast' },
+              ]}
+            />
+          ),
+        },
+        {
+          title: 'Accent colour',
+          description: 'Used for highlights, controls, and focus rings.',
+          keywords: 'color colour accent highlight theme',
+          control: (
+            <AccentPicker
+              value={s.appearance.accentColor}
+              onChange={(color) => void patch({ appearance: { accentColor: color } })}
+            />
+          ),
+        },
+        toggleRow(
+          'Match workspace accent',
+          s.appearance.followWorkspaceAccent,
+          (value) => void patch({ appearance: { followWorkspaceAccent: value } }),
+          { description: 'Let the active workspace’s colour override the accent above.' },
+        ),
+        toggleRow(
+          'Transparency & glass',
+          s.appearance.transparency,
+          (value) => void patch({ appearance: { transparency: value } }),
+          { keywords: 'vibrancy acrylic blur translucent' },
+        ),
+        sliderRow(
+          'Blur intensity',
+          s.appearance.blurIntensity,
+          0,
+          100,
+          (value) => void patch({ appearance: { blurIntensity: value } }),
+          (value) => `${value}%`,
+          { keywords: 'glass backdrop' },
+        ),
+        sliderRow(
+          'Corner radius',
+          s.appearance.cornerRadius,
+          0,
+          24,
+          (value) => void patch({ appearance: { cornerRadius: value } }),
+          (value) => `${value}px`,
+          { keywords: 'rounding roundness corners' },
+        ),
+        sliderRow(
+          'Interface scale',
+          Math.round(s.appearance.uiScale * 100),
+          80,
+          140,
+          (value) => void patch({ appearance: { uiScale: value / 100 } }),
+          (value) => `${value}%`,
+          { step: 5, keywords: 'zoom size ui text' },
+        ),
+        {
+          title: 'Density',
+          keywords: 'comfortable compact spacing padding',
+          control: (
+            <SegmentedControl
+              aria-label="Density"
+              value={s.appearance.density}
+              onChange={(value) => void patch({ appearance: { density: value } })}
+              options={[
+                { value: 'comfortable', label: 'Comfortable' },
+                { value: 'compact', label: 'Compact' },
+              ]}
+            />
+          ),
+        },
+        toggleRow(
+          'Reduce motion',
+          s.appearance.reduceMotion,
+          (value) => void patch({ appearance: { reduceMotion: value } }),
+          { description: 'Minimise animations and transitions across the interface.' },
+        ),
+        toggleRow(
+          'Tab hover thumbnails',
+          s.appearance.showTabThumbnails,
+          (value) => void patch({ appearance: { showTabThumbnails: value } }),
+          { keywords: 'preview thumbnail' },
+        ),
+      ],
+    },
+    {
+      id: 'behavior',
+      label: 'Behaviour',
+      icon: 'mouse-pointer-click',
+      rows: [
+        {
+          title: 'On startup',
+          keywords: 'session restore launch open tabs',
+          control: (
+            <Select
+              aria-label="On startup"
+              value={s.behavior.restoreSession}
+              onChange={(value) => void patch({ behavior: { restoreSession: value } })}
+              options={[
+                { value: 'ask', label: 'Ask each time' },
+                { value: 'always', label: 'Restore previous tabs' },
+                { value: 'never', label: 'Open a fresh start' },
+              ]}
+            />
+          ),
+        },
+        {
+          title: 'Tab layout',
+          keywords: 'vertical horizontal sidebar strip',
+          control: (
+            <Select
+              aria-label="Tab layout"
+              value={s.behavior.defaultTabLayout}
+              onChange={(value) => void patch({ behavior: { defaultTabLayout: value } })}
+              options={[
+                { value: 'vertical', label: 'Vertical' },
+                { value: 'horizontal', label: 'Horizontal' },
+              ]}
+            />
+          ),
+        },
+        toggleRow(
+          'Ask where to save downloads',
+          s.behavior.askWhereToSaveDownloads,
+          (value) => void patch({ behavior: { askWhereToSaveDownloads: value } }),
+          { keywords: 'download location prompt folder' },
+        ),
+        toggleRow(
+          'Confirm closing multiple tabs',
+          s.behavior.confirmCloseMultipleTabs,
+          (value) => void patch({ behavior: { confirmCloseMultipleTabs: value } }),
+        ),
+        toggleRow(
+          'Warn when quitting with open tabs',
+          s.behavior.warnOnQuitWithTabs,
+          (value) => void patch({ behavior: { warnOnQuitWithTabs: value } }),
+          { keywords: 'quit exit close' },
+        ),
+      ],
+    },
+    {
+      id: 'tabs',
+      label: 'Tabs',
+      icon: 'square-stack',
+      rows: [
+        toggleRow(
+          'Sleep inactive tabs',
+          s.tabs.sleepEnabled,
+          (value) => void patch({ tabs: { sleepEnabled: value } }),
+          {
+            description: 'Free memory from tabs you haven’t used in a while.',
+            keywords: 'discard suspend memory performance',
+          },
+        ),
+        sliderRow(
+          'Sleep after',
+          s.tabs.sleepAfterMinutes,
+          5,
+          120,
+          (value) => void patch({ tabs: { sleepAfterMinutes: value } }),
+          (value) => `${value} min`,
+          { step: 5, keywords: 'timeout minutes idle inactivity' },
+        ),
+        toggleRow(
+          'Sleep pinned tabs',
+          s.tabs.sleepPinnedTabs,
+          (value) => void patch({ tabs: { sleepPinnedTabs: value } }),
+        ),
+        toggleRow(
+          'Hover previews',
+          s.tabs.hoverPreview,
+          (value) => void patch({ tabs: { hoverPreview: value } }),
+          { keywords: 'thumbnail peek preview' },
+        ),
+      ],
+    },
+    {
+      id: 'search',
+      label: 'Search',
+      icon: 'search',
+      rows: [
+        {
+          title: 'Default search engine',
+          keywords: 'google engine provider omnibox address bar',
+          control: (
+            <Select
+              aria-label="Default search engine"
+              value={s.search.defaultEngineId}
+              onChange={(value) => {
+                void trpc.search.setDefault.mutate({ engineId: value });
+                void patch({ search: { defaultEngineId: value } });
+              }}
+              options={engines.map((engine) => ({ value: engine.id, label: engine.name }))}
+            />
+          ),
+        },
+        toggleRow(
+          'Search suggestions',
+          s.search.searchSuggestions,
+          (value) => void patch({ search: { searchSuggestions: value } }),
+          { keywords: 'autocomplete suggest' },
+        ),
+        toggleRow(
+          'History suggestions',
+          s.search.showHistorySuggestions,
+          (value) => void patch({ search: { showHistorySuggestions: value } }),
+        ),
+        toggleRow(
+          'Bookmark suggestions',
+          s.search.showBookmarkSuggestions,
+          (value) => void patch({ search: { showBookmarkSuggestions: value } }),
+        ),
+        toggleRow(
+          'Calculator in address bar',
+          s.search.enableCalculator,
+          (value) => void patch({ search: { enableCalculator: value } }),
+          { keywords: 'math sum omnibox' },
+        ),
+        toggleRow(
+          'Unit conversion',
+          s.search.enableUnitConversion,
+          (value) => void patch({ search: { enableUnitConversion: value } }),
+          { keywords: 'convert units measurement' },
+        ),
+        toggleRow(
+          'Inline autocomplete',
+          s.search.inlineAutocomplete,
+          (value) => void patch({ search: { inlineAutocomplete: value } }),
+        ),
+      ],
+    },
+    {
+      id: 'privacy',
+      label: 'Privacy & Security',
+      icon: 'shield',
+      rows: [
+        toggleRow('Block ads', s.privacy.blockAds, (value) =>
+          void patch({ privacy: { blockAds: value } }),
+        ),
+        toggleRow('Block trackers', s.privacy.blockTrackers, (value) =>
+          void patch({ privacy: { blockTrackers: value } }),
+        ),
+        toggleRow(
+          'Block fingerprinting',
+          s.privacy.blockFingerprinting,
+          (value) => void patch({ privacy: { blockFingerprinting: value } }),
+        ),
+        toggleRow(
+          'Block third-party cookies',
+          s.privacy.blockThirdPartyCookies,
+          (value) => void patch({ privacy: { blockThirdPartyCookies: value } }),
+        ),
+        toggleRow(
+          'Upgrade to HTTPS',
+          s.privacy.httpsUpgrade,
+          (value) => void patch({ privacy: { httpsUpgrade: value } }),
+          { keywords: 'ssl tls secure connection' },
+        ),
+        toggleRow(
+          'Send Do Not Track',
+          s.privacy.doNotTrack,
+          (value) => void patch({ privacy: { doNotTrack: value } }),
+          { keywords: 'dnt' },
+        ),
+        toggleRow(
+          'Global Privacy Control',
+          s.privacy.globalPrivacyControl,
+          (value) => void patch({ privacy: { globalPrivacyControl: value } }),
+          { keywords: 'gpc opt out' },
+        ),
+        toggleRow(
+          'Secure DNS (DoH)',
+          s.privacy.secureDns.enabled,
+          (value) =>
+            void patch({ privacy: { secureDns: { ...s.privacy.secureDns, enabled: value } } }),
+          { keywords: 'doh dns over https encrypted resolver' },
+        ),
+        toggleRow('Safe Browsing', s.security.safeBrowsing, (value) =>
+          void patch({ security: { safeBrowsing: value } }),
+        ),
+        toggleRow('Scan downloads', s.security.scanDownloads, (value) =>
+          void patch({ security: { scanDownloads: value } }),
+        ),
+        toggleRow(
+          'Site isolation',
+          s.security.isolateSites,
+          (value) => void patch({ security: { isolateSites: value } }),
+          { keywords: 'sandbox process' },
+        ),
+      ],
+    },
+    {
+      id: 'ai',
+      label: 'AI',
+      icon: 'sparkles',
+      rows: [
+        toggleRow(
+          'Enable AI features',
+          s.ai.enabled,
+          (value) => void patch({ ai: { enabled: value } }),
+          { keywords: 'assistant llm copilot' },
+        ),
+        {
+          title: 'Provider',
+          keywords: 'anthropic openai google gemini local model',
+          control: (
+            <Select<AiProviderId>
+              aria-label="AI provider"
+              value={s.ai.defaultProvider}
+              onChange={(value) => void patch({ ai: { defaultProvider: value } })}
+              options={[
+                { value: 'anthropic', label: 'Anthropic' },
+                { value: 'openai', label: 'OpenAI' },
+                { value: 'google', label: 'Google Gemini' },
+                { value: 'local', label: 'Local model' },
+              ]}
+            />
+          ),
+        },
+        {
+          title: 'API key',
+          description: 'Stored encrypted with the OS keychain.',
+          keywords: 'token secret credentials',
+          control: (
+            <div className="flex items-center gap-2">
+              <input
+                type="password"
+                value={aiKey}
+                onChange={(event) => setAiKey(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') void saveApiKey();
+                }}
+                placeholder="sk-…"
+                aria-label="API key"
+                className="h-[var(--field-height)] w-44 rounded-lg border border-line bg-bg-elevated px-3 text-[13px] text-text transition-colors outline-none placeholder:text-faint focus:border-accent"
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                loading={savingKey}
+                disabled={!aiKey.trim()}
+                onClick={() => void saveApiKey()}
+              >
+                Save
+              </Button>
+            </div>
+          ),
+        },
+        toggleRow(
+          'Stream responses',
+          s.ai.streamResponses,
+          (value) => void patch({ ai: { streamResponses: value } }),
+          { keywords: 'streaming tokens live' },
+        ),
+      ],
+    },
+    {
+      id: 'shortcuts',
+      label: 'Keyboard Shortcuts',
+      icon: 'keyboard',
+      rows: shortcutRows,
+    },
+  ];
+
+  const query = search.trim().toLowerCase();
+  const filtered = query
+    ? sections
+        .map((section) => ({
+          ...section,
+          rows: section.rows.filter((row) => rowMatches(row, query)),
+        }))
+        .filter((section) => section.rows.length > 0)
+    : sections;
+
+  const visibleKey = filtered.map((section) => section.id).join(',');
+
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+    const ids = visibleKey ? visibleKey.split(',') : [];
+    if (ids.length === 0) return;
+
+    const intersecting = new Map<string, boolean>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = entry.target.getAttribute('data-section-id');
+          if (id) intersecting.set(id, entry.isIntersecting);
+        }
+        const next = ids.find((id) => intersecting.get(id));
+        if (next) setActiveSection(next);
+      },
+      { root, rootMargin: '-64px 0px -70% 0px', threshold: 0 },
+    );
+
+    for (const id of ids) {
+      const element = document.getElementById(`section-${id}`);
+      if (element) observer.observe(element);
+    }
+    return () => observer.disconnect();
+  }, [visibleKey]);
+
+  const scrollToSection = (id: string): void => {
+    setActiveSection(id);
+    document.getElementById(`section-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
-    <div className="flex h-full">
-      <nav className="w-52 shrink-0 border-r border-line p-3">
-        <div className="mb-3 flex items-center gap-2 px-2 text-[13px] font-medium">
-          <Cog className="h-4 w-4 text-accent" /> Settings
+    <div className="flex h-full bg-bg text-text">
+      <nav className="scrollbar-none flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-line px-3 py-4">
+        <div className="mb-3 flex items-center gap-2.5 px-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
+            <Icon name="settings" className="h-4 w-4" strokeWidth={2} />
+          </div>
+          <span className="text-[13px] font-semibold tracking-tight text-text">Settings</span>
         </div>
-        {SECTIONS.map((section) => (
-          <button
-            key={section.id}
-            type="button"
-            onClick={() => scrollTo(section.id)}
-            className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] text-muted transition-colors hover:bg-surface-hover hover:text-text"
-          >
-            <section.icon className="h-4 w-4" />
-            {section.label}
-          </button>
-        ))}
+        {filtered.map((section) => {
+          const active = section.id === activeSection;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => scrollToSection(section.id)}
+              aria-current={active ? 'page' : undefined}
+              className={cn(
+                'relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors',
+                active ? 'text-text' : 'text-muted hover:bg-surface-hover hover:text-text',
+              )}
+            >
+              {active && (
+                <motion.span
+                  layoutId="settings-nav-pill"
+                  transition={{ type: 'spring', stiffness: 550, damping: 40 }}
+                  className="absolute inset-0 rounded-lg bg-surface-active"
+                />
+              )}
+              <Icon
+                name={section.icon}
+                className={cn('relative h-4 w-4 shrink-0', active && 'text-accent')}
+                strokeWidth={2}
+              />
+              <span className="relative truncate">{section.label}</span>
+            </button>
+          );
+        })}
       </nav>
 
-      <div ref={contentRef} className="scrollbar-slim min-w-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-2xl px-6 py-8">
-          <div className="mb-6 flex items-center gap-2 rounded-xl border border-line bg-surface px-3">
-            <Search className="h-4 w-4 text-faint" />
-            <input
+      <div ref={scrollRef} className="scrollbar-slim min-w-0 flex-1 overflow-y-auto">
+        <header>
+          <div className="mx-auto flex max-w-2xl items-start gap-4 px-6 pt-8 pb-5">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[22px] font-semibold tracking-tight text-text">Settings</h1>
+              <p className="mt-1 text-[13px] text-muted">
+                Manage how Dandelion looks, behaves, and protects you.
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon="rotate-ccw"
+              onClick={() => setConfirmReset(true)}
+            >
+              Reset to defaults
+            </Button>
+          </div>
+        </header>
+
+        <div className="glass sticky top-0 z-20 border-b border-line">
+          <div className="mx-auto max-w-2xl px-6 py-3">
+            <SearchField
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={setSearch}
               placeholder="Search settings"
-              className="flex-1 bg-transparent py-2.5 text-sm text-text outline-none placeholder:text-faint"
+              aria-label="Search settings"
             />
           </div>
+        </div>
 
-          <SectionCard id="appearance" title="Appearance">
-            <Row
-              search={search}
-              title="Theme"
-              control={
-                <Select
-                  value={s.appearance.themeMode}
-                  onChange={(value) => void patch({ appearance: { themeMode: value } })}
-                  options={[
-                    { value: 'system', label: 'System' },
-                    { value: 'light', label: 'Light' },
-                    { value: 'dark', label: 'Dark' },
-                    { value: 'oled', label: 'OLED' },
-                  ]}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Accent colour"
-              control={
-                <input
-                  type="color"
-                  value={s.appearance.accentColor}
-                  onChange={(event) =>
-                    void patch({ appearance: { accentColor: event.target.value } })
-                  }
-                  className="h-7 w-12 cursor-pointer rounded border border-line bg-transparent"
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Match workspace accent"
-              control={
-                <Switch
-                  checked={s.appearance.followWorkspaceAccent}
-                  onCheckedChange={(value) =>
-                    void patch({ appearance: { followWorkspaceAccent: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Transparency & glass"
-              control={
-                <Switch
-                  checked={s.appearance.transparency}
-                  onCheckedChange={(value) => void patch({ appearance: { transparency: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Blur intensity"
-              control={
-                <Slider
-                  value={s.appearance.blurIntensity}
-                  min={0}
-                  max={100}
-                  onValueChange={(value) => void patch({ appearance: { blurIntensity: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Corner radius"
-              control={
-                <Slider
-                  value={s.appearance.cornerRadius}
-                  min={0}
-                  max={24}
-                  onValueChange={(value) => void patch({ appearance: { cornerRadius: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Interface scale"
-              control={
-                <Slider
-                  value={Math.round(s.appearance.uiScale * 100)}
-                  min={80}
-                  max={140}
-                  step={5}
-                  onValueChange={(value) => void patch({ appearance: { uiScale: value / 100 } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Density"
-              control={
-                <Select
-                  value={s.appearance.density}
-                  onChange={(value) => void patch({ appearance: { density: value } })}
-                  options={[
-                    { value: 'comfortable', label: 'Comfortable' },
-                    { value: 'compact', label: 'Compact' },
-                  ]}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Reduce motion"
-              control={
-                <Switch
-                  checked={s.appearance.reduceMotion}
-                  onCheckedChange={(value) => void patch({ appearance: { reduceMotion: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Tab hover thumbnails"
-              control={
-                <Switch
-                  checked={s.appearance.showTabThumbnails}
-                  onCheckedChange={(value) =>
-                    void patch({ appearance: { showTabThumbnails: value } })
-                  }
-                />
-              }
-            />
-          </SectionCard>
-
-          <SectionCard id="behavior" title="Behaviour">
-            <Row
-              search={search}
-              title="On startup"
-              control={
-                <Select
-                  value={s.behavior.restoreSession}
-                  onChange={(value) => void patch({ behavior: { restoreSession: value } })}
-                  options={[
-                    { value: 'ask', label: 'Ask' },
-                    { value: 'always', label: 'Restore tabs' },
-                    { value: 'never', label: 'Fresh start' },
-                  ]}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Tab layout"
-              control={
-                <Select
-                  value={s.behavior.defaultTabLayout}
-                  onChange={(value) => void patch({ behavior: { defaultTabLayout: value } })}
-                  options={[
-                    { value: 'vertical', label: 'Vertical' },
-                    { value: 'horizontal', label: 'Horizontal' },
-                  ]}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Ask where to save downloads"
-              control={
-                <Switch
-                  checked={s.behavior.askWhereToSaveDownloads}
-                  onCheckedChange={(value) =>
-                    void patch({ behavior: { askWhereToSaveDownloads: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Confirm closing multiple tabs"
-              control={
-                <Switch
-                  checked={s.behavior.confirmCloseMultipleTabs}
-                  onCheckedChange={(value) =>
-                    void patch({ behavior: { confirmCloseMultipleTabs: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Warn when quitting with open tabs"
-              control={
-                <Switch
-                  checked={s.behavior.warnOnQuitWithTabs}
-                  onCheckedChange={(value) =>
-                    void patch({ behavior: { warnOnQuitWithTabs: value } })
-                  }
-                />
-              }
-            />
-          </SectionCard>
-
-          <SectionCard id="tabs" title="Tabs">
-            <Row
-              search={search}
-              title="Sleep inactive tabs"
-              description="Free memory from tabs you haven't used"
-              control={
-                <Switch
-                  checked={s.tabs.sleepEnabled}
-                  onCheckedChange={(value) => void patch({ tabs: { sleepEnabled: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Sleep after (minutes)"
-              control={
-                <Slider
-                  value={s.tabs.sleepAfterMinutes}
-                  min={5}
-                  max={120}
-                  step={5}
-                  onValueChange={(value) => void patch({ tabs: { sleepAfterMinutes: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Sleep pinned tabs"
-              control={
-                <Switch
-                  checked={s.tabs.sleepPinnedTabs}
-                  onCheckedChange={(value) => void patch({ tabs: { sleepPinnedTabs: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Hover previews"
-              control={
-                <Switch
-                  checked={s.tabs.hoverPreview}
-                  onCheckedChange={(value) => void patch({ tabs: { hoverPreview: value } })}
-                />
-              }
-            />
-          </SectionCard>
-
-          <SectionCard id="search" title="Search">
-            <Row
-              search={search}
-              title="Default search engine"
-              control={
-                <Select
-                  value={s.search.defaultEngineId}
-                  onChange={(value) => {
-                    void trpc.search.setDefault.mutate({ engineId: value });
-                    void patch({ search: { defaultEngineId: value } });
-                  }}
-                  options={engines.map((engine) => ({ value: engine.id, label: engine.name }))}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Search suggestions"
-              control={
-                <Switch
-                  checked={s.search.searchSuggestions}
-                  onCheckedChange={(value) => void patch({ search: { searchSuggestions: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="History suggestions"
-              control={
-                <Switch
-                  checked={s.search.showHistorySuggestions}
-                  onCheckedChange={(value) =>
-                    void patch({ search: { showHistorySuggestions: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Bookmark suggestions"
-              control={
-                <Switch
-                  checked={s.search.showBookmarkSuggestions}
-                  onCheckedChange={(value) =>
-                    void patch({ search: { showBookmarkSuggestions: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Calculator in address bar"
-              control={
-                <Switch
-                  checked={s.search.enableCalculator}
-                  onCheckedChange={(value) => void patch({ search: { enableCalculator: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Unit conversion"
-              control={
-                <Switch
-                  checked={s.search.enableUnitConversion}
-                  onCheckedChange={(value) =>
-                    void patch({ search: { enableUnitConversion: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Inline autocomplete"
-              control={
-                <Switch
-                  checked={s.search.inlineAutocomplete}
-                  onCheckedChange={(value) => void patch({ search: { inlineAutocomplete: value } })}
-                />
-              }
-            />
-          </SectionCard>
-
-          <SectionCard id="privacy" title="Privacy & Security">
-            <Row
-              search={search}
-              title="Block ads"
-              control={
-                <Switch
-                  checked={s.privacy.blockAds}
-                  onCheckedChange={(value) => void patch({ privacy: { blockAds: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Block trackers"
-              control={
-                <Switch
-                  checked={s.privacy.blockTrackers}
-                  onCheckedChange={(value) => void patch({ privacy: { blockTrackers: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Block fingerprinting"
-              control={
-                <Switch
-                  checked={s.privacy.blockFingerprinting}
-                  onCheckedChange={(value) =>
-                    void patch({ privacy: { blockFingerprinting: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Block third-party cookies"
-              control={
-                <Switch
-                  checked={s.privacy.blockThirdPartyCookies}
-                  onCheckedChange={(value) =>
-                    void patch({ privacy: { blockThirdPartyCookies: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Upgrade to HTTPS"
-              control={
-                <Switch
-                  checked={s.privacy.httpsUpgrade}
-                  onCheckedChange={(value) => void patch({ privacy: { httpsUpgrade: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Send Do Not Track"
-              control={
-                <Switch
-                  checked={s.privacy.doNotTrack}
-                  onCheckedChange={(value) => void patch({ privacy: { doNotTrack: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Global Privacy Control"
-              control={
-                <Switch
-                  checked={s.privacy.globalPrivacyControl}
-                  onCheckedChange={(value) =>
-                    void patch({ privacy: { globalPrivacyControl: value } })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Secure DNS (DoH)"
-              control={
-                <Switch
-                  checked={s.privacy.secureDns.enabled}
-                  onCheckedChange={(value) =>
-                    void patch({
-                      privacy: { secureDns: { ...s.privacy.secureDns, enabled: value } },
-                    })
-                  }
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Safe Browsing"
-              control={
-                <Switch
-                  checked={s.security.safeBrowsing}
-                  onCheckedChange={(value) => void patch({ security: { safeBrowsing: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Scan downloads"
-              control={
-                <Switch
-                  checked={s.security.scanDownloads}
-                  onCheckedChange={(value) => void patch({ security: { scanDownloads: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Site isolation"
-              control={
-                <Switch
-                  checked={s.security.isolateSites}
-                  onCheckedChange={(value) => void patch({ security: { isolateSites: value } })}
-                />
-              }
-            />
-          </SectionCard>
-
-          <SectionCard id="ai" title="AI">
-            <Row
-              search={search}
-              title="Enable AI features"
-              control={
-                <Switch
-                  checked={s.ai.enabled}
-                  onCheckedChange={(value) => void patch({ ai: { enabled: value } })}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="Provider"
-              control={
-                <Select
-                  value={s.ai.defaultProvider}
-                  onChange={(value) => void patch({ ai: { defaultProvider: value } })}
-                  options={[
-                    { value: 'anthropic', label: 'Anthropic' },
-                    { value: 'openai', label: 'OpenAI' },
-                    { value: 'google', label: 'Google Gemini' },
-                    { value: 'local', label: 'Local model' },
-                  ]}
-                />
-              }
-            />
-            <Row
-              search={search}
-              title="API key"
-              description="Stored encrypted with the OS keychain"
-              control={
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    value={aiKey}
-                    onChange={(event) => setAiKey(event.target.value)}
-                    placeholder="sk-…"
-                    className="w-40 rounded-lg border border-line bg-bg-elevated px-2.5 py-1.5 text-[13px] text-text outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void trpc.ai.configure.mutate({
-                        providerId: s.ai.defaultProvider,
-                        apiKey: aiKey,
-                      });
-                      setAiKey('');
-                    }}
-                    className="rounded-lg bg-accent px-3 text-[13px] font-medium text-accent-fg"
-                  >
-                    Save
-                  </button>
-                </div>
-              }
-            />
-            <Row
-              search={search}
-              title="Stream responses"
-              control={
-                <Switch
-                  checked={s.ai.streamResponses}
-                  onCheckedChange={(value) => void patch({ ai: { streamResponses: value } })}
-                />
-              }
-            />
-          </SectionCard>
-
-          <SectionCard id="shortcuts" title="Keyboard Shortcuts">
-            {COMMANDS.filter((command) => command.defaultKeys).map((command) => {
-              const binding = s.shortcuts.find((entry) => entry.action === command.id);
-              const isRecording = recording === command.id;
-              return (
-                <Row
-                  key={command.id}
-                  search={search}
-                  title={command.title}
-                  control={
-                    <button
-                      type="button"
-                      onClick={() => setRecording(command.id)}
-                      onKeyDown={(event) => {
-                        if (!isRecording) return;
-                        event.preventDefault();
-                        const accelerator = acceleratorFromEvent(event);
-                        if (accelerator) {
-                          void trpc.settings.setShortcut
-                            .mutate({ action: command.id, keys: accelerator, enabled: true })
-                            .then((next) => useBrowserStore.setState({ settings: next }));
-                          setRecording(null);
-                        }
-                      }}
-                      className="min-w-24 rounded-lg border border-line bg-surface px-2 py-1 text-center outline-none focus:border-accent"
-                    >
-                      {isRecording ? (
-                        <span className="text-xs text-accent">Press keys…</span>
-                      ) : (
-                        <Kbd>
-                          {(binding?.keys ?? getCommand(command.id)?.defaultKeys ?? '')
-                            .replace('CmdOrCtrl', '⌘')
-                            .replace(/\+/g, ' ')}
-                        </Kbd>
-                      )}
-                    </button>
-                  }
-                />
-              );
-            })}
-          </SectionCard>
+        <div className="mx-auto max-w-2xl px-6 pt-6 pb-[32vh]">
+          {filtered.length === 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.18 }}
+              className="flex flex-col items-center justify-center rounded-2xl border border-line bg-surface px-6 py-20 text-center"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface-active text-faint">
+                <Icon name="search-x" className="h-5 w-5" />
+              </div>
+              <p className="mt-4 text-sm font-medium text-text">
+                No settings match “{search.trim()}”
+              </p>
+              <p className="mt-1 text-[13px] text-muted">
+                Try a different term, or clear the search to see everything.
+              </p>
+              <Button variant="secondary" size="sm" className="mt-5" onClick={() => setSearch('')}>
+                Clear search
+              </Button>
+            </motion.div>
+          ) : (
+            <div className="space-y-8">
+              {filtered.map((section) => (
+                <SettingsSection key={section.id} section={section} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmReset}
+        onOpenChange={setConfirmReset}
+        title="Reset all settings?"
+        description="Every setting returns to its default value. Your bookmarks, history, and open tabs are not affected."
+        confirmLabel="Reset settings"
+        destructive
+        onConfirm={() => void resetAll()}
+      />
     </div>
   );
+}
+
+export function SettingsPage(): ReactElement {
+  const settings = useBrowserStore((state) => state.settings);
+  const patch = useBrowserStore((state) => state.patchSettings);
+
+  if (!settings) return <SettingsSkeleton />;
+  return <SettingsBody settings={settings} patch={patch} />;
 }
