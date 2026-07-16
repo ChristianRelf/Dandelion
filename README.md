@@ -139,7 +139,8 @@ Dandelion is honest about what it isn't yet:
   page names other real-Chromium embedders too.
 - Sync is local-only; there is no sync backend yet.
 - The AI assistant needs your own API key — none ship with the app.
-- See [TODO.md](TODO.md) for the tracked list of rough edges.
+- See [Work/BUGS.md](Work/BUGS.md) for known defects, and [Work/TODO.md](Work/TODO.md) for planned
+  work.
 
 ## Documentation
 
