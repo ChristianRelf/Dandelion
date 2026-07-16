@@ -62,7 +62,7 @@ code.
 
 - [x] Full history page
 - [x] Search history
-- [ ] Delete by day
+- [x] Delete by day
 - [x] Recently visited
 
 ## Bookmarks
