@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react';
 import { History, Trash2 } from 'lucide-react';
-import { format, isToday, isYesterday } from 'date-fns';
+import { endOfDay, format, isToday, isYesterday, startOfDay } from 'date-fns';
 import type { HistoryEntry } from '@shared/types';
 import { getHostname, prettifyUrl } from '@shared/utils';
 import { PageShell } from './PageShell';
@@ -23,6 +23,17 @@ function dayLabel(timestamp: number): string {
   if (isToday(date)) return 'Today';
   if (isYesterday(date)) return 'Yesterday';
   return format(date, 'EEEE, d MMMM');
+}
+
+/**
+ * A day's worth of history. `from`/`to` bound the same day the rows are grouped
+ * by, so deleting the range removes exactly what the group displays.
+ */
+interface DayGroup {
+  label: string;
+  from: number;
+  to: number;
+  items: HistoryEntry[];
 }
 
 /** Skeleton placeholders shown during the first load. */
@@ -52,6 +63,7 @@ export function HistoryPage(): ReactElement {
   const [query, setQuery] = useState('');
   const [debounced, setDebounced] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [dayToDelete, setDayToDelete] = useState<DayGroup | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebounced(query), 150);
@@ -73,14 +85,23 @@ export function HistoryPage(): ReactElement {
   );
 
   const groups = useMemo(() => {
-    const map = new Map<string, HistoryEntry[]>();
+    const map = new Map<number, DayGroup>();
     for (const entry of entries) {
-      const label = dayLabel(entry.lastVisitedAt);
-      const list = map.get(label) ?? [];
-      list.push(entry);
-      map.set(label, list);
+      const day = startOfDay(new Date(entry.lastVisitedAt));
+      const from = day.getTime();
+      let group = map.get(from);
+      if (!group) {
+        group = {
+          label: dayLabel(entry.lastVisitedAt),
+          from,
+          to: endOfDay(day).getTime(),
+          items: [],
+        };
+        map.set(from, group);
+      }
+      group.items.push(entry);
     }
-    return [...map.entries()];
+    return [...map.values()].sort((a, b) => b.from - a.from);
   }, [entries]);
 
   const openUrl = (url: string): void => {
@@ -109,6 +130,20 @@ export function HistoryPage(): ReactElement {
         reload();
       })
       .catch(() => toast.error('Failed to clear history'));
+  };
+
+  const deleteDay = (group: DayGroup): void => {
+    if (!profile) return;
+    const count = group.items.length;
+    void trpc.history.delete
+      .mutate({ profileId: profile.id, from: group.from, to: group.to })
+      .then(() => {
+        toast.success(`Cleared ${group.label.toLowerCase()}`, {
+          description: `${count} ${count === 1 ? 'page' : 'pages'} removed`,
+        });
+        reload();
+      })
+      .catch(() => toast.error(`Failed to clear ${group.label.toLowerCase()}`));
   };
 
   function renderBody(): ReactElement {
@@ -145,13 +180,23 @@ export function HistoryPage(): ReactElement {
 
     return (
       <div className="space-y-6">
-        {groups.map(([label, items]) => (
-          <section key={label}>
-            <h2 className="sticky top-0 z-10 mb-2 bg-bg/85 py-2 text-[11px] font-semibold tracking-wider text-faint uppercase backdrop-blur-sm">
-              {label}
-            </h2>
+        {groups.map((group) => (
+          <section key={group.from}>
+            <div className="group sticky top-0 z-10 mb-2 flex items-center justify-between gap-2 bg-bg/85 py-2 backdrop-blur-sm">
+              <h2 className="text-[11px] font-semibold tracking-wider text-faint uppercase">
+                {group.label}
+              </h2>
+              <IconButton
+                size="sm"
+                aria-label={`Delete all history from ${group.label}`}
+                className="opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 focus-visible:opacity-100"
+                onClick={() => setDayToDelete(group)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </IconButton>
+            </div>
             <ListContainer>
-              {items.map((entry) => {
+              {group.items.map((entry) => {
                 const hasTitle = Boolean(entry.title.trim());
                 const primary = hasTitle ? entry.title : prettifyUrl(entry.url);
                 return (
@@ -220,6 +265,27 @@ export function HistoryPage(): ReactElement {
         confirmLabel="Clear history"
         destructive
         onConfirm={clearAll}
+      />
+
+      <ConfirmDialog
+        open={dayToDelete !== null}
+        onOpenChange={(open) => {
+          if (!open) setDayToDelete(null);
+        }}
+        title={`Clear ${dayToDelete?.label.toLowerCase() ?? 'this day'}?`}
+        description={
+          dayToDelete
+            ? `This permanently removes ${dayToDelete.items.length} ${
+                dayToDelete.items.length === 1 ? 'page' : 'pages'
+              } visited ${dayToDelete.label.toLowerCase()}. This can't be undone.`
+            : ''
+        }
+        confirmLabel="Clear day"
+        destructive
+        onConfirm={() => {
+          if (dayToDelete) deleteDay(dayToDelete);
+          setDayToDelete(null);
+        }}
       />
     </PageShell>
   );
