@@ -154,6 +154,23 @@ export const useBrowserStore = create<BrowserStore>((set, get) => ({
   },
 }));
 
+const NO_SPLIT: string[] = [];
+
+/**
+ * Tabs tiled side-by-side in this window. Split state is owned by the main
+ * process and arrives on `window:state`, so this stays correct across a
+ * renderer reload. A shared empty array keeps the reference stable for
+ * subscribers while no window state has been hydrated.
+ */
+export function selectSplitTabIds(state: BrowserStore): string[] {
+  return state.windowState?.splitTabIds ?? NO_SPLIT;
+}
+
+/** Whether this window is currently showing a split. */
+export function selectSplitActive(state: BrowserStore): boolean {
+  return selectSplitTabIds(state).length >= 2;
+}
+
 /** Tabs of the active workspace, ordered and split into pinned/regular. */
 export function selectOrderedTabs(state: BrowserStore): Tab[] {
   return Object.values(state.tabs)

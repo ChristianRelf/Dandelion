@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron';
 import type {
+  SplitOrientation,
   TabId,
   WindowBounds,
   WindowChromeState,
@@ -21,6 +22,8 @@ export class DandelionWindow {
   sidebarCollapsed = false;
   /** Tabs shown side-by-side in split view (empty when not split). */
   splitTabIds: TabId[] = [];
+  /** Axis {@link splitTabIds} are arranged along. Sticky, so re-splitting keeps the last choice. */
+  splitOrientation: SplitOrientation = 'vertical';
   /**
    * When true, active tab web content is hidden so full-window chrome overlays
    * (command palette, omnibox results, modals) render unobstructed — producing
@@ -54,6 +57,8 @@ export class DandelionWindow {
       activeTabId: this.activeTabId,
       tabLayout: this.tabLayout,
       sidebarCollapsed: this.sidebarCollapsed,
+      splitTabIds: [...this.splitTabIds],
+      splitOrientation: this.splitOrientation,
     };
   }
 }

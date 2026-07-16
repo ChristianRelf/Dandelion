@@ -1,7 +1,7 @@
 import { DEFAULT_ACCENT, INTERNAL_PAGES } from '@shared/constants';
 import { trpc } from './trpc/client';
 import { nextGroupColor } from './tab-colors';
-import { selectOrderedTabs, useBrowserStore } from '../stores/browser.store';
+import { selectOrderedTabs, selectSplitActive, useBrowserStore } from '../stores/browser.store';
 import { useUiStore } from '../stores/ui.store';
 import { useReaderStore } from '../stores/reader.store';
 import { toast } from '../stores/toast.store';
@@ -78,25 +78,28 @@ function viewSource(): void {
   }
 }
 
+/**
+ * Split the active tab against its nearest sibling, or exit an active split.
+ * Main owns the split, so there is nothing to update locally — the resulting
+ * `window:state` event carries the new arrangement back to the store.
+ */
 function toggleSplitView(): void {
-  const ui = useUiStore.getState();
   const browser = useBrowserStore.getState();
-  if (ui.splitTabIds.length >= 2) {
+  if (selectSplitActive(browser)) {
     void trpc.tabs.clearSplit.mutate();
-    ui.setSplitTabIds([]);
     return;
   }
-  const ordered = selectOrderedTabs(browser);
   const active = browser.activeTabId;
-  const other = ordered.find((tab) => tab.id !== active);
-  if (active && other) {
-    void trpc.tabs.setSplit.mutate({
-      windowId: browser.windowId,
-      tabIds: [active, other.id],
-      orientation: 'vertical',
-    });
-    ui.setSplitTabIds([active, other.id]);
+  const other = selectOrderedTabs(browser).find((tab) => tab.id !== active);
+  if (!active || !other) {
+    toast.show('Split view needs a second tab');
+    return;
   }
+  void trpc.tabs.setSplit.mutate({
+    windowId: browser.windowId,
+    tabIds: [active, other.id],
+    orientation: 'vertical',
+  });
 }
 
 export async function openInternalPage(url: string): Promise<void> {
