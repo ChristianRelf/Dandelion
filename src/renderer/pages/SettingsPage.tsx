@@ -547,6 +547,16 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           (value) => void patch({ behavior: { warnOnQuitWithTabs: value } }),
           { keywords: 'quit exit close' },
         ),
+        toggleRow(
+          'Automatic updates',
+          s.behavior.automaticUpdates,
+          (value) => void patch({ behavior: { automaticUpdates: value } }),
+          {
+            description:
+              'Check GitHub for new versions in the background and download them ready to install. Updates are only applied when you restart.',
+            keywords: 'update upgrade version release',
+          },
+        ),
       ],
     },
     {

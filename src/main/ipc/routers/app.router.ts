@@ -66,6 +66,9 @@ export const appRoutes = router({
   recentlyClosed: publicProcedure.query(({ ctx }) => ctx.app.tabs.recentlyClosedTabs()),
 
   checkForUpdates: publicProcedure.mutation(({ ctx }) => ctx.app.updates.check()),
+  /** The version downloaded and waiting, or null. Survives a renderer reload. */
+  pendingUpdate: publicProcedure.query(({ ctx }) => ctx.app.updates.pendingVersion()),
+  installUpdate: publicProcedure.mutation(({ ctx }) => ctx.app.updates.install()),
 });
 
 export const windowRoutes = router({

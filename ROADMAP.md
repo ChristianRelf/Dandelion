@@ -111,7 +111,7 @@ code.
 - [x] Two tabs side by side
 - [x] Vertical split
 - [x] Horizontal split
-- [ ] Resize divider
+- [x] Resize divider
 - [ ] Drag tabs between splits
 
 ## Workspaces

@@ -5,6 +5,7 @@ import { useDownloadsStore } from '../stores/downloads.store';
 import { useAiStore } from '../stores/ai.store';
 import { useReaderStore } from '../stores/reader.store';
 import { selectContentDimmed, useUiStore } from '../stores/ui.store';
+import { useUpdateStore } from '../stores/update.store';
 import { onBrowserEvent } from '../lib/events';
 import { applyAppearance, watchSystemTheme } from '../lib/theme';
 import { handleUiCommand } from '../lib/commands';
@@ -63,10 +64,18 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
           const reader = useReaderStore.getState();
           if (reader.tabId === event.tab.id && event.tab.status === 'loading') reader.close();
         }
+        if (event.type === 'app:update-downloaded') {
+          useUpdateStore.getState().setReady(event.version);
+        }
         if (event.type === 'app:command') handleUiCommand(event.commandId);
       }),
     [],
   );
+
+  // An update may already have been downloaded before this window opened.
+  useEffect(() => {
+    void useUpdateStore.getState().hydrate();
+  }, []);
 
   useEffect(() => {
     if (settings && accent) applyAppearance(settings, accent);

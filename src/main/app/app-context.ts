@@ -131,7 +131,7 @@ export class AppContext {
       (tabId) => this.tabs.getPageContext(tabId),
     );
     this.sync = new SyncService(this.repos, this.logger.child('sync'));
-    this.updates = new UpdateService(this.events, this.logger.child('update'));
+    this.updates = new UpdateService(this.events, this.logger.child('update'), this.settings);
     this.extensions = new ExtensionsService(
       this.sessions,
       this.profiles,
@@ -145,6 +145,7 @@ export class AppContext {
     const workspace = this.workspaces.ensureDefault(profile.id);
     this.sessions.applySecureDns();
     this.sessions.getSession(profile);
+    this.updates.start();
     this.logger.info(`bootstrapped profile "${profile.name}" / workspace "${workspace.name}"`);
     return { profile, workspace };
   }
@@ -237,6 +238,7 @@ export class AppContext {
   }
 
   shutdown(): void {
+    this.updates.stop();
     try {
       this.saveSession('shutdown');
     } catch (error) {

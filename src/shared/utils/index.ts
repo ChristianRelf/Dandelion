@@ -5,3 +5,4 @@ export * from './calculator';
 export * from './units';
 export * from './debounce';
 export * from './timezone';
+export * from './split';

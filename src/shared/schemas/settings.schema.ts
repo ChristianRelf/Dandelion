@@ -24,6 +24,7 @@ const behaviorSchema = z.object({
   defaultTabLayout: z.enum(['vertical', 'horizontal']),
   confirmCloseMultipleTabs: z.boolean(),
   warnOnQuitWithTabs: z.boolean(),
+  automaticUpdates: z.boolean(),
 });
 
 const tabsSchema = z.object({

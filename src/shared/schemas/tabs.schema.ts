@@ -51,6 +51,12 @@ export const splitViewInput = z.object({
   orientation: z.enum(['horizontal', 'vertical']).default('vertical'),
 });
 
+export const splitRatioInput = z.object({
+  windowId: zId,
+  /** Share of the content area for the first pane; clamped by the main process. */
+  ratio: z.number().gt(0).lt(1),
+});
+
 export const findInPageInput = z.object({
   tabId: zId,
   query: z.string(),

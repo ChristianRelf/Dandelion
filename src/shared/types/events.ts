@@ -50,6 +50,8 @@ export type BrowserEvent =
   | { type: 'find:result'; result: FindResult }
   | { type: 'ai:chunk'; chunk: AiStreamChunk }
   | { type: 'app:update-available'; version: string }
+  /** A new version is on disk and will be applied on the next restart. */
+  | { type: 'app:update-downloaded'; version: string }
   | { type: 'app:command'; commandId: string };
 
 export type BrowserEventType = BrowserEvent['type'];

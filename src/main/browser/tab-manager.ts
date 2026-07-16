@@ -12,7 +12,13 @@ import type {
   VisitTransition,
 } from '@shared/types';
 import { INTERNAL_PAGES, isInternalUrl, LIMITS } from '@shared/constants';
-import { createId, getHostname, prettifyUrl } from '@shared/utils';
+import {
+  clampSplitRatio,
+  createId,
+  getHostname,
+  prettifyUrl,
+  splitPaneBounds,
+} from '@shared/utils';
 import type { Repositories } from '../storage';
 import type { PersistedTab } from '../storage';
 import type { EventBus } from '../core/event-bus';
@@ -464,6 +470,22 @@ export class TabManager {
     this.deps.windows.broadcastState(dandelionWindow);
   }
 
+  /**
+   * Resize a two-pane split. Called for every frame of a divider drag, so it
+   * lays out immediately and skips the broadcast when the clamped ratio has not
+   * actually moved — at the limits a drag would otherwise re-broadcast an
+   * identical state on every pointer move.
+   */
+  setSplitRatio(windowId: string, ratio: number): void {
+    const dandelionWindow = this.deps.windows.get(windowId);
+    if (!dandelionWindow || dandelionWindow.splitTabIds.length < 2) return;
+    const next = clampSplitRatio(ratio);
+    if (next === dandelionWindow.splitRatio) return;
+    dandelionWindow.splitRatio = next;
+    this.layout(windowId);
+    this.deps.windows.broadcastState(dandelionWindow);
+  }
+
   /* ------------------------------------------------------------------ *
    * Find in page, capture
    * ------------------------------------------------------------------ */
@@ -703,27 +725,18 @@ export class TabManager {
 
     const splitIds = dandelionWindow.splitTabIds;
     if (splitIds.length >= 2) {
-      const orientation = dandelionWindow.splitOrientation;
-      const count = splitIds.length;
+      const rects = splitPaneBounds(
+        bounds,
+        splitIds.length,
+        dandelionWindow.splitOrientation,
+        dandelionWindow.splitRatio,
+      );
       splitIds.forEach((tabId, i) => {
         const live = this.tabs.get(tabId);
-        if (!live?.view) return;
-        const rect =
-          orientation === 'vertical'
-            ? {
-                x: round(bounds.x + (i * bounds.width) / count),
-                y: round(bounds.y),
-                width: round(bounds.width / count),
-                height: round(bounds.height),
-              }
-            : {
-                x: round(bounds.x),
-                y: round(bounds.y + (i * bounds.height) / count),
-                width: round(bounds.width),
-                height: round(bounds.height / count),
-              };
-        live.view!.setBounds(rect);
-        live.view!.setVisible(true);
+        const rect = rects[i];
+        if (!live?.view || !rect) return;
+        live.view.setBounds(rect);
+        live.view.setVisible(true);
       });
       return;
     }

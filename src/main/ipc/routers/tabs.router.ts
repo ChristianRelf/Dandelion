@@ -11,6 +11,7 @@ import {
   reorderTabsInput,
   setMutedInput,
   setPinnedInput,
+  splitRatioInput,
   splitViewInput,
   stopFindInput,
   tabRef,
@@ -109,6 +110,10 @@ export const tabRoutes = router({
 
   setSplit: publicProcedure.input(splitViewInput).mutation(({ ctx, input }) => {
     ctx.app.tabs.setSplit(input.windowId, input.tabIds, input.orientation);
+    return true;
+  }),
+  setSplitRatio: publicProcedure.input(splitRatioInput).mutation(({ ctx, input }) => {
+    ctx.app.tabs.setSplitRatio(input.windowId, input.ratio);
     return true;
   }),
   clearSplit: publicProcedure.mutation(({ ctx }) => {
