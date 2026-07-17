@@ -90,8 +90,6 @@ Linux keyring not yet unlocked — real across restarts) makes `buffer.toString(
 **binary garbage rather than throw**, and that garbage is sent as the API key → an opaque 401. The
 reverse order at least throws and is caught.
 
-## Tabs & windows
-
 ## Downloads
 
 ### P2 · Confirmed · Downloads restored from disk present live controls that do nothing, silently
@@ -109,15 +107,6 @@ nor "Clear browsing data → downloads" will remove it. Only "Remove from list" 
 
 **Reproduction.** Start a large download, quit mid-transfer, relaunch, open Downloads: a permanently
 "downloading" row with an enabled Pause/Cancel that do nothing at all, with no feedback.
-
-### P3 · Confirmed · `openFile` / `showInFolder` discard the failure
-
-`shell.openPath` resolves to `''` on success or an **error message** on failure;
-[downloads.service.ts](../src/main/services/downloads.service.ts) does `void shell.openPath(...)`,
-throwing it away. The router returns `true` regardless, so the renderer's `.catch(() =>
-toast.error('Could not open file'))` can never run. Clicking Open on a download whose file was moved
-or deleted does nothing whatsoever — no error, no log. Directly contradicts the repo's "never
-silently ignore errors" rule.
 
 ### P3 · Confirmed · Every progress tick does an unthrottled synchronous write + read-back
 
@@ -154,18 +143,6 @@ everything. That needs a migration, which is why it is not folded into the reten
 injection — but `%` and `_` stay wildcards. Searching history for `50%` matches every entry
 containing "50"; searching `_` matches every non-empty row.
 
-## Extensions
-
-### P2 · Confirmed · A disabled extension can never be removed
-
-`setEnabled(id, false)` moves the extension into the in-memory `disabled` map and unloads it.
-`remove(id)` only calls `session.extensions.removeExtension(id)` — a no-op for something already
-unloaded — and nothing deletes the `disabled` entry
-([extensions.service.ts](../src/main/services/extensions.service.ts)). `list()` unions the session's
-extensions with `this.disabled`, so it reappears forever. Needs `this.disabled.delete(id)`. Distinct
-from the known "disabled set is in-memory / not reloaded on boot" limitation — this one breaks
-**within** a single session.
-
 ## Chrome & UI
 
 ### P2 · Confirmed · Tab escapes the command palette and tab switcher, then Escape stops working
@@ -184,33 +161,11 @@ A defect rather than unbuilt work: the sibling `Omnibox` — same overlay patter
 Tab and restores focus on close, and the Radix dialogs are trapped correctly. These two are the
 outliers.
 
-### P2 · Confirmed · `workspace.switcher` is a dead command
-
-`case 'workspace.switcher': ui.openPalette()`. The palette renders only "Commands" and "Open Tabs" —
-it has no workspace list. From the palette itself, `onSelect` runs `dispatchCommand(id)` then
-`close()`, so `openPalette()` sets `paletteOpen: true` and `closePalette()` immediately sets it back:
-**net effect, the palette just closes**. Via `⌘⌥S` it opens the generic palette, which cannot switch
-workspaces. Not unbuilt work — workspaces _are_ switchable via `WorkspaceBar`; the command is
-mis-wired.
-
 ### P2 · Confirmed · The rounded content frame doesn't clip the native `WebContentsView`
 
 Web pages render square-cornered inside the rounded frame
 ([ContentArea.tsx](../src/renderer/components/chrome/ContentArea.tsx)). Round the native view in the
 main process, or accept and document it.
-
-### P3 · Confirmed · `SessionsDialog` swallows its error state
-
-It destructures `{ status, data, reload }` and never `error`, branching on `loading` and `ready` only,
-though `useAsyncData` has a first-class `'error'` status. If `sessions.list` rejects, the dialog
-renders its header and "Save current" over a blank body — no message, no retry. Every other consumer
-handles it; this is the sole outlier.
-
-### P3 · Confirmed · History/Bookmarks panels render "nothing here" when the query fails
-
-Both branch loading → empty and never `status === 'error'`, and `useAsyncData` returns `data: []` on
-rejection, so the empty branch wins. A failed fetch is indistinguishable from a genuinely empty list —
-"No history yet" shown to a user who has history.
 
 ### P3 · Confirmed · TitleBar tooltips advertise the wrong modifier
 

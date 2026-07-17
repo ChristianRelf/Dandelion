@@ -95,5 +95,9 @@ export class ExtensionsService {
 
   remove(id: string): void {
     this.session()?.extensions.removeExtension(id);
+    // `list()` unions the session's extensions with `disabled`, so a disabled
+    // one is unloaded and `removeExtension` no-ops for it — leaving the entry
+    // here to resurrect it on every list, forever, with no way to get rid of it.
+    this.disabled.delete(id);
   }
 }

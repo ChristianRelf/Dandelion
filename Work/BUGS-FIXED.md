@@ -9,6 +9,54 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P2 · A disabled extension could never be removed
+
+`setEnabled(id, false)` unloads the extension from the session and parks it in the in-memory
+`disabled` map. `remove(id)` only called `session.extensions.removeExtension(id)` — a no-op for
+something already unloaded — and nothing deleted the parked entry. `list()` unions the session's
+extensions with `disabled`, so it reappeared **forever**, with no way to get rid of it from the UI.
+One line: `remove` deletes the entry too. Pinned by `tests/unit/extensions-service.test.ts`, which
+covers the disabled-then-removed order that was broken.
+
+### P2 · `workspace.switcher` was a dead command
+
+`case 'workspace.switcher': ui.openPalette()` — and the palette rendered only "Commands" and "Open
+Tabs", with no workspace list to open onto. From inside the palette it was worse: `onSelect` ran
+`dispatchCommand(id)` and **then** `close()`, so `openPalette()` set `paletteOpen: true` and
+`closePalette()` immediately set it back. The net effect was that the palette just closed.
+
+**Fix.** The palette gains a **Workspaces** group (shown when there is more than one), so the thing
+the command names now exists. `openPalette` takes an optional query, mirroring `openOmnibox`'s
+`initialValue`, and the command seeds it with `workspace` so `⌘⌥S` opens scoped to that group rather
+than the full command list.
+
+The ordering half is fixed generally rather than special-cased: `onSelect` **closes first, then
+dispatches**. A command may open something, and closing afterwards undoes it. This was the only
+command that opened the palette, but the next one would have hit the same wall.
+
+### P3 · `openFile` / `showInFolder` discarded the failure
+
+`shell.openPath` **resolves** to an error message rather than rejecting — an empty string means
+success — and the service did `void shell.openPath(...)`, throwing the only report away. The router
+returned `true` regardless, so the renderer's `.catch(() => toast.error('Could not open file'))` was
+**dead code**. Clicking Open on a download whose file had been moved or deleted did nothing
+whatsoever: no error, no log. Directly against the repo's "never silently ignore errors" rule.
+
+**Fix.** `openFile` is async and throws the failure; the router awaits it. The renderer needed no
+change at all — its error path was already written, just unreachable. `showInFolder` reports nothing
+even on failure, so it checks the file exists first and throws the one failure that is detectable,
+rather than silently doing nothing.
+
+### P3 · `SessionsDialog` swallowed its error state, and the History/Bookmarks panels lied
+
+`SessionsDialog` destructured `{ status, data, reload }` and never `error`, branching on `loading` and
+`ready` only — so a rejected `sessions.list` rendered the header and "Save current" over a blank body.
+The History and Bookmarks **panels** branch loading → empty and never `error`, and `useAsyncData`
+returns `data: []` on rejection — so the empty branch won and a failed fetch was indistinguishable
+from an empty list: "No history yet", shown to someone who has history.
+
+All three now render an error state with a retry, matching what every page already did.
+
 ### P2 · `Ctrl+Shift+T` from a different workspace silently emptied the tab strip
 
 Close a tab in workspace A, switch to B, press `Ctrl+Shift+T`. The page materialised and rendered,

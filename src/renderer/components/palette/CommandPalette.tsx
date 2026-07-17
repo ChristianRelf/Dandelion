@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import { useState, type ReactElement } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Command } from 'cmdk';
 import { COMMANDS, getCommand } from '@shared/constants';
@@ -9,7 +9,9 @@ import { Favicon } from '../ui/Favicon';
 import { EmptyState } from '../ui/EmptyState';
 import { dispatchCommand } from '../../lib/commands';
 import { trpc } from '../../lib/trpc/client';
+import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../../stores/ui.store';
+import { useBrowserStore } from '../../stores/browser.store';
 import { useOrderedTabs } from '../../hooks/useBrowser';
 
 const paletteCommands = COMMANDS.filter((command) => command.palette);
@@ -33,11 +35,20 @@ const itemClass =
 /** Palette body — only mounted while open, so the tab list isn't computed when closed. */
 function PaletteBody({ close }: { close: () => void }): ReactElement {
   const tabs = useOrderedTabs();
+  const workspaces = useBrowserStore(useShallow((state) => state.workspaces));
+  const activeWorkspaceId = useBrowserStore((state) => state.activeWorkspaceId);
+  const switchWorkspace = useBrowserStore((state) => state.switchWorkspace);
+  // The body only mounts while open, so the seed is the initial value of a
+  // normal controlled input rather than something to sync.
+  const [query, setQuery] = useState(() => useUiStore.getState().paletteInitialQuery);
+
   return (
     <Command loop className="flex flex-col">
       <div className="border-b border-line px-4">
         <Command.Input
           autoFocus
+          value={query}
+          onValueChange={setQuery}
           placeholder="Type a command or search…"
           className="w-full bg-transparent py-3.5 text-[15px] text-text outline-none placeholder:text-faint"
         />
@@ -54,9 +65,12 @@ function PaletteBody({ close }: { close: () => void }): ReactElement {
               <Command.Item
                 key={command.id}
                 value={`${command.title} ${command.keywords?.join(' ') ?? ''}`}
+                // Close first: a command may open something, and closing after
+                // would undo it. `workspace.switcher` re-opens the palette
+                // seeded, and dispatching first made it close itself.
                 onSelect={() => {
-                  dispatchCommand(command.id);
                   close();
+                  dispatchCommand(command.id);
                 }}
                 className={itemClass}
               >
@@ -67,6 +81,28 @@ function PaletteBody({ close }: { close: () => void }): ReactElement {
             );
           })}
         </Command.Group>
+
+        {workspaces.length > 1 && (
+          <Command.Group heading="Workspaces" className={groupHeading}>
+            {workspaces.map((workspace) => (
+              <Command.Item
+                key={workspace.id}
+                value={`workspace space ${workspace.name}`}
+                onSelect={() => {
+                  void switchWorkspace(workspace.id);
+                  close();
+                }}
+                className={itemClass}
+              >
+                <Icon name={workspace.icon || 'layers'} className="h-4 w-4 shrink-0" />
+                <span className="flex-1 truncate">{workspace.name}</span>
+                {workspace.id === activeWorkspaceId && (
+                  <span className="text-xs text-faint">Current</span>
+                )}
+              </Command.Item>
+            ))}
+          </Command.Group>
+        )}
 
         {tabs.length > 0 && (
           <Command.Group heading="Open Tabs" className={groupHeading}>
