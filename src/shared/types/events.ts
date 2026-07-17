@@ -49,6 +49,8 @@ export type BrowserEvent =
   | { type: 'vault:state'; state: VaultState }
   | { type: 'shield:report'; tabId: TabId; report: ShieldReport }
   | { type: 'find:result'; result: FindResult }
+  /** A URL's bookmarked state moved, however it was reached. */
+  | { type: 'bookmark:changed'; profileId: string; url: string; bookmarked: boolean }
   | { type: 'ai:chunk'; chunk: AiStreamChunk }
   /** Providers and their `configured` flag, whenever a key or endpoint changes. */
   | { type: 'ai:providers'; providers: AiProviderInfo[] }

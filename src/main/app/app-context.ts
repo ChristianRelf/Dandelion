@@ -75,7 +75,7 @@ export class AppContext {
     this.profiles = new ProfileService(this.repos);
     this.workspaces = new WorkspaceService(this.repos, this.events);
     this.history = new HistoryService(this.repos);
-    this.bookmarks = new BookmarksService(this.repos);
+    this.bookmarks = new BookmarksService(this.repos, this.events);
     this.search = new SearchService(this.repos, this.settings);
 
     this.privacy = new PrivacyService(this.settings, this.logger.child('privacy'));

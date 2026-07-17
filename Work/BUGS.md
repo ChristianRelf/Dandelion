@@ -238,37 +238,6 @@ by `idx_history_visits`; only `prefixMatch` is affected.
 injection — but `%` and `_` stay wildcards. Searching history for `50%` matches every entry
 containing "50"; searching `_` matches every non-empty row.
 
-## Bookmarks
-
-### P1 · Confirmed · The bookmark star never reflects `⌘D` or the command palette
-
-`⌘D` reaches `toggleBookmarkActive()`, which mutates the DB and returns. There is **no** `bookmark:*`
-event in [events.ts](../src/shared/types/events.ts), and the Toolbar's `bookmarked` state only
-refreshes via an effect keyed on `[profileId, canBookmark, tab, tab?.url]` — none of which change
-when a bookmark toggles. Its only other update path is the optimistic `setBookmarked(v => !v)` in the
-star's own `onClick`.
-
-**Reproduction.** Press `⌘D` → the bookmark is saved, the star stays hollow, no toast, zero feedback.
-Press `⌘D` again → the bookmark is silently **removed**. Mixing inputs inverts the indicator: click
-the star (optimistic → filled), then `⌘D` (removes it, star stays filled) → the star now claims
-bookmarked on an unbookmarked page.
-
-**Secondary.** The effect depends on the whole `tab` object, so it refires an `isBookmarked` IPC
-query on every `tab:updated` (title, favicon, status) during page load, and an in-flight response can
-clobber the optimistic toggle.
-
-### P2 · Confirmed · Bookmark import never decodes HTML entities, corrupting every URL with a query string
-
-`exportHtml` escapes the href — `escape(bookmark.url)` turns `&` into `&amp;` — but `importHtml`
-reads the capture group raw ([bookmarks.service.ts](../src/main/services/bookmarks.service.ts)), so
-`https://example.com/?a=1&amp;b=2` is stored verbatim. Titles are equally affected: `escape` also
-encodes `<`, `>`, `"`, and the import only strips tags, never decodes entities.
-
-Dandelion's **own** export → import round-trip breaks any URL with more than one query parameter and
-mangles any title containing `&` into `Tips &amp; Tricks`. Chrome and Firefox escape hrefs the same
-way, so importing a real browser's bookmark file corrupts those URLs too. Imports are silent, so the
-damage only shows when a link is clicked.
-
 ## Extensions
 
 ### P2 · Confirmed · A disabled extension can never be removed
