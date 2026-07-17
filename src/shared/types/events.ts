@@ -6,6 +6,7 @@ import type { Workspace } from './workspace';
 import type { VaultState } from './vault';
 import type { PermissionType, ShieldReport } from './privacy';
 import type { AiStreamChunk } from './ai';
+import type { UpdateStatus } from './update';
 
 export interface PermissionRequest {
   id: string;
@@ -49,9 +50,8 @@ export type BrowserEvent =
   | { type: 'shield:report'; tabId: TabId; report: ShieldReport }
   | { type: 'find:result'; result: FindResult }
   | { type: 'ai:chunk'; chunk: AiStreamChunk }
-  | { type: 'app:update-available'; version: string }
-  /** A new version is on disk and will be applied on the next restart. */
-  | { type: 'app:update-downloaded'; version: string }
+  /** The whole updater state, whenever any of it moves. */
+  | { type: 'app:update-status'; status: UpdateStatus }
   | { type: 'app:command'; commandId: string };
 
 export type BrowserEventType = BrowserEvent['type'];

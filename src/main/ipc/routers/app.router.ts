@@ -66,8 +66,8 @@ export const appRoutes = router({
   recentlyClosed: publicProcedure.query(({ ctx }) => ctx.app.tabs.recentlyClosedTabs()),
 
   checkForUpdates: publicProcedure.mutation(({ ctx }) => ctx.app.updates.check()),
-  /** The version downloaded and waiting, or null. Survives a renderer reload. */
-  pendingUpdate: publicProcedure.query(({ ctx }) => ctx.app.updates.pendingVersion()),
+  /** The updater's whole state. Survives a renderer reload. */
+  updateStatus: publicProcedure.query(({ ctx }) => ctx.app.updates.status()),
   installUpdate: publicProcedure.mutation(({ ctx }) => ctx.app.updates.install()),
 });
 

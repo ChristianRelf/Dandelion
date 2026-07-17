@@ -16,6 +16,7 @@ export * from './search';
 export * from './omnibox';
 export * from './ai';
 export * from './sync';
+export * from './update';
 export * from './settings';
 export * from './command';
 export * from './events';
