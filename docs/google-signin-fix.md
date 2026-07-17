@@ -26,12 +26,12 @@ spoofed.
 
 Google sign-in relies on cookies crossing registrable-domain boundaries:
 
-| Flow | Cross-site request that was stripped |
-| --- | --- |
-| Signed-in state on YouTube | `youtube.com` → `google.com` / `accounts.google.com` |
-| Gmail data / API auth | `mail.google.com` → `googleapis.com` (SAPISID auth) |
-| "Sign in with Google" / One Tap | any site → `accounts.google.com` iframe |
-| OAuth / GIS token acquisition | embedder → `accounts.google.com` / `apis.google.com` |
+| Flow                            | Cross-site request that was stripped                 |
+| ------------------------------- | ---------------------------------------------------- |
+| Signed-in state on YouTube      | `youtube.com` → `google.com` / `accounts.google.com` |
+| Gmail data / API auth           | `mail.google.com` → `googleapis.com` (SAPISID auth)  |
+| "Sign in with Google" / One Tap | any site → `accounts.google.com` iframe              |
+| OAuth / GIS token acquisition   | embedder → `accounts.google.com` / `apis.google.com` |
 
 Because these are different registrable domains, `isThirdParty` classified them
 as third-party and the shield sent them cookieless — so Google never saw the
@@ -60,14 +60,14 @@ The audit confirmed the following were **not** the problem and were left as-is:
 
 ## Changes made
 
-| File | Change | Why |
-| --- | --- | --- |
-| `src/main/services/privacy/google-auth-domains.ts` _(new)_ | `GOOGLE_AUTH_DOMAINS` list + `isGoogleAuthUrl(url)` | Single source of truth for "this request is Google sign-in infrastructure". |
-| `src/main/services/privacy/third-party.ts` | `shouldStripCookies` returns `false` for `isGoogleAuthUrl(requestUrl)` | Lets Google's cross-domain SSO cookies flow (both `Cookie` and `Set-Cookie`, since both directions call this one function). |
-| `src/main/services/privacy/privacy.service.ts` | Skip the block-engine match when `isGoogleAuthUrl(url)` | Guarantees a Google auth request is never cancelled, even if a user-loaded hosts/EasyList blocklist would match it. |
-| `src/main/browser/session-manager.ts` | Opt-in `traceAuthCookies` (env `DANDELION_AUTH_DEBUG=1`) + debug-log the applied UA | Diagnostics: see exactly which Google cookies are stored/dropped, with SameSite/Secure flags, and confirm the UA. |
-| `tests/unit/google-auth-domains.test.ts` _(new)_ | Unit tests for `isGoogleAuthUrl` (incl. look-alike domains) | Prevent `notgoogle.com`/suffix-confusion regressions. |
-| `tests/unit/third-party.test.ts` | Added "Google sign-in exemption" cases | Lock in that Google cookies survive while non-Google trackers are still stripped on Google pages. |
+| File                                                       | Change                                                                              | Why                                                                                                                         |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/main/services/privacy/google-auth-domains.ts` _(new)_ | `GOOGLE_AUTH_DOMAINS` list + `isGoogleAuthUrl(url)`                                 | Single source of truth for "this request is Google sign-in infrastructure".                                                 |
+| `src/main/services/privacy/third-party.ts`                 | `shouldStripCookies` returns `false` for `isGoogleAuthUrl(requestUrl)`              | Lets Google's cross-domain SSO cookies flow (both `Cookie` and `Set-Cookie`, since both directions call this one function). |
+| `src/main/services/privacy/privacy.service.ts`             | Skip the block-engine match when `isGoogleAuthUrl(url)`                             | Guarantees a Google auth request is never cancelled, even if a user-loaded hosts/EasyList blocklist would match it.         |
+| `src/main/browser/session-manager.ts`                      | Opt-in `traceAuthCookies` (env `DANDELION_AUTH_DEBUG=1`) + debug-log the applied UA | Diagnostics: see exactly which Google cookies are stored/dropped, with SameSite/Secure flags, and confirm the UA.           |
+| `tests/unit/google-auth-domains.test.ts` _(new)_           | Unit tests for `isGoogleAuthUrl` (incl. look-alike domains)                         | Prevent `notgoogle.com`/suffix-confusion regressions.                                                                       |
+| `tests/unit/third-party.test.ts`                           | Added "Google sign-in exemption" cases                                              | Lock in that Google cookies survive while non-Google trackers are still stripped on Google pages.                           |
 
 ### Exempt domains
 
@@ -162,3 +162,44 @@ blob). `data:` and other schemes stay denied, matching Chromium's own top-level
 navigation rules.
 
 Both are covered by `tests/unit/tab-window-open.test.ts`.
+
+## Follow-up: v0.2.12 — the "This browser or app may not be secure" block
+
+**Symptom.** Sign-in still ended on Google's _"Couldn't sign you in — This browser
+or app may not be secure"_ page, even though the UA string presented as stock
+Chrome and cookies now flowed.
+
+**Cause.** The UA string was only half of the browser's advertised identity.
+Chromium **also** announces its brand through **User-Agent Client Hints**, and
+there it still told on itself: the default `Sec-CH-UA` carries an `"Electron"`
+brand and **never** `"Google Chrome"`. So a server saw `Chrome/138…` in
+`User-Agent` while the client hints said Electron — and that UA↔hints mismatch is
+one of the signals Google's sign-in uses to flag a browser as "may not be
+secure". Stripping the UA string alone never reached the hints, so the block
+survived every fix above.
+
+**Fix.** `src/shared/utils/client-hints.ts` (new) rewrites the
+`Sec-CH-UA` / `Sec-CH-UA-Full-Version-List` brand lists on every outgoing request
+(wired into the existing `onBeforeSendHeaders` filter in
+`privacy.service.ts`) so the hints tell the same stock-Chrome story the UA does:
+
+- the `"Electron"` brand is dropped;
+- a `"Google Chrome"` brand is added, mirroring the version Chromium already
+  stamped on its own `"Chromium"` brand — **no version is invented**;
+- the greased `"Not A Brand"` entry (whose purpose is to be unpredictable) is
+  left untouched.
+
+It is anchored to Chromium's real reported version, so `Sec-CH-UA` (major) and
+`Sec-CH-UA-Full-Version-List` (full) each come out consistent with the UA, and
+the transform is idempotent. Applied to every request, not just Google's, so the
+identity is consistent everywhere — the same reasoning as the always-on UA strip,
+and it removes a fingerprinting mismatch rather than adding one.
+
+Covered by `tests/unit/client-hints.test.ts`.
+
+**What this does and does not promise.** It clears the specific "may not be
+secure" block that the UA↔hints mismatch triggers. It does **not** claim to defeat
+every server-side embedded-browser heuristic Google may apply — if Google gates a
+flow by other means (enterprise SSO policy, WebAuthn edge cases, or a future
+detection), that remains outside the browser's control, exactly as noted below in
+`Work/BUGS.md`.
