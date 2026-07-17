@@ -1,6 +1,7 @@
 import type BetterSqlite3 from 'better-sqlite3';
 import { up as up001 } from './001_init';
 import { up as up002 } from './002_reading_list';
+import { up as up003 } from './003_notes';
 
 export interface Migration {
   version: number;
@@ -12,4 +13,5 @@ export interface Migration {
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, name: 'init', up: up001 },
   { version: 2, name: 'reading_list', up: up002 },
+  { version: 3, name: 'notes', up: up003 },
 ];

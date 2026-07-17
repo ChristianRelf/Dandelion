@@ -9,6 +9,7 @@ export * from './workspace';
 export * from './profile';
 export * from './browsing';
 export * from './reading-list';
+export * from './notes';
 export * from './privacy';
 export * from './vault';
 export * from './window';

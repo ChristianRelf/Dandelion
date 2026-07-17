@@ -20,6 +20,7 @@ import { WorkspaceService } from '../services/workspace.service';
 import { HistoryService } from '../services/history.service';
 import { BookmarksService } from '../services/bookmarks.service';
 import { ReadingListService } from '../services/reading-list.service';
+import { NotesService } from '../services/notes.service';
 import { SearchService } from '../services/search.service';
 import { PermissionsService } from '../services/permissions.service';
 import { DownloadsService } from '../services/downloads.service';
@@ -56,6 +57,7 @@ export class AppContext {
   readonly history: HistoryService;
   readonly bookmarks: BookmarksService;
   readonly readingList: ReadingListService;
+  readonly notes: NotesService;
   readonly search: SearchService;
   readonly permissions: PermissionsService;
   readonly downloads: DownloadsService;
@@ -88,6 +90,7 @@ export class AppContext {
     this.history = new HistoryService(this.repos);
     this.bookmarks = new BookmarksService(this.repos, this.events);
     this.readingList = new ReadingListService(this.repos);
+    this.notes = new NotesService(this.repos);
     this.search = new SearchService(this.repos, this.settings);
 
     this.privacy = new PrivacyService(this.settings, this.logger.child('privacy'));
