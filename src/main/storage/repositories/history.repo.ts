@@ -171,9 +171,10 @@ export class HistoryRepository {
     this.db.prepare('DELETE FROM history_entries WHERE profile_id = ?').run(profileId);
   }
 
-  pruneOlderThan(profileId: string, cutoff: number): void {
-    this.db
+  /** Returns the number of entries deleted. `history_visits` cascades with them. */
+  pruneOlderThan(profileId: string, cutoff: number): number {
+    return this.db
       .prepare('DELETE FROM history_entries WHERE profile_id = ? AND last_visited_at < ?')
-      .run(profileId, cutoff);
+      .run(profileId, cutoff).changes;
   }
 }

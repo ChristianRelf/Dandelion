@@ -159,9 +159,37 @@ export class AppContext {
     const workspace = this.workspaces.ensureDefault(profile.id);
     this.sessions.applySecureDns();
     this.sessions.getSession(profile);
+    this.pruneHistory();
     this.updates.start();
     this.logger.info(`bootstrapped profile "${profile.name}" / workspace "${workspace.name}"`);
     return { profile, workspace };
+  }
+
+  /**
+   * Apply the retention window to every profile. `HistoryService.prune` existed
+   * and was correct; nothing had ever called it, so `LIMITS.historyRetentionDays`
+   * was a documented policy the browser did not enforce and history grew for the
+   * life of the install.
+   *
+   * Boot is the moment: it is the one point where the cost is invisible and no
+   * navigation is waiting on the main process. A long-running window will not
+   * prune until it next starts, which is a bounded overshoot rather than the
+   * unbounded growth this replaces.
+   */
+  private pruneHistory(): void {
+    for (const profile of this.profiles.list()) {
+      try {
+        const removed = this.history.prune(profile.id);
+        if (removed > 0) {
+          this.logger.info(
+            `pruned ${removed} history entries older than ${LIMITS.historyRetentionDays}d from "${profile.name}"`,
+          );
+        }
+      } catch (error) {
+        // Retention is housekeeping — never let it stop the browser opening.
+        this.logger.warn(`failed to prune history for "${profile.name}"`, error);
+      }
+    }
   }
 
   openWindow(): DandelionWindow {

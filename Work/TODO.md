@@ -91,6 +91,19 @@ together because the honest options are the same for each: **build it, or stop a
 
 ---
 
+## Built, but nothing consumes it
+
+- [ ] **P2** **`history_visits` is write-only.** `recordVisit()` inserts a row per navigation — with
+      `visited_at`, `transition`, `referrer_visit_id`, `duration_ms` — and **no query anywhere reads
+      the table**. It carries an index that grows with it. Retention now bounds it (v0.2.2f: entries
+      prune at 90 days and visits follow via `ON DELETE CASCADE`), so it is no longer unbounded
+      growth, but it is still a per-navigation write nothing consumes. Not dead code so much as an
+      unbuilt consumer — and the consumer is worth building: the History page groups by
+      `history_entries.last_visited_at`, which holds **one row per URL**, so a site visited on Monday
+      and Friday appears only under Friday. Chrome shows it under both, because Chrome reads its
+      visits table. Building that view is the honest resolution; dropping the table is the other, and
+      loses the transition/referrer data permanently. Decide before the table gets larger.
+
 ## Latent, not currently reachable
 
 - [ ] **P3** `wireWebContents` captures `profile` in a closure at materialise time

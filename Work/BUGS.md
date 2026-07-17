@@ -206,30 +206,22 @@ already holds every field it just wrote.
 
 ## History & storage
 
-### P1 · Confirmed · History grows without bound; the documented 90-day retention never runs
-
-Two independent causes, same outcome:
-
-1. **`HistoryService.prune()` is dead code.** Its JSDoc says "called periodically"; nothing calls it.
-   `LIMITS.historyRetentionDays = 90` is referenced only from inside the function that never runs —
-   the retention policy is documented but unenforced.
-2. **`history_visits` is write-only.** `recordVisit()` inserts a row per navigation
-   ([history.repo.ts](../src/main/storage/repositories/history.repo.ts)) and **no query ever reads
-   the table**. Rows leave only via `ON DELETE CASCADE`. It carries an index that grows alongside it.
-
-Every navigation appends a permanent row plus index entry to a table nothing consumes, and neither
-table is ever pruned. For a daily driver this becomes the largest table in `dandelion.db` while
-providing zero value — and it compounds the next entry.
-
 ### P2 · Confirmed · The omnibox full-scans and sorts all history on every keystroke
 
 [history.repo.ts](../src/main/storage/repositories/history.repo.ts) orders by a **computed
 expression** (`visit_count * 2 + typed_count * 5`), which no index can satisfy, and the `OR title LIKE
 @prefix` disjunction defeats any prefix range-scan on the `UNIQUE(profile_id, url)` index. SQLite
 scans every row for the profile, evaluates the expression per row, and builds a temp B-tree — to
-`LIMIT 4`. It runs **synchronously on the main process per keystroke** (90 ms debounce), bounded only
-by how much history exists, which per the entry above is unbounded. `topSites()` is correctly served
-by `idx_history_visits`; only `prefixMatch` is affected.
+`LIMIT 4`. It runs **synchronously on the main process per keystroke** (90 ms debounce).
+`topSites()` is correctly served by `idx_history_visits`; only `prefixMatch` is affected.
+
+Downgraded from the original finding: it was unbounded only because retention never ran, which was
+fixed in v0.2.2f. It is now bounded by the retention window rather than by the age of the install —
+still a full scan, but of 90 days of history instead of all of it.
+
+The real fix is a **stored generated column** for the score plus an index on `(profile_id, rank DESC,
+last_visited_at DESC)`, so SQLite walks the index in order and stops at `LIMIT 4` instead of sorting
+everything. That needs a migration, which is why it is not folded into the retention fix.
 
 ### P3 · Confirmed · `LIKE` wildcards in search input are not escaped
 

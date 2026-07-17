@@ -9,6 +9,33 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · History grew without bound; the documented 90-day retention never ran
+
+`HistoryService.prune()` was dead code. Its JSDoc said "called periodically" and nothing called it —
+a grep for `prune` across `src/` found only `repos.sessions.prune(15)`, the definition, and the repo
+method. `LIMITS.historyRetentionDays = 90` was referenced **only from inside the function that never
+ran**, so the retention policy was documented, correct, and unenforced. History grew for the life of
+the install, and `history_visits` grew with it, since its rows only leave via `ON DELETE CASCADE`
+from a parent entry that was never deleted.
+
+**Fix.** `AppContext.bootstrap()` prunes every profile. Boot is the moment: the one point where the
+cost is invisible and no navigation is waiting on the main process. A window left open for weeks will
+not prune until it next starts — a bounded overshoot, rather than the unbounded growth it replaces,
+and cheaper than the timer the dead `LIMITS.tabSweepIntervalMs`/`sessionAutosaveMs` constants suggest
+was once planned. Failures are caught and logged: retention is housekeeping and must never stop the
+browser opening. `prune` returns the count so the log can say what happened.
+
+Verified that the cascade claim actually holds rather than trusting the schema comment:
+`history_visits.entry_id` is `REFERENCES history_entries(id) ON DELETE CASCADE` and
+`PRAGMA foreign_keys = ON` is set in `database.ts`, so pruning entries really does take their visits.
+
+**Knock-on.** The omnibox's per-keystroke full scan (still open in [BUGS.md](BUGS.md)) was unbounded
+only because of this. It is now bounded by the retention window rather than by the age of the
+install.
+
+Pinned by `tests/unit/history-prune.test.ts` — the cutoff arithmetic, the returned count, and
+`0 = keep forever`.
+
 ### P1 · The bookmark star never reflected `⌘D` or the command palette
 
 Press `⌘D`: the bookmark is saved, the star stays hollow, no toast, zero feedback. Press it again and

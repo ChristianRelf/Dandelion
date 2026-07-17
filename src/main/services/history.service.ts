@@ -75,11 +75,13 @@ export class HistoryService {
     this.repos.history.clear(profileId);
   }
 
-  /** Enforce the configured retention window; called periodically. */
-  prune(profileId: string): void {
-    if (LIMITS.historyRetentionDays > 0) {
-      const cutoff = Date.now() - LIMITS.historyRetentionDays * 86_400_000;
-      this.repos.history.pruneOlderThan(profileId, cutoff);
-    }
+  /**
+   * Enforce the configured retention window. Returns how many entries went, so
+   * the caller can say. `history_visits` follows them via `ON DELETE CASCADE`.
+   */
+  prune(profileId: string): number {
+    if (LIMITS.historyRetentionDays <= 0) return 0;
+    const cutoff = Date.now() - LIMITS.historyRetentionDays * 86_400_000;
+    return this.repos.history.pruneOlderThan(profileId, cutoff);
   }
 }
