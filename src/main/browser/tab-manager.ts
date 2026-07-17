@@ -31,6 +31,7 @@ import type { Repositories } from '../storage';
 import type { PersistedTab } from '../storage';
 import type { EventBus } from '../core/event-bus';
 import type { Logger } from '../core/logger';
+import { TabLoadScheduler } from './tab-load-scheduler';
 import type { WindowManager } from './window-manager';
 import type { SessionManager } from './session-manager';
 import type { WorkspaceService } from '../services/workspace.service';
@@ -95,9 +96,23 @@ export class TabManager {
   private readonly tabs = new Map<string, LiveTab>();
   private readonly recentlyClosed: ClosedTab[] = [];
 
+  /**
+   * Throttles first loads so opening many tabs at once cannot spawn a renderer
+   * process for every one simultaneously and freeze the browser. See
+   * {@link TabLoadScheduler}.
+   */
+  private readonly loadScheduler: TabLoadScheduler;
+
   constructor(private readonly deps: TabManagerDeps) {
     this.deps.permissions.setTabResolver((contents) => this.requestingTab(contents));
     this.deps.windows.onWindowClosed((windowId) => this.handleWindowClosed(windowId));
+    this.loadScheduler = new TabLoadScheduler({
+      maxConcurrent: LIMITS.maxConcurrentTabLoads,
+      slotTimeoutMs: LIMITS.tabLoadSlotTimeoutMs,
+      isOnScreen: (tabId) => this.isOnScreen(tabId),
+      startLoad: (tabId) => this.startLoad(tabId),
+      logger: this.deps.logger,
+    });
   }
 
   /* ------------------------------------------------------------------ *
@@ -208,13 +223,10 @@ export class TabManager {
     if (isInternalUrl(live.state.url)) {
       this.destroyView(live);
     } else {
-      this.materialize(live);
-      if (live.view && !live.loaded) {
-        void live.view.webContents.loadURL(live.state.url);
-        live.loaded = true;
-        live.state.status = 'loading';
-        live.state.navigation.isLoading = true;
-      }
+      // The view + first load is scheduled, not run inline: a burst of opens
+      // would otherwise materialise a renderer for each at once. It runs now when
+      // a slot is free, or when one opens — see TabLoadScheduler.
+      this.loadScheduler.request(tabId);
     }
 
     this.layout(dandelionWindow.id);
@@ -790,6 +802,39 @@ export class TabManager {
    * Internal helpers
    * ------------------------------------------------------------------ */
 
+  /**
+   * Materialise a tab's view and begin its first load, positioning it if it is on
+   * screen. Called by the load scheduler — immediately when a slot is free, or
+   * later when one opens — so a burst of opens never spawns every view at once.
+   *
+   * Returns whether a load started: an internal page (drawn by the chrome, no
+   * view) or an already-loaded tab consumes no slot.
+   */
+  private startLoad(tabId: string): boolean {
+    const live = this.tabs.get(tabId);
+    if (!live || isInternalUrl(live.state.url)) return false;
+    this.materialize(live);
+    if (!live.view || live.loaded) return false;
+    void live.view.webContents.loadURL(live.state.url);
+    live.loaded = true;
+    live.state.status = 'loading';
+    live.state.navigation.isLoading = true;
+    // A load admitted from the queue was not on screen when the window last laid
+    // out, so position its view now; harmless when it already is.
+    if (live.state.windowId) this.layout(live.state.windowId);
+    this.emitUpdate(live);
+    return true;
+  }
+
+  /** Whether a tab is the active tab or a split pane of its window — i.e. visible. */
+  private isOnScreen(tabId: string): boolean {
+    const live = this.tabs.get(tabId);
+    if (!live?.state.windowId) return false;
+    const dandelionWindow = this.deps.windows.get(live.state.windowId);
+    if (!dandelionWindow) return false;
+    return dandelionWindow.activeTabId === tabId || dandelionWindow.splitTabIds.includes(tabId);
+  }
+
   private materialize(live: LiveTab): void {
     if (live.view || !live.state.windowId) return;
     const dandelionWindow = this.deps.windows.get(live.state.windowId);
@@ -879,6 +924,9 @@ export class TabManager {
   }
 
   private destroyView(live: LiveTab): void {
+    // Tearing a tab down frees its load slot — whether it was loading, or still
+    // waiting in the queue with no view yet (so this runs before the guard below).
+    this.loadScheduler.release(live.state.id);
     if (!live.view) return;
     const dandelionWindow = live.state.windowId ? this.deps.windows.get(live.state.windowId) : null;
     try {
@@ -1004,6 +1052,8 @@ export class TabManager {
       live.state.loadingProgress = 1;
       this.refreshNavState(live);
       this.emitUpdate(live);
+      // This tab's first load is done: free its slot for the next queued tab.
+      this.loadScheduler.release(live.state.id);
     });
 
     wc.on('did-start-navigation', (details) => {
@@ -1056,11 +1106,13 @@ export class TabManager {
       live.state.status = 'complete';
       live.state.navigation.isLoading = false;
       this.emitUpdate(live);
+      this.loadScheduler.release(live.state.id);
     });
 
     wc.on('render-process-gone', () => {
       live.state.status = 'crashed';
       this.emitUpdate(live);
+      this.loadScheduler.release(live.state.id);
     });
 
     wc.on('media-started-playing', () => {
