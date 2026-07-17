@@ -3,6 +3,8 @@ import { appRoutes, layoutRoutes, popupRoutes, windowRoutes } from './routers/ap
 import { tabRoutes } from './routers/tabs.router';
 import { profileRoutes, workspaceRoutes } from './routers/workspaces.router';
 import { bookmarkRoutes, downloadRoutes, historyRoutes } from './routers/browsing.router';
+import { readingListRoutes } from './routers/reading-list.router';
+import { notesRoutes } from './routers/notes.router';
 import { cookieRoutes, permissionRoutes, privacyRoutes } from './routers/privacy.router';
 import { vaultRoutes } from './routers/vault.router';
 import { aiRoutes, omniboxRoutes, searchRoutes } from './routers/discovery.router';
@@ -21,6 +23,8 @@ export const appRouter = router({
   workspaces: workspaceRoutes,
   history: historyRoutes,
   bookmarks: bookmarkRoutes,
+  readingList: readingListRoutes,
+  notes: notesRoutes,
   downloads: downloadRoutes,
   permissions: permissionRoutes,
   cookies: cookieRoutes,

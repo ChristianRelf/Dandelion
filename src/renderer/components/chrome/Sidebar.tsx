@@ -2,6 +2,8 @@ import { type ReactElement } from 'react';
 import { WorkspaceBar } from './WorkspaceBar';
 import { TabsPanel } from './TabsPanel';
 import { BookmarksPanel } from './BookmarksPanel';
+import { ReadingListPanel } from './ReadingListPanel';
+import { NotesPanel } from './NotesPanel';
 import { HistoryPanel } from './HistoryPanel';
 import { DownloadsPanel } from './DownloadsPanel';
 import { SegmentedControl, type SegmentOption } from '../ui/SegmentedControl';
@@ -10,6 +12,8 @@ import { useUiStore, type SidebarPanel } from '../../stores/ui.store';
 const PANEL_OPTIONS: Array<SegmentOption<SidebarPanel>> = [
   { value: 'tabs', label: 'Tabs', icon: 'panel-top' },
   { value: 'bookmarks', label: 'Bookmarks', icon: 'bookmark' },
+  { value: 'reading', label: 'Reading list', icon: 'book-open' },
+  { value: 'notes', label: 'Notes', icon: 'sticky-note' },
   { value: 'history', label: 'History', icon: 'history' },
   { value: 'downloads', label: 'Downloads', icon: 'download' },
 ];
@@ -17,6 +21,8 @@ const PANEL_OPTIONS: Array<SegmentOption<SidebarPanel>> = [
 const PANELS: Record<SidebarPanel, () => ReactElement> = {
   tabs: TabsPanel,
   bookmarks: BookmarksPanel,
+  reading: ReadingListPanel,
+  notes: NotesPanel,
   history: HistoryPanel,
   downloads: DownloadsPanel,
 };
