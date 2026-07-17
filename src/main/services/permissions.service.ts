@@ -4,6 +4,8 @@ import type {
   PermissionType,
   Profile,
   SitePermissionRule,
+  TabId,
+  WindowId,
 } from '@shared/types';
 import { getOrigin } from '@shared/utils';
 import { createId } from '@shared/utils';
@@ -59,6 +61,16 @@ interface PendingRequest {
 }
 
 /**
+ * The tab a permission request came from, and the window showing that tab —
+ * everything the prompt needs to be asked in exactly one place. Resolved by
+ * `TabManager`, which owns the webContents → tab mapping.
+ */
+export interface RequestingTab {
+  tabId: TabId;
+  windowId: WindowId;
+}
+
+/**
  * Bridges Chromium permission prompts to Dandelion's per-site rules. Stored
  * `allow`/`block` decisions resolve instantly; `ask` emits a
  * `permission:request` event and parks the Electron callback until the renderer
@@ -66,7 +78,7 @@ interface PendingRequest {
  */
 export class PermissionsService {
   private readonly pending = new Map<string, PendingRequest>();
-  private tabResolver: (webContents: WebContents) => string | null = () => null;
+  private tabResolver: (webContents: WebContents) => RequestingTab | null = () => null;
 
   constructor(
     private readonly repos: Repositories,
@@ -74,7 +86,7 @@ export class PermissionsService {
     private readonly logger: Logger,
   ) {}
 
-  setTabResolver(resolver: (webContents: WebContents) => string | null): void {
+  setTabResolver(resolver: (webContents: WebContents) => RequestingTab | null): void {
     this.tabResolver = resolver;
   }
 
@@ -133,6 +145,18 @@ export class PermissionsService {
       return;
     }
 
+    // A stored rule needs no prompt, so attribution is only required past this
+    // point. A request that cannot be placed in a window has no honest way to be
+    // asked: the event reaches every window, so an unattributed prompt appeared
+    // in all of them, next to a tab that never made it. Refusing is the
+    // conservative answer, and it is logged rather than silent.
+    const requestingTab = this.tabResolver(webContents);
+    if (!requestingTab) {
+      this.logger.warn(`denied ${type} for ${origin}: no tab owns the requesting webContents`);
+      callback(false);
+      return;
+    }
+
     const requestId = createId('permreq');
     const timeout = setTimeout(() => this.resolve(requestId, false, false), 60_000);
     this.pending.set(requestId, { callback, profileId: profile.id, origin, type, timeout });
@@ -141,7 +165,8 @@ export class PermissionsService {
       type: 'permission:request',
       request: {
         id: requestId,
-        tabId: this.tabResolver(webContents) ?? '',
+        tabId: requestingTab.tabId,
+        windowId: requestingTab.windowId,
         origin,
         type,
       },

@@ -5,6 +5,7 @@ import type { PermissionRequest } from '@shared/types';
 import { Button } from '../ui/Button';
 import { trpc } from '../../lib/trpc/client';
 import { onBrowserEventOf } from '../../lib/events';
+import { useBrowserStore } from '../../stores/browser.store';
 import { useUiStore } from '../../stores/ui.store';
 
 const PERMISSION_LABELS: Partial<Record<string, string>> = {
@@ -24,15 +25,20 @@ const PERMISSION_LABELS: Partial<Record<string, string>> = {
 export function PermissionPrompt(): ReactElement {
   const [queue, setQueue] = useState<PermissionRequest[]>([]);
   const setPermissionActive = useUiStore((state) => state.setPermissionActive);
+  const windowId = useBrowserStore((state) => state.windowId);
   const allowRef = useRef<HTMLButtonElement>(null);
   const request = queue[0] ?? null;
 
   useEffect(
     () =>
-      onBrowserEventOf('permission:request', (event) =>
-        setQueue((current) => [...current, event.request]),
-      ),
-    [],
+      onBrowserEventOf('permission:request', (event) => {
+        // Every window receives the event. Only the one holding the tab that
+        // asked may answer for it: the others would show a consent prompt, with
+        // "Allow" pre-focused, for a site their user is not even looking at.
+        if (event.request.windowId !== windowId) return;
+        setQueue((current) => [...current, event.request]);
+      }),
+    [windowId],
   );
 
   useEffect(() => {

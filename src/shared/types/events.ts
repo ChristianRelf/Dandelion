@@ -11,6 +11,13 @@ import type { UpdateStatus } from './update';
 export interface PermissionRequest {
   id: string;
   tabId: TabId;
+  /**
+   * The window whose chrome must show this prompt — always the one holding
+   * {@link tabId}. Events are broadcast to every window, so without it each one
+   * rendered the same prompt, for a tab it does not contain and a site the user
+   * is not looking at, with "Allow" pre-focused.
+   */
+  windowId: WindowId;
   origin: string;
   type: PermissionType;
 }

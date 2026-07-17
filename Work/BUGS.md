@@ -28,33 +28,6 @@ fix. Route them through `dandelion-favicon:` (renaming it to something that isn'
 and `https:` can then come out of the chrome's `img-src` altogether, which is what makes the routing
 enforceable rather than merely intended.
 
-### P2 · Confirmed · The CSP comment documents production hardening that does not exist
-
-[index.html](../src/renderer/index.html) claims production hardening "is intersected on top of this
-via response headers in the security service". No such code exists — the only
-`Content-Security-Policy` anywhere in `src` is that meta tag, and `src/main/app/security.ts` is 13
-lines that only `preventDefault()` `will-attach-webview`. The shipped policy is the dev one:
-`script-src 'self' 'unsafe-inline' 'unsafe-eval'`.
-
-The comment is load-bearing misinformation — it will lead a reviewer to conclude the renderer is
-hardened when it is not. The chrome is served over `file://` via `loadFile`, where `webRequest`
-header injection does not fire, so the design the comment describes cannot work as written: the
-policy has to be tightened in the meta tag with a build-time dev/prod split.
-
-### P2 · Confirmed · `permission:request` is broadcast to every window
-
-[ipc-host.ts](../src/main/ipc/ipc-host.ts) fans every event out to `BrowserWindow.getAllWindows()`,
-and the emitted request carries `{id, tabId, origin, type}` with no `windowId`
-([permissions.service.ts](../src/main/services/permissions.service.ts)) — so
-[PermissionPrompt.tsx](../src/renderer/components/chrome/PermissionPrompt.tsx) structurally cannot
-filter, even though `browser.store.ts` filters other events by `windowId` as a matter of course.
-
-**Reproduction.** Two windows open; a site in window A requests the camera. **Both** windows render
-the prompt, each auto-focusing "Allow". Window B shows "example.com wants to use your camera" for a
-tab it does not contain, for a site the user is not looking at. A consent prompt shown without its
-originating context, with the affirmative pre-focused, is a consent-integrity problem rather than a
-UX wart.
-
 ### P3 · Confirmed · tRPC procedure lookup walks `Object.prototype`
 
 [ipc-host.ts](../src/main/ipc/ipc-host.ts) resolves `op.path` by walking properties and guards only
@@ -80,15 +53,6 @@ The same feature deletes the `Cookie` **request** header but there is no `onHead
 `Set-Cookie` still lands and `document.cookie` is untouched. Third-party cookies are therefore still
 written to disk — the feature does not deliver the privacy it advertises in the README and settings
 UI. Either strip `Set-Cookie` too, or narrow the claim.
-
-### P3 · Confirmed · Stored AI keys carry no encoding marker
-
-[ai.service.ts](../src/main/services/ai/ai.service.ts) branches independently on
-`safeStorage.isEncryptionAvailable()` on write and on read, and the stored blob records nothing about
-which branch produced it. A key written while encryption was available and read when it is not (a
-Linux keyring not yet unlocked — real across restarts) makes `buffer.toString('utf8')` return
-**binary garbage rather than throw**, and that garbage is sent as the API key → an opaque 401. The
-reverse order at least throws and is caught.
 
 ## Downloads
 
@@ -191,14 +155,6 @@ fixing; it may just be the theme transition animation.
 - **P3** `downloads.start` accepts a `savePath` that is ignored by `startOnSession`.
 - **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session"
   scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).
-
-## Leaks
-
-### P3 · Confirmed · `PrivacyService.counters` is never freed when a tab closes
-
-`resetCounters` is called only from `did-start-navigation`; `destroyView` never calls it. The map gains
-one entry per webContents ever created and nothing removes it. webContents ids are monotonic so there
-is no stale-read hazard — just an unbounded map over a long session, ~50 bytes per tab.
 
 ---
 
