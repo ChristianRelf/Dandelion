@@ -1,4 +1,5 @@
-import { protocol } from 'electron';
+import { protocol, net } from 'electron';
+import { pathToFileURL } from 'node:url';
 import { MEDIA_SCHEME } from '@shared/constants';
 import type { AppContext } from './app-context';
 
@@ -23,6 +24,37 @@ const EMPTY = new Response(null, { status: 404 });
  * partition, the block engine sees it, and the shields count it. `img-src` in
  * the chrome's CSP allows no remote origin, so this is the only way in.
  */
+/**
+ * Serves `dandelion-media://wallpaper?file=<name>` from this install's own
+ * wallpapers directory.
+ *
+ * A space's picture cannot be an `<img src="file://…">`: the chrome's `img-src`
+ * allows no `file:`, deliberately. Nor can it be a data URL — the workspace row
+ * is read on every bootstrap and broadcast over IPC on every `workspace:changed`,
+ * so inlining a 4K JPEG there would put megabytes through both.
+ *
+ * `file` names a copy {@link WallpaperService} made under a name it invented,
+ * never a path a caller chose, and `resolve` returns `null` for anything that
+ * is not one of ours — so this cannot be pointed at an arbitrary file. That is
+ * the whole of its authority, and why it is kept separate from the `icon`
+ * branch above, which fetches remote URLs and must never touch the disk.
+ */
+async function serveWallpaper(context: AppContext, target: URL): Promise<Response> {
+  const file = target.searchParams.get('file');
+  if (!file) return EMPTY;
+
+  const path = context.wallpapers.resolve(file);
+  if (!path) return EMPTY;
+
+  try {
+    return await net.fetch(pathToFileURL(path).toString());
+  } catch {
+    // The user deleted it from under us, or the copy failed. The chrome falls
+    // back to a plain surface.
+    return EMPTY;
+  }
+}
+
 export function registerMediaProtocol(context: AppContext): void {
   protocol.handle(MEDIA_SCHEME, async (request) => {
     let target: URL;
@@ -31,6 +63,8 @@ export function registerMediaProtocol(context: AppContext): void {
     } catch {
       return EMPTY;
     }
+
+    if (target.host === 'wallpaper') return serveWallpaper(context, target);
 
     const profileId = target.searchParams.get('profile');
     const url = target.searchParams.get('url');

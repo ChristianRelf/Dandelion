@@ -10,6 +10,7 @@ import type {
   VaultState,
   WindowState,
   Workspace,
+  WorkspaceWallpaper,
 } from '@shared/types';
 import { DEFAULT_SPLIT_RATIO } from '@shared/utils';
 import { trpc } from '../lib/trpc/client';
@@ -216,4 +217,17 @@ export function selectAccent(state: BrowserStore): string | null {
     if (workspace) return workspace.accentColor;
   }
   return settings.appearance.accentColor;
+}
+
+/**
+ * The active space's wallpaper, or `null` if it has none.
+ *
+ * Returns the stored object rather than a derived string: its identity only
+ * moves when the workspace row is replaced — which is exactly when a
+ * `workspace:changed` event says the wallpaper may have moved — so subscribers
+ * do not re-render on unrelated store traffic.
+ */
+export function selectWallpaper(state: BrowserStore): WorkspaceWallpaper | null {
+  const workspace = state.workspaces.find((item) => item.id === state.activeWorkspaceId);
+  return workspace?.wallpaper ?? null;
 }

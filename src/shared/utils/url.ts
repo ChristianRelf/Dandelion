@@ -99,6 +99,18 @@ export function mediaUrl(profileId: string, url: string | null): string | null {
 }
 
 /**
+ * Address the chrome uses to render a space's wallpaper image, resolved by main
+ * from this install's wallpapers directory.
+ *
+ * `fileName` is the name the browser gave its own copy, so it doubles as a
+ * cache key: choosing a new picture mints a new name and therefore a new URL,
+ * and the old image cannot be served in its place.
+ */
+export function wallpaperUrl(fileName: string): string {
+  return `${MEDIA_SCHEME}://wallpaper?file=${encodeURIComponent(fileName)}`;
+}
+
+/**
  * Whether a URL is something **web content** may ask the browser to open.
  *
  * The chrome may navigate anywhere, including `dandelion://` internal pages — a

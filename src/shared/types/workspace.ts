@@ -4,7 +4,12 @@ export type WallpaperKind = 'color' | 'gradient' | 'image';
 
 export interface WorkspaceWallpaper {
   kind: WallpaperKind;
-  /** Hex colour, CSS gradient string, or image path / data URL. */
+  /**
+   * A hex colour, a two-stop `linear-gradient(...)`, or the file name of an
+   * image copied into the wallpapers directory — never a path the caller chose,
+   * and never image bytes. Each kind's grammar is pinned by `wallpaperSchema`,
+   * because this string reaches `background-image` in the chrome.
+   */
   value: string;
   /** Backdrop blur intensity applied over the wallpaper, 0–100. */
   blur: number;

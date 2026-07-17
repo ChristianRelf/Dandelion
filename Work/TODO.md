@@ -65,7 +65,10 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ### Workspaces
 
-- [ ] **P3** `WorkspaceWallpaper` exists in the type but has no UI — per-space theming is accent-only. Add a wallpaper (color/gradient/image) picker.
+- [ ] **P3** The wallpaper is painted behind the new tab page only. Per-space theming elsewhere in
+      the chrome (sidebar, toolbar) is still accent-only.
+- [ ] **P3** Gradients are limited to the six presets. The stored grammar is `linear-gradient(<deg>,
+      <hex>, <hex>)`, so a custom two-stop picker needs UI only — no schema change.
 
 ---
 
