@@ -1,5 +1,6 @@
 import { app, BrowserWindow, protocol } from 'electron';
 import { APP_ID, APP_NAME, MEDIA_SCHEME } from '@shared/constants';
+import { stripBrandingFromUserAgent } from '@shared/utils';
 import { AppContext } from './app/app-context';
 import { registerIpcHost } from './ipc/ipc-host';
 import { buildApplicationMenu } from './app/menu';
@@ -32,6 +33,12 @@ if (!app.requestSingleInstanceLock()) {
 
   void app.whenReady().then(() => {
     if (process.platform === 'win32') app.setAppUserModelId(APP_ID);
+
+    // Present a stock Chrome UA everywhere — the default session included, which
+    // per-session stripping never reached. A `window.open` popup (Google's
+    // "Sign in with Google" among them) falls back to the default session, and
+    // Google refuses OAuth to a UA that still carries the Electron token.
+    app.userAgentFallback = stripBrandingFromUserAgent(app.userAgentFallback, APP_NAME);
 
     installSecurityHardening();
 
