@@ -1,6 +1,7 @@
 import type { HistoryEntry, VisitTransition } from '@shared/types';
 import { createId } from '@shared/utils';
 import type { SqliteDatabase } from '../database';
+import { LIKE_ESCAPE, likeContains, likePrefix } from './helpers';
 
 interface EntryRow {
   id: string;
@@ -101,7 +102,10 @@ export class HistoryRepository {
     to?: number;
   }): HistoryEntry[] {
     const clauses = ['profile_id = @profileId'];
-    if (params.query) clauses.push('(url LIKE @like OR title LIKE @like)');
+    if (params.query)
+      clauses.push(
+        `(url LIKE @like ESCAPE '${LIKE_ESCAPE}' OR title LIKE @like ESCAPE '${LIKE_ESCAPE}')`,
+      );
     if (params.from !== undefined) clauses.push('last_visited_at >= @from');
     if (params.to !== undefined) clauses.push('last_visited_at <= @to');
 
@@ -114,7 +118,7 @@ export class HistoryRepository {
       )
       .all({
         profileId: params.profileId,
-        like: `%${params.query}%`,
+        like: likeContains(params.query),
         from: params.from ?? 0,
         to: params.to ?? 0,
         limit: params.limit,
@@ -128,11 +132,12 @@ export class HistoryRepository {
     const rows = this.db
       .prepare(
         `SELECT * FROM history_entries
-         WHERE profile_id = @profileId AND (url LIKE @prefix OR title LIKE @prefix)
+         WHERE profile_id = @profileId
+           AND (url LIKE @prefix ESCAPE '${LIKE_ESCAPE}' OR title LIKE @prefix ESCAPE '${LIKE_ESCAPE}')
          ORDER BY (visit_count * 2 + typed_count * 5) DESC, last_visited_at DESC
          LIMIT @limit`,
       )
-      .all({ profileId, prefix: `${prefix}%`, limit }) as EntryRow[];
+      .all({ profileId, prefix: likePrefix(prefix), limit }) as EntryRow[];
     return rows.map(toEntry);
   }
 

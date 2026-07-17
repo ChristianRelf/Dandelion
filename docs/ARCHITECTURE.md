@@ -136,7 +136,13 @@ The privacy engine attaches `webRequest` listeners to each session:
   blocklist in O(labels) time; blocked requests are cancelled and counted.
 - **HTTPS upgrade** rewrites `http://` to `https://` for non-local hosts.
 - **DNT / GPC** headers are injected; **third-party cookies** are stripped by comparing the request's
-  registrable domain to the document's.
+  registrable domain to that of the document owning its frame tree — `Cookie` on the way out and
+  `Set-Cookie` on the way back, since a cookie that is never sent has no reason to be stored. A
+  top-level (`mainFrame`) request is first-party by definition and is exempt from both.
+  ([`third-party.ts`](../src/main/services/privacy/third-party.ts)) Registrable domains come from a
+  bundled Public Suffix List ([`public-suffix.ts`](../src/main/services/privacy/public-suffix.ts));
+  label counting cannot tell `bbc.co.uk` from `tracker.co.uk`. Cookies a third-party frame writes
+  through `document.cookie` are out of scope: `webRequest` never sees them.
 - Per-`webContents` counters feed the per-tab **shield report** shown in the UI.
 
 ## 6. The encrypted vault

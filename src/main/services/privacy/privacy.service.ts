@@ -4,7 +4,7 @@ import { getHostname } from '@shared/utils';
 import type { Logger } from '../../core/logger';
 import type { SettingsService } from '../settings.service';
 import { BlockEngine } from './block-engine';
-import { shouldStripCookies } from './third-party';
+import { shouldStripCookies, stripSetCookieHeaders } from './third-party';
 
 interface ShieldCounters {
   ads: number;
@@ -35,12 +35,15 @@ function isLocalHost(host: string): boolean {
   );
 }
 
+/** The shape both `onBeforeSendHeaders` and `onHeadersReceived` share here. */
+type FramedRequestDetails = Pick<OnBeforeSendHeadersListenerDetails, 'frame'>;
+
 /**
  * The document that owns this request's frame tree, read live. A tab's committed
  * URL still names the previous page while a navigation is in flight, so it
  * cannot answer this.
  */
-function topUrlForRequest(details: OnBeforeSendHeadersListenerDetails): string | null {
+function topUrlForRequest(details: FramedRequestDetails): string | null {
   try {
     const top = details.frame?.top;
     if (!top || top.isDestroyed()) return null;
@@ -110,6 +113,41 @@ export class PrivacyService {
       }
 
       callback({ requestHeaders: headers });
+    });
+
+    // The other half of the shield. Stripping `Cookie` alone stops third-party
+    // cookies being *sent* while letting them be *stored* — so the jar fills up
+    // with identifiers the shield merely declines to read, and a profile carries
+    // a tracker's cookie on disk for as long as it lives. A cookie that is never
+    // sent has no reason to be written.
+    session.webRequest.onHeadersReceived({ urls: ['*://*/*'] }, (details, callback) => {
+      if (!this.settings.get().privacy.blockThirdPartyCookies) {
+        callback({});
+        return;
+      }
+
+      const headers = details.responseHeaders;
+      if (!headers) {
+        callback({});
+        return;
+      }
+
+      const topUrl = topUrlForRequest(details);
+      if (!shouldStripCookies(details.resourceType, topUrl, details.url)) {
+        callback({});
+        return;
+      }
+
+      // Only re-issue the headers when there was something to remove: handing
+      // `responseHeaders` back makes Electron rebuild the set, and the common
+      // case is a third-party response that sets no cookie at all.
+      if (!stripSetCookieHeaders(headers)) {
+        callback({});
+        return;
+      }
+
+      this.bump(details.webContentsId, 'thirdPartyCookie');
+      callback({ responseHeaders: headers });
     });
   }
 

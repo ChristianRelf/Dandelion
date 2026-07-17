@@ -212,12 +212,13 @@ structural rather than local:
 
 - [x] Tracker blocking
 - [x] Fingerprinting protection
-- [x] Third-party cookie controls — **request header only**; `Set-Cookie` still
-      lands, so third-party cookies are stored and merely never sent
-- [ ] Public-suffix list — `rootDomain` takes the last two labels, so `bbc.co.uk`
-      and `tracker.co.uk` both reduce to `co.uk` and the shield **fails open** on
-      every multi-part TLD. Needs a real PSL (bundled + updatable), which also
-      unblocks correct per-site grouping everywhere else
+- [x] Third-party cookie controls — `Cookie` stripped on the way out and
+      `Set-Cookie` on the way back, so third-party cookies are no longer stored.
+      A third-party frame's own `document.cookie` writes are still out of reach:
+      `webRequest` never sees them
+- [x] Public-suffix list — bundled from publicsuffix.org and regenerated with
+      `npm run psl`; the shield resolves real registrable domains instead of
+      counting labels
 - [x] HTTPS upgrade
 
 ## Privacy

@@ -16,6 +16,37 @@ export function parseJson<T>(value: string | null, fallback: T): T {
 }
 
 /**
+ * The escape character for the `LIKE` patterns below. Backslash by convention —
+ * it is escaped like any other special character, so the choice costs nothing.
+ *
+ * Build the SQL's `ESCAPE` clause from this constant rather than typing it, so
+ * the clause and the escaping cannot drift apart.
+ */
+export const LIKE_ESCAPE = '\\';
+
+/**
+ * Neutralise `LIKE`'s wildcards in user input.
+ *
+ * `%` and `_` are wildcards to SQLite even when the value arrives as a bound
+ * parameter — binding stops injection, not interpretation. Unescaped, a search
+ * for `50%` matches every row containing "50", and a search for `_` matches
+ * every non-empty row.
+ */
+const escapeLike = (value: string): string =>
+  value.replace(/[\\%_]/g, (character) => `${LIKE_ESCAPE}${character}`);
+
+/**
+ * A `LIKE` pattern matching rows that contain `value` anywhere.
+ *
+ * The query **must** carry `` ESCAPE '${LIKE_ESCAPE}' `` or the escaping here is
+ * inert and the wildcards are live again.
+ */
+export const likeContains = (value: string): string => `%${escapeLike(value)}%`;
+
+/** A `LIKE` pattern matching rows that start with `value`. Needs `ESCAPE` too. */
+export const likePrefix = (value: string): string => `${escapeLike(value)}%`;
+
+/**
  * Apply a partial column update, skipping `undefined` values so callers can
  * pass sparse patches. Column names are trusted (never user input).
  */
