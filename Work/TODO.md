@@ -56,7 +56,12 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 ### Cross-window
 
-- [ ] **P2** Dragging a tab to another window isn't supported — `moveTabInput.windowId` is dropped by the router; only internal `reparent()` exists.
+- [ ] **P2** Dragging a tab to another window isn't supported — `moveTabInput.windowId` is dropped by
+      the router, and there is no longer any mechanism behind it: `reparent()` was removed in v0.2.2a
+      once window-scoped restore stopped needing it (it was the tab-theft vector). Moving a tab
+      between windows means detaching its `WebContentsView` from one `BrowserWindow`'s `contentView`
+      and adding it to the other's, then reassigning `Tab.windowId` — ~15 lines, but it should arrive
+      with the drag UX that justifies it rather than sit unused.
 
 ### Workspaces
 

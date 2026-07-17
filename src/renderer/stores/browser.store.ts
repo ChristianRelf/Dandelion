@@ -104,7 +104,11 @@ export const useBrowserStore = create<BrowserStore>((set, get) => ({
     switch (event.type) {
       case 'tab:created':
       case 'tab:updated': {
+        // A strip shows one window's tabs. Matching on the workspace alone let
+        // a second window on the same workspace render tabs it does not hold —
+        // and cannot show, since a tab's view lives in exactly one window.
         if (event.tab.workspaceId !== state.activeWorkspaceId) return;
+        if (event.tab.windowId !== state.windowId) return;
         set({ tabs: { ...state.tabs, [event.tab.id]: event.tab } });
         return;
       }

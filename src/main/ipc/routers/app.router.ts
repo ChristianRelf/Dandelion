@@ -58,7 +58,7 @@ export const appRoutes = router({
       const windowId = requireWindowId(ctx);
       ctx.app.tabs.restoreWorkspace(windowId, input.workspaceId);
       return {
-        tabs: ctx.app.tabs.listByWorkspace(input.workspaceId),
+        tabs: ctx.app.tabs.listInWindow(windowId, input.workspaceId),
         groups: ctx.app.tabs.listGroups(input.workspaceId),
       };
     }),

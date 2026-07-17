@@ -104,9 +104,15 @@ export function executeCommand(ctx: AppContext, commandId: string, windowId: str
       }
       return;
 
-    case 'window.new':
-      ctx.openWindow();
+    case 'window.new': {
+      // Carry the current workspace over explicitly, as `window.newPrivate`
+      // does. Left null, the new renderer's `initialState` falls back to the
+      // first workspace, so a new window opened from any other space landed in
+      // the wrong one.
+      const created = ctx.openWindow();
+      created.activeWorkspaceId = dandelionWindow?.activeWorkspaceId ?? null;
       return;
+    }
     case 'window.newPrivate': {
       const privateProfile = ctx.profiles.ensurePrivate();
       const workspace = ctx.workspaces.ensureDefault(privateProfile.id);
@@ -144,7 +150,7 @@ function toggleFlag(ctx: AppContext, tabId: string | null, flag: 'pinned' | 'mut
 
 function cycleTab(ctx: AppContext, window: DandelionWindow | null, direction: number): void {
   if (!window?.activeWorkspaceId) return;
-  const tabs = ctx.tabs.listByWorkspace(window.activeWorkspaceId);
+  const tabs = ctx.tabs.listInWindow(window.id, window.activeWorkspaceId);
   if (tabs.length === 0) return;
   const currentIndex = tabs.findIndex((tab) => tab.id === window.activeTabId);
   const nextIndex = (currentIndex + direction + tabs.length) % tabs.length;
@@ -158,7 +164,7 @@ function selectTabByOrdinal(
   ordinal: number,
 ): void {
   if (!window?.activeWorkspaceId) return;
-  const tabs = ctx.tabs.listByWorkspace(window.activeWorkspaceId);
+  const tabs = ctx.tabs.listInWindow(window.id, window.activeWorkspaceId);
   const target = ordinal < 0 ? tabs[tabs.length - 1] : tabs[ordinal];
   if (target) ctx.tabs.activate(target.id);
 }

@@ -33,9 +33,12 @@ export const tabRoutes = router({
     }),
   ),
   get: publicProcedure.input(tabRef).query(({ ctx, input }) => ctx.app.tabs.get(input.tabId)),
+  /** The calling window's tabs — the same scope `app.restoreWorkspace` returns. */
   listByWorkspace: publicProcedure
     .input(workspaceRef)
-    .query(({ ctx, input }) => ctx.app.tabs.listByWorkspace(input.workspaceId)),
+    .query(({ ctx, input }) =>
+      ctx.app.tabs.listInWindow(requireWindowId(ctx), input.workspaceId),
+    ),
   listGroups: publicProcedure
     .input(workspaceRef)
     .query(({ ctx, input }) => ctx.app.tabs.listGroups(input.workspaceId)),
