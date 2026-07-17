@@ -107,8 +107,8 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 
 - [ ] **P3** The wallpaper is painted behind the new tab page only. Per-space theming elsewhere in
       the chrome (sidebar, toolbar) is still accent-only.
-- [ ] **P3** Gradients are limited to the six presets. The stored grammar is `linear-gradient(<deg>,
-      <hex>, <hex>)`, so a custom two-stop picker needs UI only — no schema change.
+- [ ] **P3** Gradients are limited to the six presets. The stored grammar is a two-stop
+      `linear-gradient` with an angle, so a custom picker needs UI only — no schema change.
 
 ---
 

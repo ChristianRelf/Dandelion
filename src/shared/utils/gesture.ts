@@ -43,8 +43,7 @@ export function recognizeGesture(
     const dy = point.y - anchor.y;
     if (Math.abs(dx) < minSegment && Math.abs(dy) < minSegment) continue;
 
-    const direction =
-      Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : dy > 0 ? 'D' : 'U';
+    const direction = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'R' : 'L') : dy > 0 ? 'D' : 'U';
     if (segments[segments.length - 1] !== direction) segments.push(direction);
     anchor = point;
     if (segments.length >= GESTURE_MAX_SEGMENTS) break;

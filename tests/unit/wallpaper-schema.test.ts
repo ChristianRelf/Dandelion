@@ -38,14 +38,26 @@ describe('wallpaper validation', () => {
    */
   describe('refuses CSS that is not the grammar of its kind', () => {
     const attacks = [
-      ['a url() in a gradient', { kind: 'gradient', value: 'linear-gradient(90deg, url(https://x/a), #ffffff)' }],
+      [
+        'a url() in a gradient',
+        { kind: 'gradient', value: 'linear-gradient(90deg, url(https://x/a), #ffffff)' },
+      ],
       ['a bare url()', { kind: 'gradient', value: 'url(https://evil.example/pixel.png)' }],
-      ['a closed declaration', { kind: 'color', value: '#fff; background-image: url(https://x/a)' }],
+      [
+        'a closed declaration',
+        { kind: 'color', value: '#fff; background-image: url(https://x/a)' },
+      ],
       ['a non-hex colour', { kind: 'color', value: 'red' }],
       ['a gradient under kind color', { kind: 'color', value: GRADIENT_PRESETS[0]!.value }],
       ['a hex colour under kind gradient', { kind: 'gradient', value: '#ffffff' }],
-      ['a radial gradient', { kind: 'gradient', value: 'radial-gradient(90deg, #ffffff, #000000)' }],
-      ['a third stop', { kind: 'gradient', value: 'linear-gradient(90deg, #ffffff, #000000, #ff0000)' }],
+      [
+        'a radial gradient',
+        { kind: 'gradient', value: 'radial-gradient(90deg, #ffffff, #000000)' },
+      ],
+      [
+        'a third stop',
+        { kind: 'gradient', value: 'linear-gradient(90deg, #ffffff, #000000, #ff0000)' },
+      ],
       ['an expression', { kind: 'color', value: 'expression(alert(1))' }],
     ] as const;
 

@@ -41,9 +41,13 @@ function Block({
   switch (block.type) {
     case 'h1':
     case 'h2':
-      return <h2 className={cn('mt-8 mb-3 text-xl font-semibold text-text', mark)}>{block.text}</h2>;
+      return (
+        <h2 className={cn('mt-8 mb-3 text-xl font-semibold text-text', mark)}>{block.text}</h2>
+      );
     case 'h3':
-      return <h3 className={cn('mt-6 mb-2 text-lg font-semibold text-text', mark)}>{block.text}</h3>;
+      return (
+        <h3 className={cn('mt-6 mb-2 text-lg font-semibold text-text', mark)}>{block.text}</h3>
+      );
     case 'li':
       return (
         <li className={cn('ml-5 list-disc py-0.5 text-text/90 marker:text-faint', mark)}>
