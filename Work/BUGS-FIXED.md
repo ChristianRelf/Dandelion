@@ -9,6 +9,8 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.3
 
+<<<<<<< HEAD
+
 ### P1 · Every toolbar popover rendered _behind_ the page
 
 Open any real site, then click **Downloads**, the update chip, or **Zoom**: nothing appeared. The
@@ -327,6 +329,80 @@ internal page, or taken down with their window. A call in `destroyView` would ha
 those, which is the largest case: closing a window destroys its views' contents before
 `handleWindowClosed` runs, and `webContents.id` cannot be read once they are gone. The id is captured
 at wiring time for the same reason. Pinned by `tests/unit/tab-webcontents.test.ts`.
+=======
+
+### P2 · Tab escaped the command palette and the tab switcher, and then Escape stopped working
+
+Open `⌘K`, press Tab, and focus landed on a Toolbar button **behind** the overlay. Press Escape from
+there and nothing happened: the palette's handler was `onKeyDown` on its own inner div, so once focus
+had left, the key never reached it and **the palette could not be closed by keyboard at all**. Mouse
+users never saw it (`onMouseDown={close}`).
+
+**Cause.** Both are hand-rolled `motion.div` overlays wrapping cmdk's plain `<Command>`. cmdk binds
+ArrowDown/ArrowUp/Enter and nothing else — it does not trap Tab. The `fixed inset-0` scrim blocks the
+pointer but not the tab order, so the whole chrome stayed tabbable behind the overlay. Neither had
+`role="dialog"`, `aria-modal`, nor focus restore. The sibling `Omnibox` — same overlay pattern —
+already trapped Tab and restored focus deliberately, and the Radix dialogs are trapped correctly;
+these two were the outliers.
+
+**Fix.** A shared `useModalOverlay` hook, since both needed exactly the same three things: it records
+what focus is being taken from, focuses the overlay's field, traps Tab, closes on Escape, and puts
+focus back on close. Both overlays gained `role="dialog"` / `aria-modal` / a label.
+
+Two details are load-bearing, and both are why the obvious versions do not work:
+
+- **The keys are bound on the window, not on the panel.** A bubbling handler only sees keys while
+  focus is inside the overlay — precisely the assumption that failed. Clicking the panel's own padding
+  also blurs the field, and Escape would be lost the same way.
+- **`autoFocus` cannot be used.** React applies it during the very commit that opens the overlay,
+  before any effect runs, so by the time the hook could read `document.activeElement` it is already
+  the field itself and the element behind it has been lost — the field would "restore" focus to
+  itself. The hook records first, then focuses through a ref. That focus is synchronous rather than
+  deferred to a frame, so typing straight after `⌘K` cannot drop its first keystroke.
+
+`TabSwitcher`'s own always-mounted `window` Escape listener is gone: it existed to compensate for
+focus escaping, and the hook now binds only while open. Pinned by
+`tests/integration/overlay-focus.test.tsx`, which renders a focusable control behind each overlay —
+both trap tests fail if the Tab trap is removed.
+
+### P2 · `tools.print` (⌘P) was a dead command
+
+`⌘P` did nothing whatsoever. `tools.print` was not in the renderer's `UI_COMMANDS`, so
+`executeCommand` fell through to its default and **forwarded it to the renderer** — where
+`handleUiCommand` had no case for it and hit `default: return`. The command went out to main, came
+back, and was dropped.
+
+**Fix.** A `tabs.print` proc calling `webContents.print()` on the tab's view, wired like every other
+main-side tab proc, plus the renderer case that was missing. Both entry points (the accelerator and
+the palette) reach the same handler.
+
+The browser's own pages are drawn by the chrome renderer and have no view of their own
+(`isInternalUrl` → `destroyView`), so there is genuinely nothing to hand to Chromium's print dialog:
+`TabManager.print` **reports** that rather than throwing or silently doing nothing, and the renderer
+says "This page can't be printed". Dismissing the print dialog is not logged as a failure —
+Electron reports a cancel as `success: false` with reason `cancelled`, which is a decision, not an
+error. Pinned by `tests/unit/tab-print.test.ts`.
+
+### P3 · TitleBar tooltips advertised the wrong modifier
+
+The tooltips claimed `⌃B` and `⌃/` (U+2303, Control) while the real bindings are `CmdOrCtrl+B` and
+`CmdOrCtrl+/`. On macOS they named a modifier that does nothing.
+
+**Cause.** Both labels were hand-written string literals, duplicating glyph logic that already
+existed as `acceleratorLabel` inside `CommandPalette` — and drifting from it. Fixing the two literals
+would leave the same failure mode in place, so the labels are now **derived from the command
+registry** in `@shared/constants/commands.ts`, next to the `defaultKeys` they render: a label can no
+longer disagree with the key it advertises.
+
+`acceleratorLabel` takes the caller's separator because the two surfaces genuinely differ — tooltips
+run the glyphs together (`⌘⇧J`), the palette's `Kbd` chips space them (`⌘ ⇧ J`) — so sharing changed
+neither rendering. Splitting on `+` rather than `replaceAll`-ing it also stops `CmdOrCtrl+-` and
+`CmdOrCtrl+Plus` depending on replacement order. Pinned by `tests/unit/accelerator-label.test.ts`.
+
+Both surfaces still label the **default** binding rather than a user's rebound one; that was true
+before and is unchanged here.
+
+> > > > > > > origin/fix/v0.2.3-ui
 
 ---
 

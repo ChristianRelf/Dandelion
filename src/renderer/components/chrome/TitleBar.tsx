@@ -1,10 +1,15 @@
 import type { ReactElement } from 'react';
 import { PanelLeft, Sparkles } from 'lucide-react';
+import { acceleratorLabel } from '@shared/constants';
 import { IconButton } from '../ui/IconButton';
 import { Tooltip } from '../ui/Tooltip';
 import { Icon } from '../ui/Icon';
 import { useUiStore } from '../../stores/ui.store';
 import { useActiveWorkspace } from '../../hooks/useBrowser';
+
+// Tooltips run their glyphs together, as every other one in the chrome does.
+const sidebarShortcut = acceleratorLabel('view.toggleSidebar', '') ?? undefined;
+const aiSidebarShortcut = acceleratorLabel('tools.aiSidebar', '') ?? undefined;
 
 /**
  * The custom, draggable title bar. Native window controls are provided by the
@@ -24,7 +29,7 @@ export function TitleBar(): ReactElement {
       className="flex h-10 shrink-0 items-center gap-1 drag"
       style={{ paddingLeft: isMac ? 80 : 8, paddingRight: isMac ? 8 : 140 }}
     >
-      <Tooltip content="Toggle sidebar" shortcut="⌃B">
+      <Tooltip content="Toggle sidebar" shortcut={sidebarShortcut}>
         <IconButton
           onClick={toggleSidebar}
           active={!sidebarCollapsed}
@@ -42,7 +47,7 @@ export function TitleBar(): ReactElement {
 
       <div className="flex-1" />
 
-      <Tooltip content="AI assistant" shortcut="⌃/">
+      <Tooltip content="AI assistant" shortcut={aiSidebarShortcut}>
         <IconButton
           onClick={toggleAi}
           active={aiOpen}

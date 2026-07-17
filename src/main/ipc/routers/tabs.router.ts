@@ -67,6 +67,10 @@ export const tabRoutes = router({
     ctx.app.tabs.stop(input.tabId);
     return true;
   }),
+  /** Resolves false when the tab has no view to print — see `TabManager.print`. */
+  print: publicProcedure
+    .input(tabRef)
+    .mutation(({ ctx, input }) => ctx.app.tabs.print(input.tabId)),
   setMuted: publicProcedure.input(setMutedInput).mutation(({ ctx, input }) => {
     ctx.app.tabs.setMuted(input.tabId, input.muted);
     return true;
