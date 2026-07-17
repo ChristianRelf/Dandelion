@@ -100,6 +100,24 @@ const shortcutSchema = z.object({
   enabled: z.boolean(),
 });
 
+const gestureBindingSchema = z.object({
+  action: z.string(),
+  /**
+   * Cardinal segments only. The recogniser can emit nothing else, so anything
+   * else in the settings document is a hand-edit that would match no stroke.
+   */
+  gesture: z
+    .string()
+    .regex(/^[LRUD]{1,4}$/)
+    .or(z.literal('')),
+  enabled: z.boolean(),
+});
+
+const gesturesSchema = z.object({
+  enabled: z.boolean(),
+  bindings: z.array(gestureBindingSchema),
+});
+
 export const settingsSchema = z.object({
   version: z.number().int(),
   appearance: appearanceSchema,
@@ -109,6 +127,7 @@ export const settingsSchema = z.object({
   privacy: privacySchema,
   security: securitySchema,
   ai: aiSettingsSchema,
+  gestures: gesturesSchema,
   shortcuts: z.array(shortcutSchema),
 });
 
@@ -121,11 +140,21 @@ export const settingsPatchSchema = z.object({
   privacy: privacySchema.partial().optional(),
   security: securitySchema.partial().optional(),
   ai: aiSettingsSchema.partial().optional(),
+  gestures: gesturesSchema.partial().optional(),
   shortcuts: z.array(shortcutSchema).optional(),
 });
 
 export const updateShortcutInput = z.object({
   action: z.string(),
   keys: z.string(),
+  enabled: z.boolean().default(true),
+});
+
+export const updateGestureInput = z.object({
+  action: z.string(),
+  gesture: z
+    .string()
+    .regex(/^[LRUD]{1,4}$/)
+    .or(z.literal('')),
   enabled: z.boolean().default(true),
 });

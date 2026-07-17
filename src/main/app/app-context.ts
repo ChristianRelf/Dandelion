@@ -33,6 +33,8 @@ import { SessionManager } from '../browser/session-manager';
 import { WindowManager } from '../browser/window-manager';
 import { PopupHost } from '../browser/popup-host';
 import { TabManager } from '../browser/tab-manager';
+import { GestureService } from '../browser/gesture-service';
+import { executeCommand } from './command-executor';
 import type { DandelionWindow } from '../browser/dandelion-window';
 
 /**
@@ -58,6 +60,7 @@ export class AppContext {
   readonly windows: WindowManager;
   readonly popups: PopupHost;
   readonly tabs: TabManager;
+  readonly gestures: GestureService;
   readonly omnibox: OmniboxService;
   readonly vault: VaultService;
   readonly ai: AIService;
@@ -119,6 +122,18 @@ export class AppContext {
       repos: this.repos,
       events: this.events,
       logger: this.logger.child('tabs'),
+      // Resolved at call time: the gesture service is built below, because it
+      // needs the tab manager this bag configures.
+      onPageInput: (tabId, event) => this.gestures.handle(tabId, event),
+    });
+
+    this.gestures = new GestureService({
+      tabs: this.tabs,
+      windows: this.windows,
+      settings: this.settings,
+      events: this.events,
+      run: (commandId, windowId) => executeCommand(this, commandId, windowId),
+      logger: this.logger.child('gestures'),
     });
 
     this.omnibox = new OmniboxService({

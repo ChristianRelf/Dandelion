@@ -63,6 +63,22 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
       and adding it to the other's, then reassigning `Tab.windowId` — ~15 lines, but it should arrive
       with the drag UX that justifies it rather than sit unused.
 
+### Mouse gestures
+
+- [ ] **P2** No gesture trail or HUD while dragging — the stroke is recognised on release with no
+      feedback. Blocked on the same architecture as the occluded-menu P1 in [BUGS.md](BUGS.md): the
+      chrome's DOM is painted over by the tab's `WebContentsView`, and `WebContentsView` has no
+      `setIgnoreMouseEvents`, so a full-window overlay to draw on would swallow every click meant for
+      the page.
+- [ ] **P3** The page still sees the right mousedown/mouseup. `input-event` is observational —
+      only `before-input-event` can be cancelled, and that is keyboard-only — so a site with its own
+      `contextmenu`/`mousedown` handling (Google Docs, Figma, map controls) will react to a gesture.
+      Fully swallowing it needs a content preload, which would put app code in every remote page for
+      the first time; not worth it until a real site proves it is.
+- [ ] **P3** Gestures are right-drag only — no wheel or rocker gestures. Note that `mouseWheel`
+      arrives over `input-event` carrying only `modifiers`, with no coordinates, so a wheel gesture
+      would need a different signal than the drag recogniser uses.
+
 ### Workspaces
 
 - [ ] **P3** `WorkspaceWallpaper` exists in the type but has no UI — per-space theming is accent-only. Add a wallpaper (color/gradient/image) picker.

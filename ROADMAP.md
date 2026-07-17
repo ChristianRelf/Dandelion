@@ -279,11 +279,14 @@ structural rather than local:
 
 ## Mouse Gestures
 
-- [ ] Back
-- [ ] Forward
-- [ ] Refresh
-- [ ] Close tab
-- [ ] Reopen tab
+Hold the right mouse button and drag on a page. Rebindable in Settings → Mouse
+Gestures, which records a stroke by having you draw it.
+
+- [x] Back — `←`
+- [x] Forward — `→`
+- [x] Refresh — `↑↓`
+- [x] Close tab — `↓→`
+- [x] Reopen tab — `↓←`
 
 ## Keyboard Shortcuts
 
