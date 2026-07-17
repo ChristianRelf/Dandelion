@@ -11,7 +11,7 @@ interface UpdateStore {
   dismissedVersion: string | null;
   hydrate: () => Promise<void>;
   setStatus: (status: UpdateStatus) => void;
-  dismiss: () => void;
+  dismiss: (version: string) => void;
 }
 
 /**
@@ -29,10 +29,12 @@ export const useUpdateStore = create<UpdateStore>((set) => ({
 
   setStatus: (status) => set({ status }),
 
-  dismiss: () =>
-    set((state) =>
-      state.status.phase === 'ready' ? { dismissedVersion: state.status.version } : {},
-    ),
+  /**
+   * From `app:update-dismissed`. The button that dismisses lives in the popup
+   * surface — a different renderer from the chip that reads this — so the choice
+   * arrives relayed by main rather than made here.
+   */
+  dismiss: (version) => set({ dismissedVersion: version }),
 }));
 
 /** The only phases the toolbar chip ever renders. */

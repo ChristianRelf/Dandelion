@@ -170,6 +170,16 @@ export class UpdateService {
   }
 
   /**
+   * Relay a "Later". The chip lives in the chrome and the button that dismisses
+   * it lives in the popup surface floating above the page, so neither renderer
+   * can hold this alone — main is the only thing both of them listen to. The
+   * update itself stays on disk and the About page can still install it.
+   */
+  dismiss(version: string): void {
+    this.events.emit({ type: 'app:update-dismissed', version });
+  }
+
+  /**
    * Check the feed, resolving to the status the check produced so a caller who
    * asked explicitly can react to it without racing the event.
    */

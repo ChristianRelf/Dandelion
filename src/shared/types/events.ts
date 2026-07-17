@@ -6,6 +6,7 @@ import type { Workspace } from './workspace';
 import type { VaultState } from './vault';
 import type { PermissionType, ShieldReport } from './privacy';
 import type { AiProviderInfo, AiStreamChunk } from './ai';
+import type { PopupKind } from './popup';
 import type { UpdateStatus } from './update';
 
 export interface PermissionRequest {
@@ -51,11 +52,23 @@ export type BrowserEvent =
   | { type: 'find:result'; result: FindResult }
   /** A URL's bookmarked state moved, however it was reached. */
   | { type: 'bookmark:changed'; profileId: string; url: string; bookmarked: boolean }
+  /**
+   * Which popover the window's popup surface should render, or `null` to clear
+   * it. Addressed to one window: the surface is per-window, and every event is
+   * broadcast to all of them.
+   */
+  | { type: 'popup:show'; windowId: WindowId; kind: PopupKind | null }
   | { type: 'ai:chunk'; chunk: AiStreamChunk }
   /** Providers and their `configured` flag, whenever a key or endpoint changes. */
   | { type: 'ai:providers'; providers: AiProviderInfo[] }
   /** The whole updater state, whenever any of it moves. */
   | { type: 'app:update-status'; status: UpdateStatus }
+  /**
+   * Someone chose "Later". Relayed rather than kept locally: the chip lives in
+   * the chrome and the button that dismisses it lives in the popup surface, so
+   * the two renderers have to agree.
+   */
+  | { type: 'app:update-dismissed'; version: string }
   | { type: 'app:command'; commandId: string };
 
 export type BrowserEventType = BrowserEvent['type'];

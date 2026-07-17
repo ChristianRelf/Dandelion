@@ -1,5 +1,5 @@
 import { router } from './trpc';
-import { appRoutes, layoutRoutes, windowRoutes } from './routers/app.router';
+import { appRoutes, layoutRoutes, popupRoutes, windowRoutes } from './routers/app.router';
 import { tabRoutes } from './routers/tabs.router';
 import { profileRoutes, workspaceRoutes } from './routers/workspaces.router';
 import { bookmarkRoutes, downloadRoutes, historyRoutes } from './routers/browsing.router';
@@ -15,6 +15,7 @@ export const appRouter = router({
   app: appRoutes,
   window: windowRoutes,
   layout: layoutRoutes,
+  popup: popupRoutes,
   tabs: tabRoutes,
   profiles: profileRoutes,
   workspaces: workspaceRoutes,

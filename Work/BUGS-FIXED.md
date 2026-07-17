@@ -7,6 +7,69 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ---
 
+## v0.2.3
+
+### P1 · Every toolbar popover rendered _behind_ the page
+
+Open any real site, then click **Downloads**, the update chip, or **Zoom**: nothing appeared. The
+popover was not merely invisible — the web view swallowed the clicks, so it could not be used at all.
+Reported from a live build against Google.
+
+Tab pages are native `WebContentsView`s added **on top of** the chrome in the content region. The
+toolbar popovers were Radix popovers rendered **in the chrome layer**, anchored to a toolbar button
+and dropping _down_ — into the content region. The page painted straight over them. It looked
+intermittent because `activate()` destroys the view for internal URLs: on `dandelion://newtab` there
+is nothing on top, and they worked perfectly.
+
+**The obvious fix was the wrong one.** `selectContentDimmed` already hides the web view for the
+omnibox, the palette and permission prompts; adding three flags to it would have worked, and it is
+what [ARCHITECTURE.md](../docs/ARCHITECTURE.md) documents. But it blanks the page to show a dropdown.
+For **zoom** that defeats the control — the point is watching the page resize under it. For
+**downloads**, which opens itself when a download starts, the page would vanish out from under the
+click that started it. Hiding the content is right for a command bar that _wants_ the page gone; it
+is wrong for a popover that annotates the page.
+
+**Fix: `PopupHost`.** The problem is z-order, not visibility. Child views stack in insertion order and
+tab views are added at index 0, so a surface appended after them sits above every one — inside the
+window, moving and resizing with it for free, with no OS window, no taskbar entry and no
+always-on-top fight with other apps.
+
+The surface is a second renderer loading the same bundle with `?popup=1`. It shares no React tree with
+the chrome, which matters less than it sounds: the stores already hydrate themselves over tRPC and
+follow the same events, so they work unchanged once the event bridge reaches them. Two things had to
+learn about it, both because a view is not a `BrowserWindow` — the event fan-out (which iterates
+`BrowserWindow.getAllWindows()` and would never have reached it) and `ipc-host`'s window resolution
+(which goes through `fromWebContents`, so every window-scoped proc the popup called would have been
+rejected).
+
+Details worth keeping:
+
+- **Sized to the popover**, so clicks outside it still reach the page. It measures its own card and
+  reports back, because the downloads list grows with its contents; main keeps it hidden until it
+  hears a real size, so nothing flashes.
+- **Closes on `blur`** — clicking the page or the chrome focuses them, which blurs the surface. No
+  outside-click plumbing.
+- **The first click is replayed.** It builds the surface and asks for a popover in the same breath, so
+  there is nothing listening yet; `did-finish-load` delivers it rather than dropping the click that
+  paid for the boot.
+- **The body must not paint.** The surface is the card plus the margin its shadow needs, so
+  `[data-surface='popup']` makes the window background transparent — otherwise that margin is an
+  opaque rectangle sitting on the page.
+- **Dismissing an update now goes through main.** "Later" lives in the popup and the chip that reads
+  it lives in the chrome — two renderers, so neither can hold it alone.
+
+Pinned by `tests/unit/popup-host.test.ts`: right-alignment under the trigger, shadow padding, clamping
+at the window edges, integer bounds.
+
+### P3 · tRPC procedure lookup walked `Object.prototype`
+
+Fixed alongside the popup host, which needed the same function. A plain property walk guarded with
+`typeof target === 'function'` accepts inherited members: `"constructor"` resolves to `Object`,
+`"__proto__.constructor.constructor"` to `Function`. **Never exploitable** — the result is only ever
+called with one superjson value, never eval'd, and only the trusted chrome can reach the channel — but
+a lookup that can land anywhere on the prototype chain is a coincidence rather than a lookup. It now
+walks own properties only, via `Object.hasOwn`.
+
 ## v0.2.2
 
 ### P2 · A disabled extension could never be removed

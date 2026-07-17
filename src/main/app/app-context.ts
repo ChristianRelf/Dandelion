@@ -31,6 +31,7 @@ import { UpdateService } from '../services/update.service';
 import { ExtensionsService } from '../services/extensions.service';
 import { SessionManager } from '../browser/session-manager';
 import { WindowManager } from '../browser/window-manager';
+import { PopupHost } from '../browser/popup-host';
 import { TabManager } from '../browser/tab-manager';
 import type { DandelionWindow } from '../browser/dandelion-window';
 
@@ -55,6 +56,7 @@ export class AppContext {
   readonly privacy: PrivacyService;
   readonly sessions: SessionManager;
   readonly windows: WindowManager;
+  readonly popups: PopupHost;
   readonly tabs: TabManager;
   readonly omnibox: OmniboxService;
   readonly vault: VaultService;
@@ -104,6 +106,7 @@ export class AppContext {
       this.repos.kv,
       this.logger.child('windows'),
     );
+    this.popups = new PopupHost(this.windows, this.events, this.logger.child('popups'));
     this.tabs = new TabManager({
       windows: this.windows,
       sessions: this.sessions,
