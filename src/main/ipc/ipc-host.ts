@@ -30,7 +30,8 @@ function serializeError(error: unknown): SerializedTrpcError {
  * EventBus to every chrome renderer.
  */
 /**
- * Walk `op.path` to the procedure it names, using own properties only.
+ * Walk `op.path` to the procedure it names, having first confirmed with
+ * `procedures` that the path names a real one.
  *
  * A plain property walk guarded with `typeof target === 'function'` accepts
  * inherited members too: `"constructor"` resolves to `Object`, and
@@ -38,12 +39,34 @@ function serializeError(error: unknown): SerializedTrpcError {
  * the result is only ever called with one superjson value, never eval'd, and
  * only the trusted chrome can reach this channel — but a lookup that can land
  * anywhere on the prototype chain is not a lookup, it is a coincidence.
+ *
+ * The obvious guard — `Object.hasOwn` at each step — cannot be used here, and
+ * trying it took the whole browser down: a tRPC caller is a `Proxy` that traps
+ * only `get`, so it reports **no** own properties. `hasOwn` was therefore false
+ * for every real procedure exactly as it was for every fake one, and every IPC
+ * call answered `Unknown procedure` — an empty window with no tabs and no
+ * toolbar, because `app.initialState` never resolved.
+ *
+ * `router._def.procedures` is the authoritative registry: a plain object keyed
+ * by the full dotted path. Asking it first is both the honest check and a
+ * stricter one — `constructor` and `__proto__.constructor.constructor` are
+ * absent from it by construction, as is any path the router does not serve.
+ *
+ * It also has to come first rather than back up the walk: the caller proxy is
+ * *recursive*, so any path down it yields a function and only throws when
+ * called. The `typeof` check below can reject nothing on its own.
  */
-function resolveProcedure(caller: unknown, path: string): ((input: unknown) => unknown) | null {
+export function resolveProcedure(
+  caller: unknown,
+  path: string,
+  procedures: Record<string, unknown>,
+): ((input: unknown) => unknown) | null {
+  if (!Object.hasOwn(procedures, path)) return null;
   let target: unknown = caller;
   for (const part of path.split('.')) {
-    if (typeof target !== 'object' || target === null) return null;
-    if (!Object.hasOwn(target, part)) return null;
+    if (target === null || (typeof target !== 'object' && typeof target !== 'function')) {
+      return null;
+    }
     target = (target as Record<string, unknown>)[part];
   }
   return typeof target === 'function' ? (target as (input: unknown) => unknown) : null;
@@ -51,6 +74,7 @@ function resolveProcedure(caller: unknown, path: string): ((input: unknown) => u
 
 export function registerIpcHost(context: AppContext): void {
   const createCaller = createCallerFactory(appRouter);
+  const procedures: Record<string, unknown> = appRouter._def.procedures;
 
   ipcMain.handle(IPC.trpc, async (event, op: IpcTrpcOp): Promise<IpcTrpcResult> => {
     // A popup surface is a view, not a window, so `fromWebContents` cannot place
@@ -64,7 +88,7 @@ export function registerIpcHost(context: AppContext): void {
       op.input === undefined ? undefined : superjson.deserialize(op.input as SuperJsonPayload);
 
     try {
-      const target = resolveProcedure(caller, op.path);
+      const target = resolveProcedure(caller, op.path, procedures);
       if (!target) {
         throw new TRPCError({ code: 'NOT_FOUND', message: `Unknown procedure: ${op.path}` });
       }
