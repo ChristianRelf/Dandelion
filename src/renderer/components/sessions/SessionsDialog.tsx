@@ -30,7 +30,11 @@ function SessionsBody({ close }: { close: () => void }): ReactElement {
   const saveCurrent = (): void => {
     void trpc.sessions.saveCurrent
       .mutate()
-      .then(() => {
+      .then((saved) => {
+        if (!saved) {
+          toast.error('Nothing open to save');
+          return;
+        }
         toast.success('Session saved');
         reload();
       })

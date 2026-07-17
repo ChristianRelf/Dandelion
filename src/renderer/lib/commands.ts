@@ -191,7 +191,13 @@ export function handleUiCommand(commandId: string): void {
       ui.openSessions();
       return;
     case 'tools.saveSession':
-      void trpc.sessions.saveCurrent.mutate().then(() => toast.success('Session saved'));
+      void trpc.sessions.saveCurrent
+        .mutate()
+        .then((saved) => {
+          if (saved) toast.success('Session saved');
+          else toast.error('Nothing open to save');
+        })
+        .catch(() => toast.error('Could not save session'));
       return;
     case 'tabGroup.create':
       groupActiveTab();

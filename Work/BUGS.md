@@ -12,40 +12,6 @@ yet isolated.
 
 ---
 
-## Sessions & restore
-
-### P1 · Confirmed · Every normal quit saves an _empty_ session, then prunes the real ones away
-
-"Restore previous session" never restores anything after a normal quit, and each quit destroys one
-more genuine snapshot.
-
-**Why.** `saveSession()` is only reached from `shutdown()`, wired to `before-quit`
-([index.ts](../src/main/index.ts)). On the ordinary Windows/Linux quit path the ordering is fatal:
-
-1. Closing the last window fires `browserWindow.on('closed')` →
-   [window-manager.ts](../src/main/browser/window-manager.ts) deletes it from `windows`, then
-   notifies `closeListeners` → `TabManager.handleWindowClosed()` deletes every tab of that window
-   from `this.tabs`.
-2. `window-all-closed` → `app.quit()`.
-3. `app.quit()` emits `before-quit` → `shutdown()` → `saveSession('shutdown')`.
-
-By step 3 both maps are already empty, so `this.windows.all().map(...)`
-([app-context.ts](../src/main/app/app-context.ts)) yields `[]`. The snapshot is written
-unconditionally and then `prune(15)` keeps only the 15 newest — so after 15 quits every real snapshot
-has been evicted by an empty one. The `'Empty session'` fallback already in `app-context.ts` is the
-symptom being papered over.
-
-**Reproduction.** Open tabs → close the window with the X → relaunch → Sessions lists "Empty
-session". Only `app.quit` from the menu/palette (windows still alive) saves correctly.
-
-### P3 · Confirmed · `restoreSession` ignores the calling window
-
-`restoreSession` resolves its target with `this.windows.first()`
-([app-context.ts](../src/main/app/app-context.ts)) instead of the caller's window, and
-[sessions.router.ts](../src/main/ipc/routers/sessions.router.ts) never passes `ctx.windowId` — unlike
-every other window-scoped route, which uses `requireWindowId(ctx)`. With two windows open, restoring
-from window B dumps every tab into window A and activates them there.
-
 ## Security & privacy
 
 ### P1 · Confirmed · The chrome renderer runs in the **default session**, so favicons escape the profile partition

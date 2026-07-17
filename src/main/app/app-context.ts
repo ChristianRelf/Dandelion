@@ -9,6 +9,7 @@ import type {
   Workspace,
 } from '@shared/types';
 import { createId } from '@shared/utils';
+import { LIMITS } from '@shared/constants';
 import { rootLogger, type Logger } from '../core/logger';
 import { EventBus } from '../core/event-bus';
 import { databasePath } from '../core/paths';
@@ -61,6 +62,9 @@ export class AppContext {
   readonly sync: SyncService;
   readonly updates: UpdateService;
   readonly extensions: ExtensionsService;
+
+  /** Set once `shutdown()` has snapshotted every window, so closing them doesn't re-snapshot. */
+  private quitting = false;
 
   constructor() {
     this.db = new Db(databasePath());
@@ -137,6 +141,16 @@ export class AppContext {
       this.profiles,
       this.logger.child('extensions'),
     );
+
+    // The last window closing *is* the quit on Windows and Linux, and by the
+    // time `before-quit` runs the window and its tabs are already gone. Catch it
+    // on the way out instead, while there is still something to record. A quit
+    // that starts from `app.quit()` has already snapshotted every window in
+    // `shutdown()`, so it skips this.
+    this.windows.onWindowWillClose(() => {
+      if (this.quitting || this.windows.all().length > 1) return;
+      this.saveSession('shutdown');
+    });
   }
 
   /** First-run guarantees: a default profile, workspace, DNS and session. */
@@ -154,8 +168,12 @@ export class AppContext {
     return this.windows.createWindow();
   }
 
-  /** Capture a restorable snapshot of all windows and tabs. */
-  saveSession(reason: SessionReason): SessionSnapshot {
+  /**
+   * Capture a restorable snapshot of all windows and tabs. Returns `null` when
+   * there is nothing to capture — a snapshot restores nothing, and writing one
+   * would evict a real snapshot through `prune`.
+   */
+  saveSession(reason: SessionReason): SessionSnapshot | null {
     const windows: SessionWindow[] = this.windows.all().map((dandelionWindow) => {
       const tabs: SessionTab[] = this.tabs
         .listAll()
@@ -180,6 +198,8 @@ export class AppContext {
       };
     });
 
+    if (!windows.some((window) => window.tabs.length > 0)) return null;
+
     const snapshot: SessionSnapshot = {
       id: createId('session'),
       reason,
@@ -187,13 +207,13 @@ export class AppContext {
       windows,
     };
     this.repos.sessions.save(snapshot);
-    this.repos.sessions.prune(15);
+    this.repos.sessions.prune(LIMITS.savedSessions);
     return snapshot;
   }
 
   /** Recent saved sessions, most recent first. */
   listSessions(): SessionSummary[] {
-    return this.repos.sessions.list(15).map((snapshot) => {
+    return this.repos.sessions.list(LIMITS.savedSessions).map((snapshot) => {
       const tabs = snapshot.windows.flatMap((window) => window.tabs);
       const lead = tabs.find((tab) => tab.active) ?? tabs[0];
       return {
@@ -206,10 +226,10 @@ export class AppContext {
     });
   }
 
-  /** Reopen a saved session's tabs, preferring each tab's original workspace. */
-  restoreSession(id: string): number {
+  /** Reopen a saved session's tabs into `windowId`, preferring each tab's original workspace. */
+  restoreSession(id: string, windowId: string): number {
     const snapshot = this.repos.sessions.get(id);
-    const window = this.windows.first();
+    const window = this.windows.get(windowId);
     const fallbackWorkspace = window?.activeWorkspaceId;
     if (!snapshot || !window || !fallbackWorkspace) return 0;
 
@@ -240,6 +260,9 @@ export class AppContext {
   shutdown(): void {
     this.updates.stop();
     try {
+      // Set first: this snapshot covers every window, so the closes that follow
+      // must not each take another of what is left.
+      this.quitting = true;
       this.saveSession('shutdown');
     } catch (error) {
       this.logger.warn('failed to save session on shutdown', error);
