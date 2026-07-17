@@ -9,6 +9,49 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · Every popup was blocked — `window.open()` returned `null`, so OAuth could not complete
+
+`setWindowOpenHandler` denied **all** popups and re-opened the URL as a tab. Confirmed by evaluating
+`window.open(...)` in a real page: it returned `null`.
+
+Any flow that depends on a popup **and its opener** was broken. "Sign in with Google" and most OAuth
+buttons open a popup and wait on `window.opener.postMessage` to hand back the credential; with no
+opener there is no channel home, so even a successful sign-in delivered nothing. Substituting a tab
+looks like a reasonable fallback and is not one — it severs exactly the thing the flow needs.
+
+**Fix.** `disposition === 'new-window'` — `window.open()` with features, the only disposition whose
+opener matters — now opens a real popup on the opener's session with `{ action: 'allow' }`, keeping
+the opener chain. `foreground-tab` / `background-tab` (i.e. `target="_blank"` links) still become
+tabs, which is what a browser does and what this already did right. The popup gets the same lockdown
+as a tab's view (`sandbox`, `contextIsolation`, no `nodeIntegration`, `webSecurity`) rather than
+inheriting anything by accident, and `outlivesOpener: false`.
+
+**The `popups` permission is no longer dead.** It existed as a `PermissionType` and rendered as a real
+row in the Permissions page, but nothing consulted it — the handler denied unconditionally, settling
+the question before any rule was read. The decision is now read, and an unset rule **allows**: Chromium
+blocks popups without a user gesture, `setWindowOpenHandler` is not told whether there was one, so the
+honest choice is allow-and-let-people-block rather than a prompt in front of every sign-in button.
+
+The rule is also **recorded on first use**, which is what actually makes the control reachable:
+`PermissionsPage` only edits rules that already exist and nothing prompts for popups, so without that
+the Block half would have stayed unreachable — a differently-dead control rather than a fixed one.
+
+### P3 · Page-controlled URLs reached `loadURL` with no scheme allowlist
+
+Fixed with the above, because it is the same code path. `setWindowOpenHandler` passed the
+page-supplied `url` into `createTab` → `activate` → `loadURL`, and `zUrl` validates only length, never
+scheme. A page calling `window.open('dandelion://passwords')` reached `isInternalUrl`, which destroyed
+the web view and rendered the **internal password manager** in the privileged chrome.
+
+Because the navigation is main-process-initiated, Chromium's renderer-side scheme restrictions are
+never in the path — the allowlist has to exist where the page-supplied URL is accepted. `isWebContentUrl`
+now guards it: `http:`, `https:`, and `about:blank` (which a popup opener writes into directly).
+
+Deliberately **not** applied to `navigate()`: the chrome navigates to `dandelion://settings` legitimately.
+The rule is about who supplied the URL, not which function receives it.
+
+Pinned by `tests/unit/web-content-url.test.ts`, including the `dandelion://passwords` reproduction.
+
 ### P1 · History grew without bound; the documented 90-day retention never ran
 
 `HistoryService.prune()` was dead code. Its JSDoc said "called periodically" and nothing called it —

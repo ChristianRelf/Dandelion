@@ -86,6 +86,28 @@ export function getOrigin(url: string): string | null {
   }
 }
 
+/**
+ * Whether a URL is something **web content** may ask the browser to open.
+ *
+ * The chrome may navigate anywhere, including `dandelion://` internal pages — a
+ * page may not. `window.open('dandelion://passwords')` would otherwise reach
+ * `loadURL` from the main process and render the internal password manager,
+ * with Chromium's renderer-side scheme rules never in the path to stop it. So
+ * the allowlist has to live wherever a page-supplied URL is accepted.
+ *
+ * `about:blank` is included because a popup opener writes into it directly —
+ * OAuth flows do — and it carries no content of its own.
+ */
+export function isWebContentUrl(url: string): boolean {
+  if (url === 'about:blank') return true;
+  try {
+    const { protocol } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** Strip protocol and trailing slash for a clean, human-readable address. */
 export function prettifyUrl(url: string): string {
   try {

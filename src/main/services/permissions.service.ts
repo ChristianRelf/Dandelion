@@ -82,6 +82,18 @@ export class PermissionsService {
     return this.repos.permissions.list(profileId, origin);
   }
 
+  /**
+   * The stored decision for a site, or `null` if it has never been asked about.
+   *
+   * For permissions Chromium prompts for, `handleCheck`/`handleRequest` own the
+   * resolution. This is for the ones Dandelion decides itself — `popups` is not
+   * an Electron permission type at all, it is settled in `setWindowOpenHandler`
+   * — which is why the Pop-ups row in Settings had nothing reading it.
+   */
+  decisionFor(profileId: string, origin: string, type: PermissionType): PermissionDecision | null {
+    return this.repos.permissions.get(profileId, origin, type)?.decision ?? null;
+  }
+
   set(
     profileId: string,
     origin: string,

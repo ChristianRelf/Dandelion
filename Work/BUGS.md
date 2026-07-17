@@ -63,16 +63,6 @@ tab it does not contain, for a site the user is not looking at. A consent prompt
 originating context, with the affirmative pre-focused, is a consent-integrity problem rather than a
 UX wart.
 
-### P3 · Confirmed · Page-controlled URLs reach `loadURL` with no scheme allowlist
-
-`setWindowOpenHandler` passes the page-supplied `url` into `createTab` → `activate` → `loadURL`, and
-`zUrl` ([common.ts](../src/shared/schemas/common.ts)) validates only length, never scheme. A page
-calling `window.open('dandelion://passwords')` reaches `isInternalUrl`, which destroys the web view
-and renders the **internal password manager** in the chrome. Web content should not be able to drive
-privileged internal UI. Because the navigation is main-process-initiated, Chromium's renderer-side
-scheme restrictions are not the enforcing layer — the allowlist has to exist in `createTab` /
-`navigate`.
-
 ### P3 · Confirmed · tRPC procedure lookup walks `Object.prototype`
 
 [ipc-host.ts](../src/main/ipc/ipc-host.ts) resolves `op.path` by walking properties and guards only
@@ -117,24 +107,6 @@ Linux keyring not yet unlocked — real across restarts) makes `buffer.toString(
 reverse order at least throws and is caught.
 
 ## Tabs & windows
-
-### P1 · Confirmed · Every popup is blocked — `window.open()` returns `null`
-
-`setWindowOpenHandler` denies **all** popups and re-opens the URL as a tab
-([tab-manager.ts](../src/main/browser/tab-manager.ts)). Confirmed by evaluating `window.open(...)` in
-a real page: it returns `null`.
-
-**Impact.** Any flow that depends on a popup and its opener is broken. "Sign in with Google" and most
-OAuth buttons open a popup and wait for `window.opener.postMessage` to hand back the credential; with
-no opener there is no channel home, so even a successful sign-in delivers nothing.
-
-**Also dead because of it.** `popups` exists as a `PermissionType`
-([privacy.ts](../src/shared/types/privacy.ts)) and renders as a real row in the Permissions page —
-but nothing consults it, because the handler denies unconditionally before any rule is read.
-
-**Fix.** Route `disposition === 'new-window'` (`window.open` with features) to an actual popup window
-on the same session via `{ action: 'allow' }`, preserving the opener chain, gated on the `popups`
-rule; keep `foreground-tab` / `background-tab` (`target="_blank"` links) becoming tabs.
 
 ### P2 · Confirmed · `Ctrl+Shift+T` from a different workspace silently empties the tab strip
 
