@@ -130,6 +130,11 @@ export class TabManager {
     const url = input.url ?? this.deps.settings.get().behavior.newTabPage;
     const now = Date.now();
     const id = createId('tab');
+    // An explicit index is a slot request, so make room for it. Assigning it
+    // verbatim collided with the incumbent — duplicating A in `A B C` gave both
+    // A2 and B index 1, and since sorts are stable the copy landed after B
+    // rather than beside its source.
+    if (input.index !== undefined) this.makeRoomAt(input.workspaceId, windowId, input.index);
 
     const tab: Tab = {
       id,
@@ -173,6 +178,7 @@ export class TabManager {
     if (!dandelionWindow) return;
 
     dandelionWindow.activeTabId = tabId;
+    const leftWorkspace = dandelionWindow.activeWorkspaceId;
     dandelionWindow.activeWorkspaceId = live.state.workspaceId;
     // Choosing a tab outside the split exits split view; choosing one of the
     // split's own panes keeps the arrangement.
@@ -196,6 +202,17 @@ export class TabManager {
     this.persist(live);
     this.emitUpdate(live);
     this.deps.events.emit({ type: 'tab:activated', tabId, windowId: dandelionWindow.id });
+    // Activating a tab from another workspace moves the window to it — which the
+    // renderer cannot infer, because its tab list is workspace-scoped and it
+    // dropped this tab's `tab:created` as belonging to a workspace it was not
+    // showing. Say so, and it can refetch.
+    if (leftWorkspace !== live.state.workspaceId) {
+      this.deps.events.emit({
+        type: 'workspace:activated',
+        workspaceId: live.state.workspaceId,
+        windowId: dandelionWindow.id,
+      });
+    }
     this.deps.windows.broadcastState(dandelionWindow);
   }
 
@@ -204,7 +221,11 @@ export class TabManager {
     if (!live) return;
     const { workspaceId, windowId } = live.state;
 
-    if (/^https?:/i.test(live.state.url) || isInternalUrl(live.state.url)) {
+    // Nothing from a private window outlives it — `persist()` and `recordVisit()`
+    // both guard the same way. Without this, Ctrl+Shift+T in a normal window
+    // resurrected a tab closed in a private one.
+    const isPrivate = this.profileForWorkspace(workspaceId)?.isPrivate ?? false;
+    if (!isPrivate && (/^https?:/i.test(live.state.url) || isInternalUrl(live.state.url))) {
       this.recentlyClosed.unshift({
         url: live.state.url,
         title: live.state.title,
@@ -471,7 +492,17 @@ export class TabManager {
     if (!dandelionWindow) return;
     for (const tabId of tabIds) {
       const live = this.tabs.get(tabId);
-      if (live && !isInternalUrl(live.state.url)) {
+      if (!live) continue;
+      // A pane on screen is awake by definition. Only `activate` cleared this,
+      // so a restored tab — which arrives asleep — kept its dimmed strip row
+      // while rendering live content in the split, and `sleep()` refuses to
+      // touch a pane, so nothing ever corrected it.
+      if (live.state.asleep) {
+        live.state.asleep = false;
+        live.state.lastActiveAt = Date.now();
+        this.emitUpdate(live);
+      }
+      if (!isInternalUrl(live.state.url)) {
         this.materialize(live);
         if (live.view && !live.loaded) {
           void live.view.webContents.loadURL(live.state.url);
@@ -1069,6 +1100,29 @@ export class TabManager {
     if (siblings.length === 0) return null;
     const after = siblings.find((tab) => tab.index > index);
     return (after ?? siblings[siblings.length - 1])?.id ?? null;
+  }
+
+  /**
+   * Free a slot, by pushing everything at or after it down one — but only if
+   * something holds it. Reopening a closed tab asks for the slot it just
+   * vacated, which is free, and renumbering its neighbours for nothing would
+   * emit an update per tab.
+   *
+   * Scoped to the window, because that is the list the index orders: a
+   * workspace open in two windows must not have one renumber the other's rows.
+   */
+  private makeRoomAt(workspaceId: string, windowId: string | null, index: number): void {
+    const siblings = [...this.tabs.values()].filter(
+      (live) => live.state.workspaceId === workspaceId && live.state.windowId === windowId,
+    );
+    if (!siblings.some((live) => live.state.index === index)) return;
+
+    for (const live of siblings) {
+      if (live.state.index < index) continue;
+      live.state.index += 1;
+      this.persist(live);
+      this.emitUpdate(live);
+    }
   }
 
   private nextIndex(workspaceId: string): number {

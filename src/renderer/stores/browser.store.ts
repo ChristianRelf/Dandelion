@@ -123,6 +123,15 @@ export const useBrowserStore = create<BrowserStore>((set, get) => ({
         if (event.windowId === state.windowId) set({ activeTabId: event.tabId });
         return;
       }
+      case 'workspace:activated': {
+        // Main moved this window to another workspace — reopening a tab closed
+        // from one, say. The tab list is workspace-scoped, so it has to be
+        // refetched; there is no way to derive the new one from what we hold.
+        if (event.windowId !== state.windowId) return;
+        if (event.workspaceId === state.activeWorkspaceId) return;
+        void get().switchWorkspace(event.workspaceId);
+        return;
+      }
       case 'tabGroup:changed': {
         set({ groups: { ...state.groups, [event.group.id]: event.group } });
         return;
