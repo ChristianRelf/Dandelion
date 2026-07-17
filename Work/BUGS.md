@@ -14,20 +14,6 @@ yet isolated.
 
 ## Security & privacy
 
-### P2 · Confirmed · The reader's inline images are still fetched by the chrome
-
-Favicons were routed through the profile's session in v0.2.2f — but
-[ReaderView.tsx](../src/renderer/components/reader/ReaderView.tsx) still renders `<img src={block.src}>`
-for a page's own images, and the chrome has no session, so those land in the **default session**: a
-persistent, on-disk jar shared by every profile including private ones, with none of the privacy
-engine's filters attached.
-
-Narrower than the favicon leak was — it needs reader mode to be open on a page with images, where
-favicons were fetched for every tab and every history row — but it is the same defect and the same
-fix. Route them through `dandelion-favicon:` (renaming it to something that isn't favicon-specific),
-and `https:` can then come out of the chrome's `img-src` altogether, which is what makes the routing
-enforceable rather than merely intended.
-
 ### P3 · Confirmed · The shield counts third-party requests, not blocked cookies
 
 Found while fixing the two cookie defects above in v0.2.3, and deliberately left alone there: the

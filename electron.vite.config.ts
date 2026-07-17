@@ -33,16 +33,21 @@ const CSP_TOKEN = '__DANDELION_CSP__';
  * is the only place a policy can be enforced and nothing can intersect it at
  * runtime.
  *
- * `img-src https:` is still the reader's inline images, which the chrome
- * fetches itself; `dandelion-favicon:` is how favicons reach the owning
- * profile's session instead of the default one. See Work/BUGS.md.
+ * `img-src` allows **no remote origin**. Every remote image the chrome shows —
+ * favicons and the reader's inline images — goes through `dandelion-media:`,
+ * which main resolves in the owning profile's session. Fetching one directly
+ * would land it in the default session: a persistent jar shared by every
+ * profile, private ones included, with none of the privacy engine's filters
+ * attached. Leaving `https:` here would leave that door open regardless of what
+ * the components do, so the policy is what makes the routing enforced rather
+ * than merely intended.
  */
 export function chromeCsp(dev: boolean): string {
   const scriptSrc = dev ? "'self' 'unsafe-inline' 'unsafe-eval'" : "'self'";
   return (
     [
       "default-src 'self'",
-      "img-src 'self' data: blob: https: dandelion-favicon:",
+      "img-src 'self' data: blob: dandelion-media:",
       "style-src 'self' 'unsafe-inline'",
       `script-src ${scriptSrc}`,
       "font-src 'self' data:",

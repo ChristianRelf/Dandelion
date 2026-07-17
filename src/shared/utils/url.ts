@@ -2,7 +2,7 @@
  * URL classification and normalisation used by the omnibox to distinguish a
  * navigable address from a search query, and to render URLs cleanly.
  */
-import { FAVICON_SCHEME } from '../constants/app';
+import { MEDIA_SCHEME } from '../constants/app';
 
 const SCHEME_RE = /^([a-z][a-z0-9+.-]*):/i;
 
@@ -92,10 +92,10 @@ export function getOrigin(url: string): string | null {
  * the profile's own session. Returns `null` for anything that is not a remote
  * URL — a data URL or a missing icon needs no indirection.
  */
-export function faviconUrl(profileId: string, url: string | null): string | null {
+export function mediaUrl(profileId: string, url: string | null): string | null {
   if (!url) return null;
   if (!/^https?:/i.test(url)) return url;
-  return `${FAVICON_SCHEME}://icon?profile=${encodeURIComponent(profileId)}&url=${encodeURIComponent(url)}`;
+  return `${MEDIA_SCHEME}://icon?profile=${encodeURIComponent(profileId)}&url=${encodeURIComponent(url)}`;
 }
 
 /**

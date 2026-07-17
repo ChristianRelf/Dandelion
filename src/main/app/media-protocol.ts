@@ -1,29 +1,30 @@
 import { protocol } from 'electron';
-import { FAVICON_SCHEME } from '@shared/constants';
+import { MEDIA_SCHEME } from '@shared/constants';
 import type { AppContext } from './app-context';
 
-/** A 1×1 transparent GIF. The chrome falls back to its glyph on a 404 anyway. */
+/** The chrome renders its own fallback — a glyph, or nothing — on a 404. */
 const EMPTY = new Response(null, { status: 404 });
 
 /**
- * Serves `dandelion-favicon://icon?profile=<id>&url=<encoded>` by fetching the
- * icon **through that profile's session**.
+ * Serves `dandelion-media://icon?profile=<id>&url=<encoded>` by fetching the
+ * image **through that profile's session**.
  *
- * The chrome `BrowserWindow` has no session of its own, so it renders in the
- * default session. An `<img src>` pointing at a site-chosen favicon URL was
- * therefore fetched outside every profile partition: a persistent, on-disk jar
+ * Every remote image the chrome shows comes through here: favicons, and the
+ * reader's inline images. Both URLs are chosen by the page, and the chrome
+ * `BrowserWindow` has no session of its own — so an `<img src>` pointing
+ * straight at one was fetched in the default session: a persistent, on-disk jar
  * shared by every profile including private ones, with none of the privacy
  * engine's `webRequest` filters attached. A page in a private window setting
- * `<link rel="icon" href="https://tracker/id?u=123">` got that request issued
- * from a jar that outlives the private session and is shared with normal
- * browsing's favicons — so the tracker could correlate the two, unblocked and
- * uncounted.
+ * `<link rel="icon" href="https://tracker/id?u=123">` had that request issued
+ * from a jar that outlives the private session and also serves normal browsing's
+ * favicons, so the tracker could correlate the two — unblocked, and uncounted.
  *
  * Routing through main fixes all three at once: the request lands in the right
- * partition, the block engine sees it, and the shields count it.
+ * partition, the block engine sees it, and the shields count it. `img-src` in
+ * the chrome's CSP allows no remote origin, so this is the only way in.
  */
-export function registerFaviconProtocol(context: AppContext): void {
-  protocol.handle(FAVICON_SCHEME, async (request) => {
+export function registerMediaProtocol(context: AppContext): void {
+  protocol.handle(MEDIA_SCHEME, async (request) => {
     let target: URL;
     try {
       target = new URL(request.url);
@@ -62,5 +63,5 @@ export function registerFaviconProtocol(context: AppContext): void {
       return EMPTY;
     }
   });
-  context.logger.debug(`registered the ${FAVICON_SCHEME} protocol`);
+  context.logger.debug(`registered the ${MEDIA_SCHEME} protocol`);
 }

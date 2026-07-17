@@ -13,7 +13,7 @@
 
       `img-src` keeps https: only for the reader's inline images, which are still
       fetched by the chrome and so still land in the default session. Favicons no
-      longer need it — they load over dandelion-favicon:, which main resolves
+      longer need it — they load over dandelion-media:, which main resolves
       through the owning profile's session. Routing the reader's images the same
       way is what lets https: come out of this list; see Work/BUGS.md.
     -->
