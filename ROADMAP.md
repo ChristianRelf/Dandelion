@@ -137,9 +137,13 @@ structural rather than local:
 - [x] Bookmarks
 - [x] History
 - [x] Downloads
-- [ ] Notes — needs storage of its own; nothing in the app persists user text yet
-- [ ] Reading list — needs storage, and a decision on whether it is a bookmark
-      folder with a read/unread flag or its own entity
+- [x] Notes — free-text notes in the sidebar, the first user text the app
+      persists (migration 003). New note opens an editor that autosaves as you
+      type; the first line becomes the title
+- [x] Reading list — its own entity (not a bookmark folder with a flag): a
+      reading-list item has a read/unread lifecycle and is meant to be emptied as
+      it is read, the opposite of a kept bookmark. "Save this page" from the
+      sidebar panel; opening an item marks it read
 - [ ] Split screen controls
 
 ## Omnibox
@@ -199,7 +203,8 @@ structural rather than local:
 - [ ] Weather widget
 - [x] Quick links
 - [x] Search box
-- [ ] Recent tabs
+- [x] Recent tabs — a "Recently closed" row on the new tab page, from the
+      main-process recently-closed buffer; one click reopens
 - [ ] Notes widget
 - [ ] Custom widgets
 
@@ -320,12 +325,18 @@ Gestures, which records a stroke by having you draw it.
 
 ## Import
 
-- [ ] Chrome
-- [ ] Edge
-- [ ] Brave
-- [ ] Firefox
-- [ ] Opera
-- [ ] Arc
+Bookmarks import from a file (Bookmarks → Import). Chrome, Edge, Brave, Opera,
+Vivaldi and Arc all write the same Chromium `Bookmarks` JSON, so one parser reads
+every one of them; Firefox is imported via its HTML export, which the Netscape
+importer already handled. Full profile import (open tabs, passwords, history)
+is still ahead.
+
+- [x] Chrome
+- [x] Edge
+- [x] Brave
+- [x] Firefox — via its HTML bookmark export
+- [x] Opera
+- [x] Arc
 
 ---
 
@@ -396,7 +407,9 @@ The specifics behind "Complete accessibility support" above.
 ## Utilities
 
 - [ ] QR code generator
-- [ ] Screenshot tool
+- [x] Screenshot tool — Camera in the toolbar (or ⌘⇧S) saves a full-resolution
+      PNG of the page to Downloads, registered as a completed download so Open
+      and Show-in-folder work on it
 - [ ] Colour picker
 - [ ] PDF viewer
 - [ ] Markdown viewer

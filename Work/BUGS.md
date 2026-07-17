@@ -178,23 +178,48 @@ fixing; it may just be the theme transition animation.
 - **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session"
   scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).
 
+## Windows & workspaces
+
+### P3 · Confirmed · A newly created workspace never appears in other windows on the same profile
+
+`WorkspaceService.create()` and `.update()` both emit `workspace:changed`, but the renderer handler
+([browser.store.ts](../src/renderer/stores/browser.store.ts) `applyEvent`) only _replaces_ an existing
+entry:
+
+```ts
+workspaces: state.workspaces.map((w) => (w.id === event.workspace.id ? event.workspace : w));
+```
+
+`.map` cannot introduce an id that is not already present, so a **created** space is dropped by every
+window that did not originate it. Renames, accent and wallpaper changes sync (the id already exists);
+only creation is lost — the asymmetry shows the handler means to sync cross-window but doesn't upsert.
+
+**Failure scenario.** Two windows on one profile (`Ctrl+N`); create a space in window A. A refetches
+itself (`refreshWorkspaces()`) so it is fine, but B ignores the event and never shows the space until
+reload. Fix: upsert in the handler (append when the id is absent). Related and lower priority:
+`WorkspaceService.delete()` emits no event at all, so a deleted space also lingers in other windows —
+it wants a `workspace:removed` event.
+
 ---
 
 ## Not a bug
 
 Recorded so they are not re-investigated:
 
-- **Google sign-in fails with an "embedded user-agent" error.** Deliberate on Google's side, and
-  correct by their published definition — an embedded user-agent is any library that can "insert
-  arbitrary scripts, alter the default routing of a request to the Google OAuth server, or access
-  session cookies", and Dandelion does all three by design (reader mode, HTTPS-upgrade redirects, the
-  cookie manager). Not fixable from here; switching to a Chromium fork would not change it, since
-  Electron already ships real Chromium and Google's own error page names other real-Chromium
-  embedders. The cookie bug above is a genuine defect found while investigating this, but it is not
-  the cause.
+- **Google sign-in's "This browser or app may not be secure" block.** Addressed in stages, ending in
+  v0.2.12 — see [../docs/google-signin-fix.md](../docs/google-signin-fix.md). The last cause was a
+  UA↔client-hints mismatch: the UA string presented as stock Chrome while `Sec-CH-UA` still carried an
+  `"Electron"` brand and no `"Google Chrome"`. `harmonizeClientHints` now keeps the hints consistent
+  with the UA. What is **not** fixable from here is any _further_ embedded-browser gating Google
+  chooses to apply (enterprise SSO policy, WebAuthn edge cases, a future heuristic) — an embedded
+  user-agent is, by Google's published definition, any library that can insert scripts, reroute the
+  OAuth request or read session cookies, and Dandelion does all three by design. Switching to a
+  Chromium fork would not change that, since Electron already ships real Chromium.
 - **The user-agent strip in `SessionManager.chromeUserAgent()` looks like a hack but is
   load-bearing.** With the stock Electron UA, Google rejects the sign-in navigation outright
-  (`ERR_FAILED`). Don't "simplify" it away.
+  (`ERR_FAILED`). Its client-hints counterpart, `harmonizeClientHints`
+  ([client-hints.ts](../src/shared/utils/client-hints.ts)), is load-bearing for the same reason —
+  don't "simplify" either away.
 - **Renderer store races on `switchWorkspace` / `hydrate` / `downloads.load`.** `restoreWorkspace`,
   `updateStatus` and `downloads.list` are all **synchronous** resolvers, and replies plus
   `webContents.send` share one ordered IPC pipe per renderer, so main-process ordering is preserved

@@ -1,9 +1,9 @@
-import { existsSync } from 'node:fs';
+import { existsSync, writeFileSync } from 'node:fs';
 import { join, parse } from 'node:path';
 import { shell, type DownloadItem, type Session } from 'electron';
 import type { Download, DownloadSafety, DownloadState, Profile } from '@shared/types';
 import { LIMITS } from '@shared/constants';
-import { createId, throttle } from '@shared/utils';
+import { createId, getHostname, throttle } from '@shared/utils';
 import type { DownloadPatch, Repositories } from '../storage';
 import type { EventBus } from '../core/event-bus';
 import type { Logger } from '../core/logger';
@@ -93,6 +93,49 @@ export class DownloadsService {
    */
   startOnSession(session: Session, url: string): void {
     session.downloadURL(url);
+  }
+
+  /**
+   * Persist a captured page screenshot to the downloads directory and register
+   * it as a completed download.
+   *
+   * Going through a download row rather than just writing a file means the
+   * screenshot lands in the same list as everything else the browser saved, with
+   * Open and Show-in-folder already working against its `savePath` — no separate
+   * "where did it go?" surface to build. `uniqueSavePath` keeps a second capture
+   * of the same page from clobbering the first.
+   */
+  saveScreenshot(profile: Profile, png: Buffer, pageUrl: string): { filename: string } {
+    const host = getHostname(pageUrl).replace(/[^a-z0-9.-]/gi, '') || 'page';
+    const now = Date.now();
+    // Colons are invalid in Windows filenames, so the ISO time is dashed.
+    const stamp = new Date(now).toISOString().slice(0, 19).replace('T', ' ').replace(/:/g, '-');
+    const dir = this.settings.get().behavior.downloadDirectory ?? defaultDownloadsDir();
+    const savePath = uniqueSavePath(dir, `Screenshot ${host} ${stamp}.png`);
+    writeFileSync(savePath, png);
+
+    const record: Download = {
+      id: createId('dl'),
+      profileId: profile.id,
+      url: pageUrl,
+      filename: parse(savePath).base,
+      savePath,
+      mimeType: 'image/png',
+      state: 'completed',
+      receivedBytes: png.length,
+      totalBytes: png.length,
+      speed: 0,
+      etaSeconds: null,
+      paused: false,
+      canResume: false,
+      safety: 'safe',
+      referrer: null,
+      startedAt: now,
+      completedAt: now,
+    };
+    this.repos.downloads.insert(record);
+    this.events.emit({ type: 'download:created', download: record });
+    return { filename: record.filename };
   }
 
   /**

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   Bookmark,
   BookOpen,
+  Camera,
   Columns2,
   Command,
   House,
@@ -143,6 +144,15 @@ export function Toolbar(): ReactElement {
           </IconButton>
         </Tooltip>
         <ZoomControl />
+        <Tooltip content="Screenshot page" shortcut="⌘⇧S">
+          <IconButton
+            aria-label="Save a screenshot of this page"
+            disabled={!canBookmark}
+            onClick={() => dispatchCommand('tools.screenshot')}
+          >
+            <Camera className="h-[18px] w-[18px]" />
+          </IconButton>
+        </Tooltip>
         <Tooltip content={bookmarked ? 'Edit bookmark' : 'Bookmark this page'} shortcut="⌘D">
           <IconButton
             aria-label={bookmarked ? 'Edit bookmark' : 'Bookmark this page'}

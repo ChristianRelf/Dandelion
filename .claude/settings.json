@@ -17,7 +17,12 @@
       "LS(*)",
       "Search(*)",
       "WebFetch(*)",
-      "Bash(npm view *)"
+      "Bash(npm view *)",
+      "Bash(npm test *)",
+      "Bash(git ls-remote *)",
+      "Bash(node -p \"require\\('./package.json'\\).version\")",
+      "Bash(grep -n \"^#\\\\{2,3\\\\} \\\\|^- \\\\[ \\\\]\" Work/BUGS.md)",
+      "Bash(git checkout *)"
     ]
   }
 }

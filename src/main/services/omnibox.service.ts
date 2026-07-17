@@ -250,14 +250,15 @@ export class OmniboxService {
 
     const ranked = [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, limit);
 
-    // Inline autocomplete: complete to the best matching history/URL result.
-    const completionSource = ranked.find(
-      (r) => r.url && prettifyUrl(r.url).toLowerCase().startsWith(input.toLowerCase()),
-    );
-    if (completionSource?.url) {
-      const pretty = prettifyUrl(completionSource.url);
-      const primary = ranked[0];
-      if (primary && pretty.toLowerCase().startsWith(input.toLowerCase())) {
+    // Inline autocomplete, but only when the *top* result is the one the typed
+    // text completes. Enter activates `ranked[0]`, so completing to any
+    // lower-ranked result would render ghost text for a destination Enter would
+    // not go to — e.g. "github" whose top result is a web search, not the
+    // visited `github.com`.
+    const primary = ranked[0];
+    if (primary?.url) {
+      const pretty = prettifyUrl(primary.url);
+      if (pretty.toLowerCase().startsWith(input.toLowerCase())) {
         primary.inlineCompletion = pretty.slice(input.length);
       }
     }

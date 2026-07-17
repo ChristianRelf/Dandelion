@@ -55,13 +55,7 @@ dandelion/
 ├── tests/
 │   ├── unit/                 # Vitest: url, calculator, units, format, merge, block-engine
 │   ├── integration/          # Vitest + Testing Library component tests
-│   ├── e2e/                  # Playwright Electron testsThat backend map is exactly what I needed. Key facts: tab groups, drag/reorder, tab-switcher, tab-capture (hover previews), and downloads pause/resume all have full backend support (renderer-only work); split view is partial (renderer must track state locally, activate clears split); per-site zoom and reader mode need new main-process procs. I'll sequence accordingly once the services map lands.
-
-Let me finish the AppProvider body — primitive accent selector, live system-theme, and mount the toast viewport:
-
-Edit c:\Users\chris\Desktop\dandilion\src\renderer\providers\AppProvider.tsx
-Added 10 lines
-
+│   ├── e2e/                  # Playwright Electron tests
 │   └── setup/                # jsdom test setup
 │
 └── docs/                     # This documentation

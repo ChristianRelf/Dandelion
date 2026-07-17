@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type SidebarPanel = 'tabs' | 'bookmarks' | 'history' | 'downloads';
+export type SidebarPanel = 'tabs' | 'bookmarks' | 'reading' | 'notes' | 'history' | 'downloads';
 
 interface UiStore {
   /** Omnibox (address bar / command bar) is focused and showing results. */
