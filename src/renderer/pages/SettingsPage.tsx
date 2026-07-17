@@ -14,8 +14,14 @@ import type {
   Settings,
   SettingsPatch,
 } from '@shared/types';
-import { COMMANDS, INTERNAL_PAGES } from '@shared/constants';
-import { looksLikeUrl, normalizeUrl } from '@shared/utils';
+import { COMMANDS, DEFAULT_GESTURES, GESTURABLE_COMMANDS, INTERNAL_PAGES } from '@shared/constants';
+import {
+  gestureLabel,
+  looksLikeUrl,
+  normalizeUrl,
+  recognizeGesture,
+  type GesturePoint,
+} from '@shared/utils';
 import { Switch } from '../components/ui/Switch';
 import { Slider } from '../components/ui/Slider';
 import { Select } from '../components/ui/Select';
@@ -56,6 +62,7 @@ const SECTIONS_META = [
   { id: 'search', label: 'Search', icon: 'search' },
   { id: 'privacy', label: 'Privacy & Security', icon: 'shield' },
   { id: 'ai', label: 'AI', icon: 'sparkles' },
+  { id: 'gestures', label: 'Mouse Gestures', icon: 'pointer' },
   { id: 'shortcuts', label: 'Keyboard Shortcuts', icon: 'keyboard' },
 ] as const;
 
@@ -255,6 +262,86 @@ function ShortcutRow({
   );
 }
 
+/**
+ * Records a stroke by having the user draw one.
+ *
+ * The pad runs the *same* `recognizeGesture` the main process runs on page
+ * input, so what is drawn here and what is drawn on a page cannot disagree —
+ * the editor cannot advertise a stroke the recogniser would read differently.
+ */
+function GestureRow({
+  command,
+  gesture,
+  onSet,
+}: {
+  command: CommandDescriptor;
+  gesture: string;
+  onSet: (gesture: string) => void;
+}): ReactElement {
+  const [recording, setRecording] = useState(false);
+  const points = useRef<GesturePoint[]>([]);
+  const defaultGesture = DEFAULT_GESTURES.find((entry) => entry.action === command.id)?.gesture ?? '';
+  const isCustom = gesture !== defaultGesture;
+
+  const finish = (): void => {
+    const drawn = recognizeGesture(points.current);
+    points.current = [];
+    setRecording(false);
+    // An accidental click is the empty stroke; keep what was there rather than
+    // silently unbinding.
+    if (drawn) onSet(drawn);
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {isCustom && !recording && (
+        <Button variant="ghost" size="sm" onClick={() => onSet(defaultGesture)}>
+          Reset
+        </Button>
+      )}
+      {gesture && !recording && (
+        <Button variant="ghost" size="sm" onClick={() => onSet('')}>
+          Clear
+        </Button>
+      )}
+      <button
+        type="button"
+        onPointerDown={(event) => {
+          setRecording(true);
+          points.current = [{ x: event.clientX, y: event.clientY }];
+          event.currentTarget.setPointerCapture(event.pointerId);
+        }}
+        onPointerMove={(event) => {
+          if (recording) points.current.push({ x: event.clientX, y: event.clientY });
+        }}
+        onPointerUp={finish}
+        onPointerCancel={() => {
+          points.current = [];
+          setRecording(false);
+        }}
+        aria-label={
+          recording
+            ? `Recording a gesture for ${command.title}. Drag to draw it.`
+            : `Change the gesture for ${command.title}`
+        }
+        className={cn(
+          'inline-flex h-8 min-w-[112px] items-center justify-center gap-1 rounded-lg px-2.5 text-sm',
+          'transition-colors outline-none focus-visible:ring-2 focus-visible:ring-accent',
+          recording ? 'bg-accent-soft ring-1 ring-accent' : 'bg-surface hover:bg-surface-hover',
+        )}
+      >
+        {recording ? (
+          <span className="text-xs font-medium text-accent">Draw it…</span>
+        ) : gesture ? (
+          <span className="tracking-widest text-text">{gestureLabel(gesture)}</span>
+        ) : (
+          <span className="text-xs text-faint">Unassigned</span>
+        )}
+      </button>
+    </div>
+  );
+}
+
 function SettingsSkeleton(): ReactElement {
   return (
     <div className="flex h-full bg-bg text-text">
@@ -348,6 +435,15 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
     useBrowserStore.setState({ settings: next });
   };
 
+  const setGesture = async (action: string, gesture: string): Promise<void> => {
+    try {
+      const next = await trpc.settings.setGesture.mutate({ action, gesture, enabled: true });
+      useBrowserStore.setState({ settings: next });
+    } catch {
+      toast.error('Could not save that gesture');
+    }
+  };
+
   const resetAll = async (): Promise<void> => {
     const next = await trpc.settings.reset.mutate();
     useBrowserStore.setState({ settings: next });
@@ -371,6 +467,36 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
       };
     },
   );
+
+  const gestureRows: RowDef[] = [
+    toggleRow(
+      'Mouse gestures',
+      s.gestures.enabled,
+      (value) => void patch({ gestures: { enabled: value } }),
+      {
+        description: 'Hold the right mouse button and drag on a page.',
+        keywords: 'mouse gesture drag right button stroke',
+      },
+    ),
+    ...GESTURABLE_COMMANDS.flatMap((commandId) => {
+      const command = COMMANDS.find((entry) => entry.id === commandId);
+      if (!command) return [];
+      const gesture = s.gestures.bindings.find((entry) => entry.action === commandId)?.gesture ?? '';
+      return [
+        {
+          title: command.title,
+          keywords: `${command.id} gesture ${gesture} ${gestureLabel(gesture)}`,
+          control: (
+            <GestureRow
+              command={command}
+              gesture={gesture}
+              onSet={(next) => void setGesture(command.id, next)}
+            />
+          ),
+        },
+      ];
+    }),
+  ];
 
   const sections: SectionDef[] = [
     {
@@ -796,6 +922,12 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           { keywords: 'streaming tokens live' },
         ),
       ],
+    },
+    {
+      id: 'gestures',
+      label: 'Mouse Gestures',
+      icon: 'pointer',
+      rows: gestureRows,
     },
     {
       id: 'shortcuts',

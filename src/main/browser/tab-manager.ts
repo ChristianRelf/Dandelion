@@ -1,6 +1,7 @@
 import {
   WebContentsView,
   webContents as webContentsRegistry,
+  type InputEvent,
   type WebContents,
   type WindowOpenHandlerResponse,
 } from 'electron';
@@ -57,6 +58,12 @@ export interface TabManagerDeps {
   repos: Repositories;
   events: EventBus;
   logger: Logger;
+  /**
+   * Every input event a tab's page receives. Optional because a tab manager
+   * without one is still a tab manager — this exists so the gesture recogniser
+   * can watch page input without web content gaining a preload to report it.
+   */
+  onPageInput?: (tabId: string, event: InputEvent) => void;
 }
 
 export interface CreateTabInput {
@@ -946,6 +953,15 @@ export class TabManager {
     // and the id is captured now because it cannot be read once they have.
     const webContentsId = wc.id;
     wc.on('destroyed', () => this.deps.privacy.resetCounters(webContentsId));
+
+    // Observational only — `input-event` cannot be cancelled, unlike
+    // `before-input-event`, which is keyboard-only and so no use for gestures.
+    // Reading page input here is what spares every remote page a preload.
+    const onPageInput = this.deps.onPageInput;
+    if (onPageInput) {
+      const tabId = live.state.id;
+      wc.on('input-event', (_event, input) => onPageInput(tabId, input));
+    }
 
     wc.setWindowOpenHandler(({ url, disposition }) => {
       // This URL comes from the page. Everything below hands it to the browser,
