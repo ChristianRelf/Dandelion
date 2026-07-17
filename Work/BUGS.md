@@ -81,14 +81,6 @@ The same feature deletes the `Cookie` **request** header but there is no `onHead
 written to disk — the feature does not deliver the privacy it advertises in the README and settings
 UI. Either strip `Set-Cookie` too, or narrow the claim.
 
-### P3 · Confirmed · `recentlyClosed` has no private-profile guard
-
-`close()` pushes url/title/favicon into `recentlyClosed` for any `https?:` tab with no `isPrivate`
-check ([tab-manager.ts](../src/main/browser/tab-manager.ts)), while both comparable sinks —
-`persist()` and `recordVisit()` — guard explicitly. `Ctrl+Shift+T` from a normal window resurrects a
-closed **private** tab. In-memory only, and `app.recentlyClosed` has no renderer consumer, so
-exposure is limited to the reopen command.
-
 ### P3 · Confirmed · Stored AI keys carry no encoding marker
 
 [ai.service.ts](../src/main/services/ai/ai.service.ts) branches independently on
@@ -99,38 +91,6 @@ Linux keyring not yet unlocked — real across restarts) makes `buffer.toString(
 reverse order at least throws and is caught.
 
 ## Tabs & windows
-
-### P2 · Confirmed · `Ctrl+Shift+T` from a different workspace silently empties the tab strip
-
-`reopenClosed()` recreates the tab in the workspace it was closed **from**, and `createTab` →
-`activate` sets `dandelionWindow.activeWorkspaceId = live.state.workspaceId` — switching the window's
-workspace from the main process. The renderer cannot follow: `tab:created` is dropped by the
-workspace filter (still the old workspace at that moment), the later `window:state` sets
-`activeWorkspaceId` **without refetching tabs**, and `selectOrderedTabs` then filters to nothing. The
-only rehydration paths are `bootstrap()` and `switchWorkspace()`, both renderer-initiated.
-
-**Reproduction.** Close a tab in workspace A → switch to B → `Ctrl+Shift+T`. The page materialises
-and renders, but the sidebar shows A selected with an **empty strip**. The tab is unreachable and
-uncloseable until a workspace is re-picked by hand.
-
-### P2 · Confirmed · `setSplit()` never clears `asleep`; a live split pane stays dimmed forever
-
-`setSplit` ([tab-manager.ts](../src/main/browser/tab-manager.ts)) materialises and `loadURL`s each
-pane but — unlike `activate()` — never clears `asleep`, never `emitUpdate`s and never sets
-`lastActiveAt`. `sleep()` correctly refuses to sleep a split pane, so nothing ever corrects the flag
-either. Restored tabs arrive `asleep: true`, and `toggleSplitView` picks the first non-active tab,
-which after a session restore is asleep.
-
-**Reproduction.** Restart → split view. The second pane renders live content while its strip entry
-stays at `opacity-50` indefinitely. State says asleep; the screen says awake.
-
-### P3 · Confirmed · `duplicate()` collides tab indices, so the copy lands in the wrong slot
-
-`duplicate` passes `index: live.state.index + 1` and `createTab` assigns it verbatim without shifting
-siblings ([tab-manager.ts](../src/main/browser/tab-manager.ts)). With `A(0) B(1) C(2)`, duplicating
-`A` yields `A2(1)`, colliding with `B(1)`; sorts are stable so the copy always lands _after_ the
-incumbent. Duplicating `A` in `A B C` gives `A B A2 C`. The colliding index is persisted, and nothing
-renormalises except a manual drag-reorder.
 
 ## Downloads
 

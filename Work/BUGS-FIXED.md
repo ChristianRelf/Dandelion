@@ -9,6 +9,63 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P2 · `Ctrl+Shift+T` from a different workspace silently emptied the tab strip
+
+Close a tab in workspace A, switch to B, press `Ctrl+Shift+T`. The page materialised and rendered,
+but the sidebar showed A selected with an **empty strip** — the tab unreachable and uncloseable until
+a workspace was re-picked by hand.
+
+`reopenClosed()` recreates the tab in the workspace it was closed **from**, and `createTab` →
+`activate` sets `dandelionWindow.activeWorkspaceId = live.state.workspaceId`, moving the window to
+another workspace from the main process. The renderer could not follow: `tab:created` was dropped by
+its workspace filter (still the old workspace at that moment), the later `window:state` set
+`activeWorkspaceId` **without refetching tabs**, and `selectOrderedTabs` then filtered to nothing. The
+only rehydration paths were `bootstrap()` and `switchWorkspace()`, both renderer-initiated.
+
+**Fix.** `workspace:activated` already existed in `events.ts` and was **never emitted and never
+handled** — a dead event whose exact purpose was this. `activate` now emits it when it moves a window
+between workspaces, and the renderer refetches. That fixes any main-side workspace switch, not just
+this one; reopening into the current workspace instead would have fixed the symptom and left the hole.
+
+No loop: the refetch calls `restoreWorkspace`, whose `activate` finds the workspace already current
+and emits nothing.
+
+### P2 · `setSplit()` never cleared `asleep`, so a live pane stayed dimmed forever
+
+Restart, then split view: the second pane rendered live web content while its strip row stayed at
+`opacity-50` indefinitely. State said asleep; the screen said awake.
+
+`setSplit` materialised and `loadURL`ed each pane but — unlike `activate()` — never cleared `asleep`,
+never `emitUpdate`ed and never set `lastActiveAt`. `sleep()` correctly refuses to sleep a split pane,
+so nothing ever corrected the flag either. Restored tabs arrive `asleep: true`, and `toggleSplitView`
+picks the first non-active tab — which, after a session restore, is asleep.
+
+**Fix.** A pane on screen is awake by definition: `setSplit` clears the flag and says so, or the strip
+never restyles.
+
+### P3 · `duplicate()` collided tab indices, so the copy landed in the wrong slot
+
+`duplicate` passes `index: live.state.index + 1` and `createTab` assigned it **verbatim**, without
+making room. With `A(0) B(1) C(2)`, duplicating `A` produced a copy at index 1 colliding with `B(1)`;
+sorts are stable, so the copy always landed _after_ the incumbent. Duplicating `A` in `A B C` gave
+`A B A2 C` — never beside its source. The colliding index was persisted, and nothing renormalised
+except a manual drag-reorder.
+
+**Fix.** An explicit index is a slot request, so `createTab` frees the slot first — but only if
+something holds it. `reopenClosed` asks for the slot it just vacated, which is free, and renumbering
+its neighbours for nothing would emit an update per tab. Scoped to the window, since that is the list
+the index orders.
+
+### P3 · `recentlyClosed` had no private-profile guard
+
+`close()` pushed url/title/favicon into `recentlyClosed` for any `https?:` tab with no `isPrivate`
+check, while both comparable sinks — `persist()` and `recordVisit()` — guard explicitly. `Ctrl+Shift+T`
+from a normal window resurrected a tab closed in a **private** one. In-memory only, and
+`app.recentlyClosed` has no renderer consumer, so exposure was limited to the reopen command — but the
+rule is that nothing from a private window outlives it.
+
+Pinned by `tests/unit/tab-defects.test.ts`.
+
 ### P1 · The chrome had no session, so favicons escaped the profile partition
 
 `WebContentsView`s are built with `session` bound to the profile's partition, but the chrome
