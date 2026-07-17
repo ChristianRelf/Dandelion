@@ -24,6 +24,7 @@ import { SearchField } from '../components/ui/SearchField';
 import { Button } from '../components/ui/Button';
 import { Kbd } from '../components/ui/Kbd';
 import { Icon } from '../components/ui/Icon';
+import { ColorPicker } from '../components/ui/ColorPicker';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Skeleton } from '../components/ui/Skeleton';
 import { toast } from '../stores/toast.store';
@@ -190,52 +191,6 @@ function SettingsSection({ section }: { section: SectionDef }): ReactElement {
         ))}
       </div>
     </section>
-  );
-}
-
-function AccentPicker({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (color: string) => void;
-}): ReactElement {
-  const current = value.toLowerCase();
-  return (
-    <div className="flex items-center gap-1.5">
-      {ACCENT_PRESETS.map((color) => {
-        const active = current === color;
-        return (
-          <button
-            key={color}
-            type="button"
-            aria-label={`Accent colour ${color}`}
-            aria-pressed={active}
-            onClick={() => onChange(color)}
-            style={{ backgroundColor: color }}
-            className={cn(
-              'h-5 w-5 rounded-full transition-transform hover:scale-110',
-              active
-                ? 'shadow-[0_0_0_2px_var(--bg-elevated),0_0_0_4px_var(--text)]'
-                : 'shadow-[inset_0_0_0_1px_rgba(0,0,0,0.14)]',
-            )}
-          />
-        );
-      })}
-      <label
-        title="Custom colour"
-        className="relative ml-0.5 inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-full border border-line bg-surface text-muted transition-colors focus-within:ring-2 focus-within:ring-accent hover:bg-surface-hover hover:text-text"
-      >
-        <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2} />
-        <input
-          type="color"
-          aria-label="Custom accent colour"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-        />
-      </label>
-    </div>
   );
 }
 
@@ -445,7 +400,9 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           description: 'Used for highlights, controls, and focus rings.',
           keywords: 'color colour accent highlight theme',
           control: (
-            <AccentPicker
+            <ColorPicker
+              label="Accent colour"
+              presets={ACCENT_PRESETS}
               value={s.appearance.accentColor}
               onChange={(color) => void patch({ appearance: { accentColor: color } })}
             />

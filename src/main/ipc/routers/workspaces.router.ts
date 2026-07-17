@@ -42,16 +42,25 @@ export const workspaceRoutes = router({
   create: publicProcedure
     .input(createWorkspaceInput)
     .mutation(({ ctx, input }) => ctx.app.workspaces.create(input)),
-  update: publicProcedure.input(updateWorkspaceInput).mutation(({ ctx, input }) =>
-    must(
+  update: publicProcedure.input(updateWorkspaceInput).mutation(({ ctx, input }) => {
+    const workspace = must(
       ctx.app.workspaces.update(input.workspaceId, {
         name: input.name,
         icon: input.icon,
         accentColor: input.accentColor,
         wallpaper: input.wallpaper,
       }),
-    ),
-  ),
+    );
+    // A wallpaper change can orphan the image the space was wearing. Collect
+    // after the write, not before: the rows are the record of what is in use.
+    if (input.wallpaper !== undefined) void ctx.app.collectWallpaperGarbage();
+    return workspace;
+  }),
+  /**
+   * Choose an image and copy it in, returning the stored file name for the
+   * caller to `update` a wallpaper with, or `null` if the dialog was cancelled.
+   */
+  pickWallpaperImage: publicProcedure.mutation(({ ctx }) => ctx.app.wallpapers.pick()),
   delete: publicProcedure
     .input(workspaceRef)
     .mutation(({ ctx, input }) => must(ctx.app.workspaces.delete(input.workspaceId))),

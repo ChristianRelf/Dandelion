@@ -11,7 +11,8 @@ import { useAsyncData } from '../hooks/useAsyncData';
 import { toast } from '../stores/toast.store';
 import { trpc } from '../lib/trpc/client';
 import { useUiStore } from '../stores/ui.store';
-import { useBrowserStore } from '../stores/browser.store';
+import { selectWallpaper, useBrowserStore } from '../stores/browser.store';
+import { wallpaperBackground, wallpaperBlur } from '../lib/wallpaper';
 
 const FOCUS_RING = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent';
 
@@ -25,6 +26,7 @@ function greeting(): string {
 
 export function NewTabPage(): ReactElement {
   const profile = useBrowserStore((state) => state.profile);
+  const wallpaper = useBrowserStore(selectWallpaper);
   const openOmnibox = useUiStore((state) => state.openOmnibox);
 
   const { status, data: topSites } = useAsyncData<HistoryEntry[]>(
@@ -52,12 +54,30 @@ export function NewTabPage(): ReactElement {
   const showTiles = status === 'loading' || topSites.length > 0;
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-9 px-6 pb-16">
+    <div className="relative flex h-full flex-col items-center justify-center gap-9 px-6 pb-16">
+      {wallpaper && (
+        // Decorative and behind everything: the page's own text and controls
+        // keep their themed colours, and `dim` is what keeps them legible over
+        // a busy picture.
+        <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: wallpaperBackground(wallpaper),
+              // Blur samples beyond the element's edge, which would show the
+              // surface through a soft border; scaling up crops that away.
+              filter: wallpaperBlur(wallpaper),
+              transform: wallpaper.blur > 0 ? 'scale(1.1)' : undefined,
+            }}
+          />
+          <div className="absolute inset-0 bg-bg" style={{ opacity: wallpaper.dim }} />
+        </div>
+      )}
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-        className="flex flex-col items-center"
+        className="relative z-10 flex flex-col items-center"
       >
         <DandelionMark className="mb-5 h-14 w-14 text-accent" />
         <h1 className="text-2xl font-semibold tracking-tight">{greeting()}</h1>
@@ -69,7 +89,7 @@ export function NewTabPage(): ReactElement {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.45, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
-        className={`group flex w-[460px] max-w-full items-center gap-3 rounded-2xl border border-line px-4 py-3.5 text-left shadow-[var(--shadow-glass)] glass transition-colors no-drag hover:border-line-strong ${FOCUS_RING}`}
+        className={`group relative z-10 flex w-[460px] max-w-full items-center gap-3 rounded-2xl border border-line px-4 py-3.5 text-left shadow-[var(--shadow-glass)] glass transition-colors no-drag hover:border-line-strong ${FOCUS_RING}`}
       >
         <Search className="h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-muted" />
         <span className="flex-1 text-sm text-faint">Search the web or type a URL…</span>
@@ -82,7 +102,7 @@ export function NewTabPage(): ReactElement {
       </motion.button>
 
       {showTiles && (
-        <div className="grid w-[560px] max-w-full grid-cols-4 gap-3 sm:grid-cols-5">
+        <div className="relative z-10 grid w-[560px] max-w-full grid-cols-4 gap-3 sm:grid-cols-5">
           {status === 'loading'
             ? Array.from({ length: 10 }).map((_, index) => (
                 <div key={index} className="flex flex-col items-center gap-2">

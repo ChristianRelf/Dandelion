@@ -187,8 +187,11 @@ structural rather than local:
 
 ## New Tab Page
 
-- [ ] Wallpapers — `WorkspaceWallpaper` (colour/gradient/image, blur, overlay)
-      already exists as a type with no picker UI behind it
+- [x] Wallpapers — colour, gradient or image per space, with blur and dim, from
+      "Wallpaper…" in the space's context menu. Images are copied into the
+      profile and served over `dandelion-media:`, because the chrome's `img-src`
+      allows no `file:` and a data URL would put the picture through every
+      `workspace:changed` broadcast
 - [ ] Weather widget
 - [x] Quick links
 - [x] Search box

@@ -20,3 +20,13 @@ export function defaultDownloadsDir(): string {
 export function cacheDir(): string {
   return join(userDataDir(), 'Cache');
 }
+
+/**
+ * Directory holding this install's copies of user-chosen wallpaper images.
+ *
+ * Not regenerable — unlike {@link cacheDir}, deleting this loses the picture a
+ * space was wearing, because the original file may be long gone.
+ */
+export function wallpapersDir(): string {
+  return join(userDataDir(), 'Wallpapers');
+}

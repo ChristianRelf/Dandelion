@@ -29,6 +29,7 @@ import { AIService } from '../services/ai/ai.service';
 import { SyncService } from '../services/sync.service';
 import { UpdateService } from '../services/update.service';
 import { ExtensionsService } from '../services/extensions.service';
+import { WallpaperService } from '../services/wallpaper.service';
 import { SessionManager } from '../browser/session-manager';
 import { WindowManager } from '../browser/window-manager';
 import { PopupHost } from '../browser/popup-host';
@@ -66,6 +67,7 @@ export class AppContext {
   readonly sync: SyncService;
   readonly updates: UpdateService;
   readonly extensions: ExtensionsService;
+  readonly wallpapers: WallpaperService;
 
   /** Set once `shutdown()` has snapshotted every window, so closing them doesn't re-snapshot. */
   private quitting = false;
@@ -153,6 +155,7 @@ export class AppContext {
       this.profiles,
       this.logger.child('extensions'),
     );
+    this.wallpapers = new WallpaperService(this.logger.child('wallpapers'));
 
     // The last window closing *is* the quit on Windows and Linux, and by the
     // time `before-quit` runs the window and its tabs are already gone. Catch it
@@ -203,6 +206,27 @@ export class AppContext {
         // Retention is housekeeping — never let it stop the browser opening.
         this.logger.warn(`failed to prune history for "${profile.name}"`, error);
       }
+    }
+  }
+
+  /**
+   * Delete wallpaper images no space is wearing.
+   *
+   * The workspace rows are the only record of which files are still wanted —
+   * two spaces may share one image — so the join lives here, where both sides
+   * are in scope, rather than in either service.
+   */
+  async collectWallpaperGarbage(): Promise<void> {
+    try {
+      const inUse = this.workspaces
+        .listAll()
+        .flatMap((workspace) =>
+          workspace.wallpaper?.kind === 'image' ? [workspace.wallpaper.value] : [],
+        );
+      await this.wallpapers.collectGarbage(inUse);
+    } catch (error) {
+      // Housekeeping: a wasted megabyte is not worth failing a wallpaper change.
+      this.logger.warn('failed to collect unused wallpapers', error);
     }
   }
 

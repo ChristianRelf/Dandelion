@@ -12,6 +12,7 @@ import { Button } from '../ui/Button';
 import { toast } from '../../stores/toast.store';
 import { trpc } from '../../lib/trpc/client';
 import { useBrowserStore } from '../../stores/browser.store';
+import { WallpaperDialog } from './WallpaperDialog';
 import {
   menuContentClass,
   menuItemClass,
@@ -36,6 +37,7 @@ export function WorkspaceBar(): ReactElement {
   const activeId = useBrowserStore((state) => state.activeWorkspaceId);
   const profile = useBrowserStore((state) => state.profile);
   const [renaming, setRenaming] = useState<Workspace | null>(null);
+  const [wallpapering, setWallpapering] = useState<Workspace | null>(null);
   const [name, setName] = useState('');
   const [dragId, setDragId] = useState<string | null>(null);
   const renameRef = useRef<HTMLInputElement>(null);
@@ -135,6 +137,12 @@ export function WorkspaceBar(): ReactElement {
                 <ContextMenu.Item className={menuItemClass} onSelect={() => setRenaming(workspace)}>
                   Rename space
                 </ContextMenu.Item>
+                <ContextMenu.Item
+                  className={menuItemClass}
+                  onSelect={() => setWallpapering(workspace)}
+                >
+                  Wallpaper…
+                </ContextMenu.Item>
                 <ContextMenu.Label className="px-2.5 pt-1.5 pb-1 text-[11px] font-medium text-faint">
                   Accent colour
                 </ContextMenu.Label>
@@ -176,6 +184,12 @@ export function WorkspaceBar(): ReactElement {
           <Plus className="h-4 w-4" />
         </button>
       </Tooltip>
+
+      <WallpaperDialog
+        workspace={wallpapering}
+        onClose={() => setWallpapering(null)}
+        onSaved={refresh}
+      />
 
       <Dialog.Root open={renaming !== null} onOpenChange={(open) => !open && setRenaming(null)}>
         <Dialog.Portal>
