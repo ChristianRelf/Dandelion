@@ -169,8 +169,10 @@ structural rather than local:
 
 - [x] Distraction-free mode
 - [x] Font controls
-- [ ] Themes
-- [ ] Text-to-speech
+- [x] Themes — auto, light, sepia or dark, scoped to the reader so a sepia
+      article does not tint the toolbar with it
+- [x] Text-to-speech — reads the article aloud with the current block
+      highlighted, at a speed set in Settings → Reader
 
 ---
 

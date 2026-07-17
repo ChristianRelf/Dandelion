@@ -49,6 +49,17 @@ export interface TabManagementSettings {
   hoverPreview: boolean;
 }
 
+/** `auto` follows the app theme; the rest override it inside the reader only. */
+export type ReaderTheme = 'auto' | 'light' | 'sepia' | 'dark';
+
+export interface ReaderSettings {
+  theme: ReaderTheme;
+  /** Typography scale, 0.8–1.6 (1 = default). */
+  fontScale: number;
+  /** Speech rate for read-aloud, 0.5–2 (1 = the voice's normal pace). */
+  speechRate: number;
+}
+
 export interface SearchSettings {
   defaultEngineId: SearchEngineId;
   searchSuggestions: boolean;
@@ -144,6 +155,7 @@ export interface Settings {
   appearance: AppearanceSettings;
   behavior: BehaviorSettings;
   tabs: TabManagementSettings;
+  reader: ReaderSettings;
   search: SearchSettings;
   privacy: PrivacySettings;
   security: SecuritySettings;
