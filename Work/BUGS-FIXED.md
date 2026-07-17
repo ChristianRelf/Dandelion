@@ -9,6 +9,45 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · The chrome had no session, so favicons escaped the profile partition
+
+`WebContentsView`s are built with `session` bound to the profile's partition, but the chrome
+`BrowserWindow` passed no session and so ran in `session.defaultSession` — which `PrivacyService` was
+never attached to, since it only configures per-profile partitions. `page-favicon-updated` stores the
+**site-chosen** URL verbatim, broadcasts it to the chrome, and `Favicon` rendered it as `<img src>`:
+in the chrome window, i.e. outside the profile.
+
+**Correcting the audit's phrasing, which mattered to the fix.** The original finding said the request
+landed "in a jar shared with normal browsing". It does not: normal profiles use
+`persist:dandelion-<id>` partitions, so `defaultSession` is used by the chrome and nothing else. The
+real leak is worse in one way and narrower in another — the favicon jar is shared by **every profile
+at once, including private ones**, and it persists across restarts. A page in a private window
+setting `<link rel="icon" href="https://tracker/id?u=123">` had that request issued from a jar that
+outlives the private session and also serves normal browsing's favicons, so the tracker could
+correlate the two. Unblocked, because there is no `webRequest` filter on the default session, and
+uncounted by the shields.
+
+**Fix.** A `dandelion-favicon:` protocol, registered as privileged before `whenReady` (a scheme cannot
+be given privileges once the registry is frozen) and handled in main. `Favicon` resolves
+`dandelion-favicon://icon?profile=<id>&url=<encoded>`; main fetches the icon with
+**`session.fetch`** on that profile's session, so the request lands in the right partition, the block
+engine sees it, and a private profile's jar takes the cookie and drops it on exit. The handler
+re-checks the scheme — the chrome builds these, but they still arrive over a protocol boundary —
+requires an `image/` content type, and fetches with `credentials: 'omit'`: a favicon is decoration and
+must never carry ambient authority.
+
+Doing the resolution inside `Favicon` rather than at each call site covers the tab strip, history,
+bookmarks and the reader's header by construction. Every failure path returns 404, which the component
+already renders as its globe glyph — so the blast radius of this being wrong is "no favicons", not a
+crash.
+
+**Not fixed here:** the reader's own inline images take the same path and still reach the default
+session. Recorded in [BUGS.md](BUGS.md); routing those through the same protocol is what lets `https:`
+come out of the chrome's `img-src`, which is what would make this enforced rather than merely intended.
+
+Pinned by `tests/unit/favicon-url.test.ts` and an integration test asserting the site-chosen URL never
+reaches the DOM.
+
 ### P1 · Every popup was blocked — `window.open()` returned `null`, so OAuth could not complete
 
 `setWindowOpenHandler` denied **all** popups and re-opened the URL as a tab. Confirmed by evaluating

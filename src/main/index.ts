@@ -1,12 +1,20 @@
-import { app, BrowserWindow } from 'electron';
-import { APP_ID, APP_NAME } from '@shared/constants';
+import { app, BrowserWindow, protocol } from 'electron';
+import { APP_ID, APP_NAME, FAVICON_SCHEME } from '@shared/constants';
 import { AppContext } from './app/app-context';
 import { registerIpcHost } from './ipc/ipc-host';
 import { buildApplicationMenu } from './app/menu';
+import { registerFaviconProtocol } from './app/favicon-protocol';
 import { installSecurityHardening } from './app/security';
 import { rootLogger } from './core/logger';
 
 app.setName(APP_NAME);
+
+// Must run before `whenReady`: a scheme cannot be given privileges once the
+// protocol registry is frozen. `standard` gives it an origin, so the chrome can
+// load it from an <img>.
+protocol.registerSchemesAsPrivileged([
+  { scheme: FAVICON_SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true } },
+]);
 
 let context: AppContext | null = null;
 
@@ -30,6 +38,7 @@ if (!app.requestSingleInstanceLock()) {
     context = new AppContext();
     context.bootstrap();
     registerIpcHost(context);
+    registerFaviconProtocol(context);
     buildApplicationMenu(context);
 
     context.settings.onChange(() => {
