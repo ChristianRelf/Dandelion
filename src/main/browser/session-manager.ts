@@ -1,6 +1,7 @@
 import { app, session, type Cookie, type Session } from 'electron';
 import type { CookieRecord, CookieSameSite, Profile } from '@shared/types';
 import { APP_NAME } from '@shared/constants';
+import { stripBrandingFromUserAgent } from '@shared/utils';
 import type { Logger } from '../core/logger';
 import type { SettingsService } from '../services/settings.service';
 import type { PrivacyService } from '../services/privacy/privacy.service';
@@ -111,10 +112,7 @@ export class SessionManager {
 
   /** Strip Electron/app tokens so sites see a stock Chrome UA. */
   private chromeUserAgent(target: Session): string {
-    return target
-      .getUserAgent()
-      .replace(/ Electron\/[\d.]+/, '')
-      .replace(new RegExp(` ${APP_NAME}\\/[\\d.]+`, 'i'), '');
+    return stripBrandingFromUserAgent(target.getUserAgent(), APP_NAME);
   }
 
   /**

@@ -7,3 +7,4 @@ export * from './debounce';
 export * from './timezone';
 export * from './split';
 export * from './gesture';
+export * from './user-agent';
