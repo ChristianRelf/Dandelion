@@ -147,7 +147,7 @@ export function UpdateChip(): ReactElement | null {
                   setOpen(false);
                   openUrlOrToast(status.releaseUrl, 'Could not open the release notes');
                 }}
-                className="mt-2 inline-flex items-center gap-1 rounded-xs text-[12px] text-accent transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                className="mt-2 inline-flex items-center gap-1 rounded-xs text-[12px] text-accent transition-colors hover:underline"
               >
                 What&apos;s new
                 <ExternalLink className="h-3 w-3" />

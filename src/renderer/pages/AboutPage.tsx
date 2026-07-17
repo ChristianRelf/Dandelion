@@ -132,7 +132,7 @@ export function AboutPage(): ReactElement {
             <button
               type="button"
               onClick={() => openUrlOrToast(update.releaseUrl, 'Could not open the release notes')}
-              className="inline-flex items-center gap-1 rounded-xs text-accent transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="inline-flex items-center gap-1 rounded-xs text-accent transition-colors hover:underline"
             >
               What&apos;s new in {update.version}
               <ExternalLink className="h-3 w-3" />
