@@ -59,6 +59,7 @@ const SECTIONS_META = [
   { id: 'appearance', label: 'Appearance', icon: 'palette' },
   { id: 'behavior', label: 'Behaviour', icon: 'mouse-pointer-click' },
   { id: 'tabs', label: 'Tabs', icon: 'square-stack' },
+  { id: 'reader', label: 'Reader', icon: 'book-open' },
   { id: 'search', label: 'Search', icon: 'search' },
   { id: 'privacy', label: 'Privacy & Security', icon: 'shield' },
   { id: 'ai', label: 'AI', icon: 'sparkles' },
@@ -720,6 +721,53 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           s.tabs.hoverPreview,
           (value) => void patch({ tabs: { hoverPreview: value } }),
           { keywords: 'thumbnail peek preview' },
+        ),
+      ],
+    },
+    {
+      id: 'reader',
+      label: 'Reader',
+      icon: 'book-open',
+      rows: [
+        {
+          title: 'Reader theme',
+          description: 'Applies inside reader mode only, not to the rest of the browser.',
+          keywords: 'reader theme sepia light dark article distraction free',
+          control: (
+            <SegmentedControl
+              aria-label="Reader theme"
+              value={s.reader.theme}
+              onChange={(value) => void patch({ reader: { theme: value } })}
+              options={[
+                { value: 'auto', label: 'Auto', icon: 'monitor' },
+                { value: 'light', label: 'Light', icon: 'sun' },
+                { value: 'sepia', label: 'Sepia', icon: 'coffee' },
+                { value: 'dark', label: 'Dark', icon: 'moon' },
+              ]}
+            />
+          ),
+        },
+        sliderRow(
+          'Text size',
+          s.reader.fontScale,
+          0.8,
+          1.6,
+          (value) => void patch({ reader: { fontScale: value } }),
+          (value) => `${Math.round(value * 100)}%`,
+          { step: 0.1, keywords: 'reader font size typography scale' },
+        ),
+        sliderRow(
+          'Read-aloud speed',
+          s.reader.speechRate,
+          0.5,
+          2,
+          (value) => void patch({ reader: { speechRate: value } }),
+          (value) => `${value.toFixed(1)}×`,
+          {
+            step: 0.1,
+            description: 'Speed of the voice when reading an article aloud.',
+            keywords: 'reader speech tts text to speech voice rate speed aloud',
+          },
         ),
       ],
     },
