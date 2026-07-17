@@ -886,14 +886,19 @@ export class TabManager {
 
     return {
       action: 'allow',
-      // Inherit nothing by accident: a popup renders remote content, so it gets
-      // the same lockdown as a tab's view. It shares the opener's session, which
-      // is what makes it useful — the sign-in it completes is the one the tab is
-      // waiting for.
       outlivesOpener: false,
       overrideBrowserWindowOptions: {
         autoHideMenuBar: true,
+        // A popup renders remote content, so it gets the same lockdown as a tab's
+        // view — including, crucially, the opener's configured session, set
+        // explicitly here exactly as `createView` does. Overriding `webPreferences`
+        // at all stops the popup inheriting it, so without this line the popup fell
+        // back to the *default* session: a user agent that still carries the
+        // `Electron` token and an empty cookie jar. Google served that popup its
+        // unsupported-browser page ("JavaScript isn't enabled") and shared no
+        // sign-in state, while the tab that opened it was signed in fine.
         webPreferences: {
+          ...(profile ? { session: this.deps.sessions.getSession(profile) } : {}),
           sandbox: true,
           contextIsolation: true,
           nodeIntegration: false,
@@ -1012,6 +1017,16 @@ export class TabManager {
     }
 
     wc.setWindowOpenHandler(({ url, disposition }) => {
+      // A page opening its own blob: content — "Download", "Export" and "Open
+      // PDF" buttons do `window.open(URL.createObjectURL(blob))`. The blob lives
+      // in the opener's renderer, so a fresh tab cannot resolve it; Chromium
+      // opens it in a popup that shares the opener's context. Denying it (as the
+      // scheme check below would) returns null to the page and its own script
+      // throws — the "JavaScript error on download".
+      if (url.startsWith('blob:')) {
+        return this.popupResult(live, url);
+      }
+
       // This URL comes from the page. Everything below hands it to the browser,
       // so the scheme is checked before anything else looks at it.
       if (!isWebContentUrl(url)) {
