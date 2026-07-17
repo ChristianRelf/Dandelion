@@ -71,11 +71,18 @@ async function main() {
   mkdirSync(resolve(root, 'build'), { recursive: true });
   writeFileSync(resolve(root, 'build/icon.svg'), `${svg}\n`);
 
+  // `transparent` is what keeps the plate's rounded corners transparent. A
+  // BrowserWindow's backdrop is opaque **white** by default, and
+  // `background: transparent` on the page only lets that white through — so the
+  // capture came back with four solid white corners, which is what every icon
+  // shipped up to v0.2.3 had. The page must be transparent *and* the window.
   const win = new BrowserWindow({
     width: SIZE,
     height: SIZE,
     show: false,
     frame: false,
+    transparent: true,
+    backgroundColor: '#00000000',
     useContentSize: true,
     webPreferences: { offscreen: true },
   });
