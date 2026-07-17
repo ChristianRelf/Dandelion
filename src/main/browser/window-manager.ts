@@ -20,6 +20,7 @@ const BOUNDS_KEY = 'window.lastBounds';
 export class WindowManager {
   private readonly windows = new Map<string, DandelionWindow>();
   private readonly closeListeners = new Set<(windowId: string) => void>();
+  private readonly willCloseListeners = new Set<(windowId: string) => void>();
 
   constructor(
     private readonly settings: SettingsService,
@@ -139,6 +140,17 @@ export class WindowManager {
     return () => this.closeListeners.delete(listener);
   }
 
+  /**
+   * Fires while the window is still in `windows` and its tabs are still live —
+   * the last point anything can read what it was showing. `onWindowClosed` is
+   * too late: by then the window is gone from the map and `TabManager` has
+   * dropped its tabs.
+   */
+  onWindowWillClose(listener: (windowId: string) => void): () => void {
+    this.willCloseListeners.add(listener);
+    return () => this.willCloseListeners.delete(listener);
+  }
+
   private loadRenderer(browserWindow: BrowserWindow): void {
     const devUrl = process.env['ELECTRON_RENDERER_URL'];
     if (is.dev && devUrl) {
@@ -188,6 +200,9 @@ export class WindowManager {
     browserWindow.on('leave-full-screen', rebroadcast);
     browserWindow.on('focus', rebroadcast);
     browserWindow.on('blur', rebroadcast);
+    browserWindow.on('close', () => {
+      for (const listener of this.willCloseListeners) listener(id);
+    });
     browserWindow.on('closed', () => {
       this.windows.delete(id);
       for (const listener of this.closeListeners) listener(id);

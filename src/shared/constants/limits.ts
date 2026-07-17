@@ -15,6 +15,8 @@ export const LIMITS = {
   defaultSleepAfterMinutes: 30,
   /** Session autosave cadence, ms. */
   sessionAutosaveMs: 15_000,
+  /** Saved sessions retained; older ones are pruned. */
+  savedSessions: 15,
   /** History retention window in days (0 = keep forever). */
   historyRetentionDays: 90,
   /** Download speed sampling window, ms. */

@@ -9,6 +9,45 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · Every normal quit saved an _empty_ session, then pruned the real ones away
+
+"Restore previous session" restored nothing after a normal quit, and each quit destroyed one more
+genuine snapshot.
+
+`saveSession()` was only reached from `shutdown()`, wired to `before-quit`. On the ordinary
+Windows/Linux quit path that ordering is fatal: closing the last window fires
+`browserWindow.on('closed')`, which deletes it from `windows` and notifies `closeListeners` →
+`TabManager.handleWindowClosed()` drops every tab of that window. Only then does `window-all-closed`
+→ `app.quit()` → `before-quit` → `shutdown()` run. By that point both maps are empty, so
+`this.windows.all().map(...)` yields `[]`. The snapshot was written **unconditionally** and then
+`prune(15)` kept the 15 newest — so after 15 quits every real snapshot had been evicted by an empty
+one. The `'Empty session'` fallback in `listSessions` was the symptom being papered over.
+
+**Fix, in two halves.**
+
+_Capture at a moment where there is something to capture._ `WindowManager` gained
+`onWindowWillClose`, fired from `browserWindow.on('close')` — while the window is still in the map
+and its tabs are still live, which `'closed'` is one step too late for. `AppContext` snapshots there
+when the window going away is the last one. `close` → `closed` runs to completion per window, so
+"last" is `windows.all().length === 1` at that point, and a quit begun by `app.quit()` (menu,
+palette, `Cmd+Q`) has already snapshotted every window in `shutdown()` — a `quitting` flag stops the
+closes that follow from each taking another snapshot of what is left.
+
+_Refuse to write a snapshot that restores nothing._ `saveSession` returns `null` instead of
+persisting an empty one, which is what made the bug destructive rather than merely useless. This also
+covers the shutdown save on the X path, which now no-ops instead of evicting. `sessions.saveCurrent`
+returns that as a boolean, so "Save current" with nothing open reports "Nothing open to save" rather
+than a success toast over a write that did not happen.
+
+Also fixed here, same subsystem: **`restoreSession` ignored the calling window.** It resolved its
+target with `this.windows.first()` and the router never passed `ctx.windowId`, so with two windows
+open, restoring from window B dumped every tab into window A. It now takes `windowId` and the router
+passes `requireWindowId(ctx)`, like every other window-scoped route.
+
+Not pinned by a test: `AppContext` news up its own `Db` and every service eagerly, so it cannot be
+constructed in one. That gap is now the top item in [TODO.md](TODO.md) § Testing — it is precisely
+why this survived.
+
 ### P1 · `Ctrl/Cmd+N` stole a tab out of the window you were using
 
 Opening a new window moved the _current_ window's active tab into the new one. Window 1's content

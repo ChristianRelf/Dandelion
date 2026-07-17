@@ -110,6 +110,13 @@ against what has. Fixed ones move to [BUGS-FIXED.md](BUGS-FIXED.md).
 
 ## Testing
 
+- [ ] **P1** **`AppContext` is not constructible in a test**, so nothing in it can be unit tested —
+      `saveSession`, `restoreSession` and the session-snapshot trigger all went out on v0.2.2b
+      verified by tracing rather than by a test, which is exactly how the empty-snapshot P1 survived
+      in the first place. The constructor `new Db(databasePath())`s and builds every service eagerly,
+      so a test cannot inject a temp database or fake the window/tab managers. Take `Db` (or a
+      `paths` seam) as a constructor argument and the whole composition root becomes testable. This
+      is the single highest-leverage testing gap in the repo.
 - [ ] **P1** Re-run the Playwright e2e suite against a **throwaway/fixture profile** (it currently drives the live user profile and would add test tabs). **No code change is needed:** `paths.ts` reads `app.getPath('userData')` without overriding it, so Electron's own `--user-data-dir` switch redirects the whole profile. Verified during the v0.2.1 audit by driving the built app with `electron.launch({ args: [APP, '--user-data-dir=<mkdtemp>'] })`. Add it to `app.spec.ts`'s launch args.
 - [ ] **P1** Unit tests for the new backend logic: reader extraction shape, `restoreSession`, `extensions.setEnabled`, tab-group CRUD, zoom percent mapping.
 - [ ] **P2** Store tests: `ai.store` (streaming reducer, error path), `reader.store`, `tab-preview.store`, `toast.store`, `useAsyncData` (race/stale-response handling).
