@@ -74,4 +74,20 @@ describe('broadcastEvent', () => {
 
     expect(good.contents.send).toHaveBeenCalledTimes(1);
   });
+
+  // The teardown race the guard cannot catch: `isDestroyed()` returns false, but
+  // the webContents dies before `send`, which throws. It must not escape.
+  it('survives a send that throws even though isDestroyed() is false', () => {
+    const racing = {
+      isDestroyed: () => false,
+      send: vi.fn(() => {
+        throw new Error('Object has been destroyed');
+      }),
+    };
+    const good = fakeContents(false);
+
+    expect(() => broadcastEvent(EVENT, [], [asContents(racing), asContents(good)])).not.toThrow();
+    // And a later target still receives it.
+    expect(good.send).toHaveBeenCalledTimes(1);
+  });
 });

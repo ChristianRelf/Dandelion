@@ -75,13 +75,13 @@ export function resolveProcedure(
 
 /**
  * Fan a domain event out to every chrome renderer — top-level windows and popup
- * surfaces alike.
+ * surfaces alike — surviving any target that dies mid-broadcast.
  *
- * Each target's **webContents** is checked, not just its window: a closing window
- * reports `isDestroyed()` false for a beat after its webContents has already gone,
- * and an event landing in that beat — a popup surface blurring as the window
- * tears down emits `popup:show` — would `send` to a destroyed target, which
- * throws `Object has been destroyed` and takes down the whole main process.
+ * An event can be emitted while a window is tearing down (a popup surface
+ * blurring as the window closes emits `popup:show`). Sending to a gone webContents
+ * throws `Object has been destroyed`, and uncaught in an event listener that takes
+ * down the whole main process. See {@link deliver} for why the `isDestroyed()`
+ * guard alone is not enough.
  */
 export function broadcastEvent(
   browserEvent: BrowserEvent,
@@ -89,13 +89,28 @@ export function broadcastEvent(
   surfaces: WebContents[],
 ): void {
   for (const window of windows) {
-    if (window.isDestroyed()) continue;
-    const contents = window.webContents;
-    if (!contents.isDestroyed()) contents.send(IPC.event, browserEvent);
+    if (!window.isDestroyed()) deliver(window.webContents, browserEvent);
   }
   // Popup surfaces are child views, so `getAllWindows` never reaches them.
   for (const contents of surfaces) {
-    if (!contents.isDestroyed()) contents.send(IPC.event, browserEvent);
+    deliver(contents, browserEvent);
+  }
+}
+
+/**
+ * Send one event to one renderer, tolerating a target that has died.
+ *
+ * Both the guard and the `try` are load-bearing: during teardown `isDestroyed()`
+ * is advisory, not a lock — a webContents can finish dying between the check and
+ * the `send`, and `send` on a gone one throws `Object has been destroyed`. The
+ * guard skips the common case cheaply; the `try` makes the crash impossible.
+ */
+function deliver(contents: WebContents, browserEvent: BrowserEvent): void {
+  if (contents.isDestroyed()) return;
+  try {
+    contents.send(IPC.event, browserEvent);
+  } catch {
+    // The renderer went away mid-broadcast; the rest still get the event.
   }
 }
 
