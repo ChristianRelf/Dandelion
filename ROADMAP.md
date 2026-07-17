@@ -23,8 +23,9 @@ more than anything new, so v0.2.2 is a correctness release.
 
 - [ ] **Nothing lies.** Every control that renders either works or stops
       rendering: dead commands (`tools.print`, `workspace.switcher`), dead
-      settings (auto-sleep, `security.safeBrowsing`, `isolateSites`), dead
-      tokens (`--tab-height`), dead permissions (`popups`).
+      settings (`security.safeBrowsing`, `isolateSites`), dead tokens
+      (`--tab-height`), dead permissions (`popups`). Auto-sleep was one of
+      these until v0.2.6 wired the sweep its settings always implied.
 - [ ] **Nothing silently fails.** Errors reach the user or the log — never
       `void`ed away, never a success toast over a failure.
 - [ ] **Nothing grows without bound.** History retention, `history_visits`,
@@ -244,7 +245,11 @@ structural rather than local:
 
 ## Browser
 
-- [ ] Smarter tab sleeping
+- [x] Smarter tab sleeping — inactive tabs sleep on the `tabs.sleepAfterMinutes`
+      threshold the settings always advertised. The sweeper spares whatever is on
+      screen (including the far half of a split), audible tabs, and pinned tabs
+      unless `sleepPinnedTabs` is on. Memory-pressure and site-heuristic inputs
+      are still ahead
 - [ ] GPU optimisation
 - [ ] Faster startup
 - [ ] Lazy renderer loading

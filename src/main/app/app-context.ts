@@ -33,6 +33,7 @@ import { SessionManager } from '../browser/session-manager';
 import { WindowManager } from '../browser/window-manager';
 import { PopupHost } from '../browser/popup-host';
 import { TabManager } from '../browser/tab-manager';
+import { TabSleeper } from '../browser/tab-sleeper';
 import type { DandelionWindow } from '../browser/dandelion-window';
 
 /**
@@ -58,6 +59,7 @@ export class AppContext {
   readonly windows: WindowManager;
   readonly popups: PopupHost;
   readonly tabs: TabManager;
+  readonly tabSleeper: TabSleeper;
   readonly omnibox: OmniboxService;
   readonly vault: VaultService;
   readonly ai: AIService;
@@ -121,6 +123,13 @@ export class AppContext {
       logger: this.logger.child('tabs'),
     });
 
+    this.tabSleeper = new TabSleeper({
+      tabs: this.tabs,
+      windows: this.windows,
+      settings: this.settings,
+      logger: this.logger.child('tabs'),
+    });
+
     this.omnibox = new OmniboxService({
       history: this.history,
       bookmarks: this.bookmarks,
@@ -165,6 +174,7 @@ export class AppContext {
     this.pruneHistory();
     this.downloads.reconcileInterrupted();
     this.updates.start();
+    this.tabSleeper.start();
     this.logger.info(`bootstrapped profile "${profile.name}" / workspace "${workspace.name}"`);
     return { profile, workspace };
   }
@@ -291,6 +301,10 @@ export class AppContext {
 
   shutdown(): void {
     this.updates.stop();
+    // Before the snapshot below: a sweep landing mid-shutdown would tear down
+    // views the snapshot is still reading, and any write it triggers would race
+    // `db.close()`.
+    this.tabSleeper.stop();
     try {
       // Set first: this snapshot covers every window, so the closes that follow
       // must not each take another of what is left.
