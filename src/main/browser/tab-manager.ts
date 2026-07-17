@@ -1,4 +1,9 @@
-import { WebContentsView, type WebContents, type WindowOpenHandlerResponse } from 'electron';
+import {
+  WebContentsView,
+  webContents as webContentsRegistry,
+  type WebContents,
+  type WindowOpenHandlerResponse,
+} from 'electron';
 import type {
   ClosedTab,
   Profile,
@@ -31,7 +36,7 @@ import type { WorkspaceService } from '../services/workspace.service';
 import type { ProfileService } from '../services/profile.service';
 import type { HistoryService } from '../services/history.service';
 import type { PrivacyService } from '../services/privacy/privacy.service';
-import type { PermissionsService } from '../services/permissions.service';
+import type { PermissionsService, RequestingTab } from '../services/permissions.service';
 import type { SettingsService } from '../services/settings.service';
 
 interface LiveTab {
@@ -67,6 +72,13 @@ export interface CreateTabInput {
 const round = (value: number): number => Math.round(value);
 
 /**
+ * How far {@link TabManager.requestingTab} follows `window.opener` looking for a
+ * tab. A popup may open a popup, but the chain is short by construction and
+ * cannot loop — an opener always predates what it opened.
+ */
+const MAX_OPENER_HOPS = 8;
+
+/**
  * The heart of the browser. Owns every live tab and its backing
  * {@link WebContentsView}, positions content beneath the chrome, wires the full
  * navigation/media event surface, records history, and implements sleeping,
@@ -77,7 +89,7 @@ export class TabManager {
   private readonly recentlyClosed: ClosedTab[] = [];
 
   constructor(private readonly deps: TabManagerDeps) {
-    this.deps.permissions.setTabResolver((webContents) => this.tabIdForWebContents(webContents));
+    this.deps.permissions.setTabResolver((contents) => this.requestingTab(contents));
     this.deps.windows.onWindowClosed((windowId) => this.handleWindowClosed(windowId));
   }
 
@@ -875,6 +887,15 @@ export class TabManager {
     const wc = view.webContents;
     const profile = this.profileForWorkspace(live.state.workspaceId);
 
+    // The shield counters are keyed by webContents id, and nothing ever freed an
+    // entry: `resetCounters` is otherwise only reached from
+    // `did-start-navigation`, so the map gained one per webContents ever created
+    // and lost none. `destroyed` covers every way contents can go — closed,
+    // slept, navigated to an internal page, or taken down with their window —
+    // and the id is captured now because it cannot be read once they have.
+    const webContentsId = wc.id;
+    wc.on('destroyed', () => this.deps.privacy.resetCounters(webContentsId));
+
     wc.setWindowOpenHandler(({ url, disposition }) => {
       // This URL comes from the page. Everything below hands it to the browser,
       // so the scheme is checked before anything else looks at it.
@@ -1142,10 +1163,43 @@ export class TabManager {
     return this.deps.profiles.get(workspace.profileId);
   }
 
-  private tabIdForWebContents(webContents: WebContents): string | null {
-    for (const live of this.tabs.values()) {
-      if (live.view?.webContents === webContents) return live.state.id;
+  /**
+   * The tab a webContents belongs to, and the window showing it — what a
+   * permission prompt needs to be asked in one place, beside the tab that asked.
+   *
+   * A popup shares its opener's session, so it reaches the session's permission
+   * handler with a webContents that is no tab's. It has no Dandelion chrome of
+   * its own to prompt in, so it resolves to the tab that opened it: the window
+   * the user clicked in, and the only one that can explain the request.
+   */
+  private requestingTab(contents: WebContents): RequestingTab | null {
+    let current: WebContents | null = contents;
+    for (let hop = 0; current && hop < MAX_OPENER_HOPS; hop++) {
+      const live = this.liveForWebContents(current);
+      if (live) {
+        const { id, windowId } = live.state;
+        return windowId ? { tabId: id, windowId } : null;
+      }
+      current = this.openerOf(current);
     }
     return null;
+  }
+
+  private liveForWebContents(contents: WebContents): LiveTab | null {
+    for (const live of this.tabs.values()) {
+      if (live.view?.webContents === contents) return live;
+    }
+    return null;
+  }
+
+  /** The webContents that opened this one, if both it and its frame survive. */
+  private openerOf(contents: WebContents): WebContents | null {
+    try {
+      const opener = contents.opener;
+      return opener ? (webContentsRegistry.fromFrame(opener) ?? null) : null;
+    } catch {
+      // A popup can outlive the frame that opened it being torn down.
+      return null;
+    }
   }
 }

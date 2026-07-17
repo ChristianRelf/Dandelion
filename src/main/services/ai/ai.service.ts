@@ -19,6 +19,19 @@ export type PageContextProvider = (tabId: string) => Promise<PageContext | null>
 const KEY_PREFIX = 'ai.key.';
 const PROMPTS_KEY = 'ai.customPrompts';
 
+/**
+ * How a stored API key was encoded, recorded on the value itself.
+ *
+ * Both the write and the read used to branch on `safeStorage.isEncryptionAvailable()`
+ * independently, and the blob said nothing about which branch produced it. A key
+ * written while the keychain was available and read once it was not — a Linux
+ * keyring not yet unlocked, which survives restarts — made `toString('utf8')`
+ * return binary garbage instead of throwing, and that garbage was sent as the
+ * API key. The marker is what lets the read path fail loudly instead of guessing.
+ */
+const ENCRYPTED_PREFIX = 'safeStorage:v1:';
+const PLAINTEXT_PREFIX = 'plain:v1:';
+
 const BUILTIN_PROMPTS: PromptTemplate[] = [
   {
     id: 'builtin-summarize',
@@ -94,10 +107,7 @@ export class AIService {
       if (apiKey === '') {
         this.repos.kv.remove(`${KEY_PREFIX}${providerId}`);
       } else {
-        const stored = safeStorage.isEncryptionAvailable()
-          ? safeStorage.encryptString(apiKey).toString('base64')
-          : Buffer.from(apiKey, 'utf8').toString('base64');
-        this.repos.kv.set(`${KEY_PREFIX}${providerId}`, stored);
+        this.repos.kv.set(`${KEY_PREFIX}${providerId}`, this.encodeKey(apiKey));
       }
     }
     if (baseUrl !== undefined) {
@@ -217,18 +227,72 @@ export class AIService {
     this.repos.kv.set(PROMPTS_KEY, custom);
   }
 
+  /** Encode a key for storage, recording which branch produced the blob. */
+  private encodeKey(apiKey: string): string {
+    return safeStorage.isEncryptionAvailable()
+      ? ENCRYPTED_PREFIX + safeStorage.encryptString(apiKey).toString('base64')
+      : PLAINTEXT_PREFIX + Buffer.from(apiKey, 'utf8').toString('base64');
+  }
+
+  /**
+   * The stored key, or `null` — never a value we are not sure of. Reporting the
+   * provider unconfigured costs one re-entry in Settings; returning a key that
+   * decoded wrong sends garbage to the provider and buys an opaque 401.
+   */
   private getKey(providerId: string): string | null {
     const stored = this.repos.kv.get<string | null>(`${KEY_PREFIX}${providerId}`, null);
     if (!stored) return null;
-    try {
-      const buffer = Buffer.from(stored, 'base64');
-      return safeStorage.isEncryptionAvailable()
-        ? safeStorage.decryptString(buffer)
-        : buffer.toString('utf8');
-    } catch {
-      this.logger.warn(`failed to decrypt AI key for ${providerId}`);
+
+    if (stored.startsWith(PLAINTEXT_PREFIX)) {
+      return Buffer.from(stored.slice(PLAINTEXT_PREFIX.length), 'base64').toString('utf8');
+    }
+
+    if (stored.startsWith(ENCRYPTED_PREFIX)) {
+      const ciphertext = Buffer.from(stored.slice(ENCRYPTED_PREFIX.length), 'base64');
+      if (!safeStorage.isEncryptionAvailable()) {
+        this.logger.warn(
+          `AI key for ${providerId} was stored encrypted but the OS keychain is unavailable; ` +
+            're-enter the key once it is unlocked',
+        );
+        return null;
+      }
+      try {
+        return safeStorage.decryptString(ciphertext);
+      } catch {
+        this.logger.warn(`failed to decrypt AI key for ${providerId}`);
+        return null;
+      }
+    }
+
+    return this.readUnmarkedKey(providerId, stored);
+  }
+
+  /**
+   * A key stored before the markers existed: bare base64, either ciphertext or
+   * plaintext with no way to tell them apart. With the keychain up, a failed
+   * decrypt is the tell — real ciphertext decrypts, plaintext cannot — and the
+   * value is rewritten marked so this branch is never taken for it again. With
+   * the keychain down there is no tell at all, which is the defect itself, so it
+   * refuses rather than risk handing binary to the provider.
+   */
+  private readUnmarkedKey(providerId: string, stored: string): string | null {
+    const buffer = Buffer.from(stored, 'base64');
+    if (!safeStorage.isEncryptionAvailable()) {
+      this.logger.warn(
+        `AI key for ${providerId} predates encoding markers and the OS keychain is ` +
+          'unavailable, so it cannot be read safely; re-enter the key',
+      );
       return null;
     }
+
+    let apiKey: string;
+    try {
+      apiKey = safeStorage.decryptString(buffer);
+    } catch {
+      apiKey = buffer.toString('utf8');
+    }
+    this.repos.kv.set(`${KEY_PREFIX}${providerId}`, this.encodeKey(apiKey));
+    return apiKey;
   }
 
   private emitChunk(requestId: string, delta: string, done: boolean, error: string | null): void {

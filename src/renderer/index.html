@@ -4,12 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!--
-      This is the whole policy. Nothing intersects it at runtime: the chrome is
-      served over file:// via `loadFile`, where `webRequest` header injection
-      does not fire, so a response-header pass could not tighten it even if one
-      existed. `script-src` still carries 'unsafe-inline' and 'unsafe-eval'; that
-      is recorded in Work/BUGS.md and wants a build-time dev/prod split, not a
-      comment claiming one already happened.
+      This is the whole policy, and nothing intersects it at runtime: the chrome
+      is served over file:// via `loadFile`, where `webRequest` header injection
+      does not fire, so a response-header pass could not tighten it. The token is
+      resolved at build time instead — `chromeCsp` in electron.vite.config.ts
+      emits 'unsafe-inline'/'unsafe-eval' in `script-src` for the dev server,
+      which injects Vite's HMR client inline, and neither for production.
 
       `img-src` keeps https: only for the reader's inline images, which are still
       fetched by the chrome and so still land in the default session. Favicons no
@@ -17,10 +17,7 @@
       through the owning profile's session. Routing the reader's images the same
       way is what lets https: come out of this list; see Work/BUGS.md.
     -->
-    <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'self'; img-src 'self' data: blob: https: dandelion-favicon:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; font-src 'self' data:; connect-src 'self' ws: wss: http: https:;"
-    />
+    <meta http-equiv="Content-Security-Policy" content="__DANDELION_CSP__" />
     <title>Dandelion</title>
   </head>
   <body>

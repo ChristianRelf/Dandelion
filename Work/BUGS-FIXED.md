@@ -248,6 +248,86 @@ Verified against real SQLite (both symptoms reproduced, then gone). Pinned by
 against Electron's ABI and cannot be loaded by vitest, so no unit test here can open a database —
 the same gap already noted in [TODO.md](TODO.md) § Testing.
 
+### P2 · The chrome shipped its dev CSP, behind a comment claiming otherwise
+
+[index.html](../src/renderer/index.html) claimed production hardening "is intersected on top of this
+via response headers in the security service". No such code existed — the only
+`Content-Security-Policy` anywhere in `src` was that meta tag, and `src/main/app/security.ts` is 13
+lines that only `preventDefault()` `will-attach-webview` — and none could have: the chrome is served
+over `file://` via `loadFile`, where `webRequest` header injection never fires. So the shipped policy
+was the dev one, `script-src 'self' 'unsafe-inline' 'unsafe-eval'`, and the comment was load-bearing
+misinformation — it would lead a reviewer to conclude the renderer was hardened when it was not.
+
+**Fix.** The policy is resolved at build time, which is the only place it can be. `index.html` carries
+a `__DANDELION_CSP__` token, and the `dandelion-chrome-csp` plugin in
+[electron.vite.config.ts](../electron.vite.config.ts) swaps in `chromeCsp(dev)` through
+`transformIndexHtml`: `'unsafe-inline'`/`'unsafe-eval'` for the dev server, which serves the renderer
+itself and injects Vite's HMR client inline, and `script-src 'self'` for production. Everything else,
+including the `dandelion-favicon:` entry favicons need to reach the owning profile's session, is
+unchanged in both. Pinned by `tests/unit/chrome-csp.test.ts`.
+
+### P2 · `permission:request` was broadcast to every window
+
+Two windows open; a site in window A requested the camera. **Both** rendered the prompt, each
+auto-focusing "Allow" — window B showing "example.com wants to use your camera" for a tab it does not
+contain, for a site its user was not looking at. A consent prompt shown without its originating
+context, with the affirmative pre-focused, is a consent-integrity problem rather than a UX wart.
+
+Events fan out to `BrowserWindow.getAllWindows()`, and the emitted request carried
+`{id, tabId, origin, type}` with no `windowId` — so
+[PermissionPrompt.tsx](../src/renderer/components/chrome/PermissionPrompt.tsx) structurally could not
+filter, even though `browser.store.ts` filters other events by `windowId` as a matter of course.
+
+**Fix.** The request now names the window that must answer it, and the renderer filters on it with the
+same `event.windowId === state.windowId` test the store already uses everywhere else. Main resolves it
+through the `tabResolver` `TabManager` already installs, which answers with the tab **and** the window
+holding it rather than a bare tab id.
+
+The resolver also follows `window.opener`. A popup shares its opener's session, so it reaches the
+session's permission handler with a webContents belonging to no tab, and it has no chrome of its own
+to prompt in — so it is attributed to the tab that opened it, the window the user clicked in. Without
+that, popups would have gone from prompting in every window to prompting in none.
+
+A request that still cannot be placed in a window is refused and logged, rather than shown everywhere
+without its context. Attribution gates the prompt only: a stored `allow`/`block` rule is honoured
+before the resolver is consulted, because that path needs no window to be asked in. Pinned by
+`tests/unit/permission-request-window.test.ts`, `tests/unit/tab-webcontents.test.ts` and
+`tests/integration/permission-prompt.test.tsx`.
+
+### P3 · Stored AI keys carried no encoding marker
+
+[ai.service.ts](../src/main/services/ai/ai.service.ts) branched independently on
+`safeStorage.isEncryptionAvailable()` on write and on read, and the stored blob recorded nothing about
+which branch produced it. A key written while encryption was available and read when it was not — a
+Linux keyring not yet unlocked, real across restarts — made `buffer.toString('utf8')` return **binary
+garbage rather than throw**, and that garbage was sent as the API key: an opaque 401 from a provider
+Settings still reported as configured.
+
+**Fix.** A stored key carries the marker of the branch that wrote it — `safeStorage:v1:` or
+`plain:v1:`, neither of which base64 can collide with — so the read path never has to guess. An
+encrypted key read with no keychain is refused, with a log naming why, instead of being decoded into
+whatever the bytes happen to be. Reporting the provider unconfigured costs one re-entry in Settings;
+the old behaviour cost a support ticket.
+
+Keys written before the markers existed are still read: with the keychain up, a failed decrypt is the
+tell — real ciphertext decrypts, plaintext cannot — and the value is rewritten marked, so that branch
+is taken once per key and then never again. With the keychain down there is no tell at all, which is
+the defect itself, so those refuse too. Pinned by `tests/unit/ai-key-storage.test.ts`.
+
+### P3 · `PrivacyService.counters` was never freed
+
+`resetCounters` was reached only from `did-start-navigation`. Nothing removed a tab's entry when its
+view was destroyed, so the map gained one per webContents ever created and lost none — unbounded over
+a long session, at ~50 bytes a tab. webContents ids are monotonic, so there was no stale-read hazard;
+just the growth.
+
+**Fix.** The entry's lifetime is tied to the webContents that keys it — `wireWebContents` subscribes to
+`destroyed` and frees it there. That covers every way contents can go: closed, slept, navigated to an
+internal page, or taken down with their window. A call in `destroyView` would have missed the last of
+those, which is the largest case: closing a window destroys its views' contents before
+`handleWindowClosed` runs, and `webContents.id` cannot be read once they are gone. The id is captured
+at wiring time for the same reason. Pinned by `tests/unit/tab-webcontents.test.ts`.
+
 ---
 
 ## v0.2.2
