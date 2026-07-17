@@ -88,7 +88,11 @@ export function BookmarksPanel(): ReactElement {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { status, data: bookmarks } = useAsyncData<Bookmark[]>(
+  const {
+    status,
+    data: bookmarks,
+    reload,
+  } = useAsyncData<Bookmark[]>(
     () =>
       profileId
         ? trpc.bookmarks.list.query({ profileId, query: debounced || undefined })
@@ -144,6 +148,19 @@ export function BookmarksPanel(): ReactElement {
               <Skeleton className="h-3 flex-1" />
             </div>
           ))
+        ) : status === 'error' ? (
+          // `useAsyncData` returns `data: []` on rejection, so without this a
+          // failed query renders "No bookmarks yet" to someone who has some.
+          <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+            <p className="text-[12px] text-faint">Couldn’t load bookmarks</p>
+            <button
+              type="button"
+              onClick={reload}
+              className="rounded px-2 py-1 text-[12px] text-accent hover:bg-surface-hover"
+            >
+              Retry
+            </button>
+          </div>
         ) : bookmarks.length === 0 ? (
           <p className="px-2 py-8 text-center text-[12px] text-faint">
             {query.trim() ? 'No bookmarks matched' : 'No bookmarks yet'}

@@ -132,8 +132,9 @@ export const downloadRoutes = router({
     ctx.app.downloads.remove(input.downloadId);
     return true;
   }),
-  openFile: publicProcedure.input(downloadRef).mutation(({ ctx, input }) => {
-    ctx.app.downloads.openFile(input.downloadId);
+  /** Rejects if the file cannot be opened, so the renderer's error toast can run. */
+  openFile: publicProcedure.input(downloadRef).mutation(async ({ ctx, input }) => {
+    await ctx.app.downloads.openFile(input.downloadId);
     return true;
   }),
   showInFolder: publicProcedure.input(downloadRef).mutation(({ ctx, input }) => {

@@ -155,14 +155,34 @@ export class DownloadsService {
     this.repos.downloads.clearCompleted(profileId);
   }
 
-  openFile(id: string): void {
+  /**
+   * Throws if the file cannot be opened, so the renderer's error toast can run.
+   *
+   * `shell.openPath` **resolves** to an error message rather than rejecting —
+   * an empty string means success — so `void`ing it discarded the only report
+   * of a file that had been moved or deleted, and the router said `true`
+   * regardless. Clicking Open did nothing at all: no error, no log.
+   */
+  async openFile(id: string): Promise<void> {
     const record = this.repos.downloads.get(id);
-    if (record) void shell.openPath(record.savePath);
+    if (!record) throw new Error('Download not found');
+    const failure = await shell.openPath(record.savePath);
+    if (failure) {
+      this.logger.warn(`failed to open ${record.savePath}: ${failure}`);
+      throw new Error(failure);
+    }
   }
 
   showInFolder(id: string): void {
     const record = this.repos.downloads.get(id);
-    if (record) shell.showItemInFolder(record.savePath);
+    if (!record) throw new Error('Download not found');
+    // Unlike `openPath`, this reports nothing at all — so check first, and give
+    // the one failure we can detect a real error instead of silence.
+    if (!existsSync(record.savePath)) {
+      this.logger.warn(`cannot reveal a missing file: ${record.savePath}`);
+      throw new Error('The file is no longer there');
+    }
+    shell.showItemInFolder(record.savePath);
   }
 
   private onUpdated(id: string, item: DownloadItem, state: 'progressing' | 'interrupted'): void {

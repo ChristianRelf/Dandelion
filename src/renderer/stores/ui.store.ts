@@ -8,6 +8,8 @@ interface UiStore {
   omniboxInitialValue: string;
   /** Raycast-style command palette. */
   paletteOpen: boolean;
+  /** Seeds the palette's search, so a command can open it scoped to one group. */
+  paletteInitialQuery: string;
   /** Quick tab switcher (MRU). */
   tabSwitcherOpen: boolean;
   /** Saved-sessions manager dialog. */
@@ -27,7 +29,7 @@ interface UiStore {
 
   openOmnibox: (initialValue?: string) => void;
   closeOmnibox: () => void;
-  openPalette: () => void;
+  openPalette: (initialQuery?: string) => void;
   closePalette: () => void;
   togglePalette: () => void;
   openTabSwitcher: () => void;
@@ -49,6 +51,7 @@ export const useUiStore = create<UiStore>((set, get) => ({
   omniboxOpen: false,
   omniboxInitialValue: '',
   paletteOpen: false,
+  paletteInitialQuery: '',
   tabSwitcherOpen: false,
   sessionsOpen: false,
   findOpen: false,
@@ -61,7 +64,13 @@ export const useUiStore = create<UiStore>((set, get) => ({
   openOmnibox: (initialValue = '') =>
     set({ omniboxOpen: true, omniboxInitialValue: initialValue, paletteOpen: false }),
   closeOmnibox: () => set({ omniboxOpen: false }),
-  openPalette: () => set({ paletteOpen: true, omniboxOpen: false, tabSwitcherOpen: false }),
+  openPalette: (initialQuery = '') =>
+    set({
+      paletteOpen: true,
+      paletteInitialQuery: initialQuery,
+      omniboxOpen: false,
+      tabSwitcherOpen: false,
+    }),
   closePalette: () => set({ paletteOpen: false }),
   togglePalette: () => set({ paletteOpen: !get().paletteOpen, omniboxOpen: false }),
   openTabSwitcher: () => set({ tabSwitcherOpen: true, paletteOpen: false, omniboxOpen: false }),

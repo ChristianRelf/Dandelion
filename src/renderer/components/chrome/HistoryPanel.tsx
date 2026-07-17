@@ -46,7 +46,11 @@ export function HistoryPanel(): ReactElement {
     return () => clearTimeout(timer);
   }, [query]);
 
-  const { status, data: entries } = useAsyncData<HistoryEntry[]>(
+  const {
+    status,
+    data: entries,
+    reload,
+  } = useAsyncData<HistoryEntry[]>(
     () =>
       profileId
         ? trpc.history.search.query({ profileId, query: debounced, limit: PANEL_LIMIT })
@@ -74,6 +78,19 @@ export function HistoryPanel(): ReactElement {
               <Skeleton className="h-3 flex-1" />
             </div>
           ))
+        ) : status === 'error' ? (
+          // `useAsyncData` returns `data: []` on rejection, so without this a
+          // failed query renders "No history yet" to someone who has history.
+          <div className="flex flex-col items-center gap-2 px-2 py-8 text-center">
+            <p className="text-[12px] text-faint">Couldn’t load history</p>
+            <button
+              type="button"
+              onClick={reload}
+              className="rounded px-2 py-1 text-[12px] text-accent hover:bg-surface-hover"
+            >
+              Retry
+            </button>
+          </div>
         ) : entries.length === 0 ? (
           <p className="px-2 py-8 text-center text-[12px] text-faint">
             {query.trim() ? 'Nothing matched' : 'No history yet'}

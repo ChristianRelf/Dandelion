@@ -24,6 +24,7 @@ function SessionsBody({ close }: { close: () => void }): ReactElement {
   const {
     status,
     data: sessions,
+    error,
     reload,
   } = useAsyncData<SessionSummary[]>(() => trpc.sessions.list.query(), [], []);
 
@@ -84,6 +85,20 @@ function SessionsBody({ close }: { close: () => void }): ReactElement {
             </div>
           ))}
         </ListContainer>
+      )}
+
+      {status === 'error' && (
+        <EmptyState
+          compact
+          icon="triangle-alert"
+          title="Couldn't load sessions"
+          description={error ?? undefined}
+          action={
+            <Button icon="rotate-cw" size="sm" onClick={reload}>
+              Retry
+            </Button>
+          }
+        />
       )}
 
       {status === 'ready' &&

@@ -223,7 +223,10 @@ export function handleUiCommand(commandId: string): void {
       void createWorkspace();
       return;
     case 'workspace.switcher':
-      ui.openPalette();
+      // Seeded, so the palette opens on the Workspaces group rather than the
+      // full command list. Previously this opened the palette and nothing else,
+      // and the palette has no workspace list to open onto.
+      ui.openPalette('workspace');
       return;
     default:
       return;
