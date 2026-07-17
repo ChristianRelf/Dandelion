@@ -108,19 +108,26 @@ export function BookmarksPage(): ReactElement {
     }
   };
 
+  // Accepts a Netscape export (Dandelion's own, or Firefox's) as well as a
+  // Chromium `Bookmarks` file — Chrome, Edge, Brave, Opera, Vivaldi and Arc all
+  // write the same JSON, and it has no file extension, so the picker is left
+  // unfiltered rather than restricted to `.html`.
   const importBookmarks = (): void => {
     if (!profile) return;
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.html,text/html';
     input.onchange = async () => {
       const file = input.files?.[0];
       if (!file) return;
       setImporting(true);
       try {
-        const html = await file.text();
-        const { imported } = await trpc.bookmarks.import.mutate({ profileId: profile.id, html });
-        toast.success(`Imported ${plural(imported, 'bookmark')}`);
+        const contents = await file.text();
+        const { imported, source } = await trpc.bookmarks.import.mutate({
+          profileId: profile.id,
+          contents,
+        });
+        const origin = source === 'chromium' ? ' from your browser' : '';
+        toast.success(`Imported ${plural(imported, 'bookmark')}${origin}`);
         reload();
       } catch (caught) {
         toast.error('Failed to import bookmarks', { description: messageOf(caught) });

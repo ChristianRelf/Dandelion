@@ -106,10 +106,8 @@ export const bookmarkRoutes = router({
     .input(profileRef)
     .query(({ ctx, input }) => ctx.app.bookmarks.exportHtml(input.profileId)),
   import: publicProcedure
-    .input(z.object({ profileId: z.string(), html: z.string() }))
-    .mutation(({ ctx, input }) => ({
-      imported: ctx.app.bookmarks.importHtml(input.profileId, input.html),
-    })),
+    .input(z.object({ profileId: z.string(), contents: z.string() }))
+    .mutation(({ ctx, input }) => ctx.app.bookmarks.importFile(input.profileId, input.contents)),
 });
 
 export const downloadRoutes = router({

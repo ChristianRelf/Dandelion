@@ -32,6 +32,57 @@ function decodeEntities(value: string): string {
     .replace(/&amp;/g, '&');
 }
 
+/** One imported bookmark, flattened out of whatever folder tree held it. */
+export interface ImportedBookmark {
+  url: string;
+  title: string;
+}
+
+interface ChromiumNode {
+  type?: string;
+  url?: string;
+  name?: string;
+  children?: unknown;
+}
+
+function collectChromiumBookmarks(node: ChromiumNode, out: ImportedBookmark[]): void {
+  if (node.type === 'url' && typeof node.url === 'string') {
+    out.push({ url: node.url, title: typeof node.name === 'string' ? node.name : '' });
+    return;
+  }
+  if (Array.isArray(node.children)) {
+    for (const child of node.children) {
+      if (child && typeof child === 'object') collectChromiumBookmarks(child as ChromiumNode, out);
+    }
+  }
+}
+
+/**
+ * Parse a Chromium `Bookmarks` file. Chrome, Edge, Brave, Opera, Vivaldi and Arc
+ * all persist bookmarks to the same JSON document (`{ roots: { bookmark_bar,
+ * other, … } }`), so one parser reads every one of them. Bookmarks are
+ * flattened out of their folder tree, matching {@link BookmarksService.importHtml}.
+ *
+ * Returns `[]` for anything that is not a Chromium bookmark file — invalid JSON
+ * or a document without a `roots` object — so a caller can fall back to another
+ * format instead of throwing on, say, a Netscape HTML export.
+ */
+export function parseChromiumBookmarks(contents: string): ImportedBookmark[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(contents);
+  } catch {
+    return [];
+  }
+  const roots = (parsed as { roots?: unknown } | null)?.roots;
+  if (!roots || typeof roots !== 'object') return [];
+  const out: ImportedBookmark[] = [];
+  for (const root of Object.values(roots as Record<string, unknown>)) {
+    if (root && typeof root === 'object') collectChromiumBookmarks(root as ChromiumNode, out);
+  }
+  return out;
+}
+
 /** Bookmarks, folders, and Netscape-format import/export. */
 export class BookmarksService {
   constructor(
@@ -182,20 +233,52 @@ ${items}
 `;
   }
 
+  /**
+   * Import a bookmarks file whose format is detected from its contents: a
+   * Chromium `Bookmarks` file (Chrome / Edge / Brave / Opera / Vivaldi / Arc —
+   * one shared JSON format) or a Netscape bookmark file (Dandelion's own export,
+   * and Firefox's). Returns the count added and which format was recognised, so
+   * the toast can say where the bookmarks came from.
+   */
+  importFile(
+    profileId: string,
+    contents: string,
+  ): { imported: number; source: 'chromium' | 'netscape' } {
+    const chromium = parseChromiumBookmarks(contents);
+    if (chromium.length > 0) {
+      return { imported: this.addImported(profileId, chromium), source: 'chromium' };
+    }
+    return { imported: this.importHtml(profileId, contents), source: 'netscape' };
+  }
+
   /** Import bookmarks from a Netscape Bookmark File; returns the count added. */
   importHtml(profileId: string, html: string): number {
     const anchorRe = /<a\s+[^>]*href="([^"]+)"[^>]*>(.*?)<\/a>/gi;
+    const found: ImportedBookmark[] = [];
     let match: RegExpExecArray | null;
-    let count = 0;
     while ((match = anchorRe.exec(html)) !== null) {
-      const url = decodeEntities(match[1]!);
-      const title = decodeEntities(match[2]!.replace(/<[^>]+>/g, '')).trim();
-      if (!/^https?:/i.test(url)) continue;
-      if (this.repos.bookmarks.findByUrl(profileId, url)) continue;
+      found.push({
+        url: decodeEntities(match[1]!),
+        title: decodeEntities(match[2]!.replace(/<[^>]+>/g, '')).trim(),
+      });
+    }
+    return this.addImported(profileId, found);
+  }
+
+  /**
+   * Add a batch of imported bookmarks, skipping non-web schemes and URLs already
+   * saved. Shared by every import format so the dedupe and the `javascript:`/
+   * `data:` guard are written once.
+   */
+  private addImported(profileId: string, items: readonly ImportedBookmark[]): number {
+    let count = 0;
+    for (const item of items) {
+      if (!/^https?:/i.test(item.url)) continue;
+      if (this.repos.bookmarks.findByUrl(profileId, item.url)) continue;
       this.add({
         profileId,
-        url,
-        title: title || url,
+        url: item.url,
+        title: item.title || item.url,
         folderId: null,
         workspaceId: null,
         tags: [],
