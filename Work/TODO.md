@@ -75,13 +75,6 @@ Found during the v0.2.1 audit. These are recorded here rather than in [BUGS.md](
 nothing is broken against what exists — the backing feature was never built. They are listed
 together because the honest options are the same for each: **build it, or stop advertising it.**
 
-- [ ] **P1** **Auto-sleep never runs.** Settings → Tabs offers "Sleep inactive tabs" (default **on**)
-      and a "Sleep after — 30 min" slider described as _"Free memory from tabs you haven't used in a
-      while."_ Nothing in `src/main/` ever reads `tabs.sleepEnabled` or `tabs.sleepAfterMinutes`;
-      there is no timer. `TabManager.sleep()` is only ever called manually (`tab.sleep`, the context
-      menu). `tabs.sleepPinnedTabs` _is_ read, which makes the feature look wired and suggests the
-      driving sweep was simply never added. Needs an interval over `lastActiveAt` calling the
-      existing `sleep()`. The split-pane guard it depends on was fixed in v0.2.1.
 - [ ] **P2** `security.safeBrowsing` and `security.isolateSites` render as live toggles and are read
       nowhere in the main process.
 - [ ] **P3** `privacy.httpsOnlyMode`, `security.safeBrowsingLevel` and `security.warnOnInsecureForms`
