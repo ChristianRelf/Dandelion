@@ -1,7 +1,8 @@
-import { BrowserWindow, ipcMain } from 'electron';
+import { BrowserWindow, ipcMain, type WebContents } from 'electron';
 import superjson from 'superjson';
 import { TRPCError } from '@trpc/server';
 import { IPC } from '@shared/ipc/channels';
+import type { BrowserEvent } from '@shared/types';
 import type { IpcTrpcOp, IpcTrpcResult, SerializedTrpcError } from '@shared/ipc/contract';
 import type { AppContext } from '../app/app-context';
 import { createCallerFactory, type RouterContext } from './trpc';
@@ -72,6 +73,32 @@ export function resolveProcedure(
   return typeof target === 'function' ? (target as (input: unknown) => unknown) : null;
 }
 
+/**
+ * Fan a domain event out to every chrome renderer — top-level windows and popup
+ * surfaces alike.
+ *
+ * Each target's **webContents** is checked, not just its window: a closing window
+ * reports `isDestroyed()` false for a beat after its webContents has already gone,
+ * and an event landing in that beat — a popup surface blurring as the window
+ * tears down emits `popup:show` — would `send` to a destroyed target, which
+ * throws `Object has been destroyed` and takes down the whole main process.
+ */
+export function broadcastEvent(
+  browserEvent: BrowserEvent,
+  windows: BrowserWindow[],
+  surfaces: WebContents[],
+): void {
+  for (const window of windows) {
+    if (window.isDestroyed()) continue;
+    const contents = window.webContents;
+    if (!contents.isDestroyed()) contents.send(IPC.event, browserEvent);
+  }
+  // Popup surfaces are child views, so `getAllWindows` never reaches them.
+  for (const contents of surfaces) {
+    if (!contents.isDestroyed()) contents.send(IPC.event, browserEvent);
+  }
+}
+
 export function registerIpcHost(context: AppContext): void {
   const createCaller = createCallerFactory(appRouter);
   const procedures: Record<string, unknown> = appRouter._def.procedures;
@@ -99,14 +126,7 @@ export function registerIpcHost(context: AppContext): void {
     }
   });
 
-  context.events.subscribe((browserEvent) => {
-    for (const window of BrowserWindow.getAllWindows()) {
-      if (!window.isDestroyed()) window.webContents.send(IPC.event, browserEvent);
-    }
-    // Popup surfaces are child views, so `getAllWindows` does not reach them and
-    // they would never hear that their state moved.
-    for (const webContents of context.popups.surfaceContents()) {
-      if (!webContents.isDestroyed()) webContents.send(IPC.event, browserEvent);
-    }
-  });
+  context.events.subscribe((browserEvent) =>
+    broadcastEvent(browserEvent, BrowserWindow.getAllWindows(), context.popups.surfaceContents()),
+  );
 }
