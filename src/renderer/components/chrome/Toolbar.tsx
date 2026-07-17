@@ -21,6 +21,7 @@ import { useActiveTab } from '../../hooks/useBrowser';
 import { selectSplitActive, useBrowserStore } from '../../stores/browser.store';
 import { useReaderStore } from '../../stores/reader.store';
 import { trpc } from '../../lib/trpc/client';
+import { onBrowserEventOf } from '../../lib/events';
 import { dispatchCommand } from '../../lib/commands';
 
 /** The navigation + address + actions row above the content area. */
@@ -35,20 +36,38 @@ export function Toolbar(): ReactElement {
   const canBookmark = !!tab && !!tab.url && !isInternalUrl(tab.url);
   const readerActive = !!tab && readerTabId === tab.id;
 
+  // Only the URL decides whether this page is bookmarked. Depending on the whole
+  // `tab` refired this query on every `tab:updated` — title, favicon, status —
+  // for the length of every page load.
+  const bookmarkableUrl = canBookmark && tab ? tab.url : null;
+
   useEffect(() => {
-    if (!profileId || !canBookmark || !tab) {
+    if (!profileId || !bookmarkableUrl) {
       setBookmarked(false);
       return;
     }
     let cancelled = false;
     void trpc.bookmarks.isBookmarked
-      .query({ profileId, url: tab.url })
+      .query({ profileId, url: bookmarkableUrl })
       .then((result) => !cancelled && setBookmarked(result))
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [profileId, canBookmark, tab, tab?.url]);
+  }, [profileId, bookmarkableUrl]);
+
+  // The star reflects what main says, not what the click hoped for. `⌘D` and the
+  // palette reach the DB without touching this component, so an optimistic
+  // toggle here inverted the indicator as soon as the two were mixed.
+  useEffect(
+    () =>
+      onBrowserEventOf('bookmark:changed', (event) => {
+        if (event.profileId === profileId && event.url === bookmarkableUrl) {
+          setBookmarked(event.bookmarked);
+        }
+      }),
+    [profileId, bookmarkableUrl],
+  );
 
   return (
     <div className="flex h-[var(--toolbar-height)] shrink-0 items-center gap-1 px-2 drag">
@@ -130,10 +149,7 @@ export function Toolbar(): ReactElement {
             aria-pressed={bookmarked}
             active={bookmarked}
             disabled={!canBookmark}
-            onClick={() => {
-              dispatchCommand('tools.bookmarkPage');
-              setBookmarked((value) => !value);
-            }}
+            onClick={() => dispatchCommand('tools.bookmarkPage')}
           >
             <Bookmark
               className={

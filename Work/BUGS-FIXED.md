@@ -9,6 +9,47 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · The bookmark star never reflected `⌘D` or the command palette
+
+Press `⌘D`: the bookmark is saved, the star stays hollow, no toast, zero feedback. Press it again and
+the bookmark is silently **removed**. Mixing inputs inverted the indicator outright — click the star
+(optimistic → filled), then `⌘D` (removes it, star stays filled), and the star now claimed bookmarked
+on an unbookmarked page.
+
+Two sources of truth and no link between them. `⌘D` → `executeCommand` → `forwardToRenderer` →
+`toggleBookmarkActive()` mutates the DB and returns. There was **no** `bookmark:*` event, and the
+Toolbar's `bookmarked` state only refreshed via an effect keyed on `[profileId, canBookmark, tab,
+tab?.url]` — none of which change when a bookmark toggles. Its only other update path was the
+optimistic `setBookmarked(v => !v)` in the star's own `onClick`, which is a guess about a mutation it
+does not own.
+
+**Fix.** `BookmarksService` takes the `EventBus` and announces `bookmark:changed` from `add` and
+`remove`; `toggle` now routes through `remove` rather than reaching past it to the repo, and `update`
+announces **both** URLs when an edit moves one, since that unbookmarks one page and bookmarks
+another. The star drops its optimistic toggle and renders what main reports. Same shape as the AI
+provider fix, and the same reason: the state has one owner, so the owner announces it.
+
+**Secondary, fixed with it.** The effect depended on the whole `tab` object, so it refired an
+`isBookmarked` IPC query on every `tab:updated` — title, favicon, status — for the length of every
+page load, and an in-flight response could clobber the optimistic toggle. It now depends only on the
+URL it actually reads.
+
+### P2 · Bookmark import never decoded HTML entities, corrupting every URL with a query string
+
+`exportHtml` escapes the href — `escape(bookmark.url)` turns `&` into `&amp;` — but `importHtml` read
+the capture group raw, so `https://example.com/?a=1&amp;b=2` was stored verbatim. Titles were equally
+affected: the export also encodes `<`, `>`, `"`, and the import only stripped tags, never decoded.
+
+Dandelion's **own** export → import round trip therefore broke any URL with more than one query
+parameter and mangled any title containing `&` into `Tips &amp; Tricks`. Chrome and Firefox escape
+hrefs the same way, so importing a real browser's file corrupted those URLs too. Imports are silent,
+so the damage only showed when a link was clicked.
+
+**Fix.** A `decodeEntities` inverse of the export's escaping, applied to both href and title. `&amp;`
+is decoded **last** on purpose: decoding it first would turn `&amp;lt;` into `&lt;` and then into
+`<`, inventing markup the file never contained. Pinned by a real round-trip test through
+`exportHtml`, so the two can no longer drift apart.
+
 ### P1 · Every `Switch` and `Slider` had no accessible name — Settings was unnavigable by screen reader
 
 32 `toggleRow` call sites, 4 `sliderRow` call sites and one Switch per extension row all announced as
