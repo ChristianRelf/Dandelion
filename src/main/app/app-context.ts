@@ -163,6 +163,7 @@ export class AppContext {
     this.sessions.applySecureDns();
     this.sessions.getSession(profile);
     this.pruneHistory();
+    this.downloads.reconcileInterrupted();
     this.updates.start();
     this.logger.info(`bootstrapped profile "${profile.name}" / workspace "${workspace.name}"`);
     return { profile, workspace };

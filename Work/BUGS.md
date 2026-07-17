@@ -90,33 +90,6 @@ Linux keyring not yet unlocked — real across restarts) makes `buffer.toString(
 **binary garbage rather than throw**, and that garbage is sent as the API key → an opaque 401. The
 reverse order at least throws and is caught.
 
-## Downloads
-
-### P2 · Confirmed · Downloads restored from disk present live controls that do nothing, silently
-
-`toDownload` derives affordances from persisted state (`canResume: state === 'paused' || state ===
-'interrupted'`), but `pause`/`resume`/`cancel` act only through `this.live`, populated exclusively by
-`handleWillDownload`. After a restart `live` is empty, so every mutator is a no-op lookup
-(`this.live.get(id)?.item.pause()`). The router returns `true` unconditionally, so the renderer's
-`.catch(() => toast.error(...))` **never fires** — the error path is dead code.
-
-Compounding it, a download interrupted by the app quitting stays `in_progress` **forever**: nothing
-reconciles orphaned rows at boot. `isActive()` keeps it in the active list with a frozen progress
-bar, and `clearCompleted` filters `state IN ('completed','cancelled')` — so neither "Clear completed"
-nor "Clear browsing data → downloads" will remove it. Only "Remove from list" does.
-
-**Reproduction.** Start a large download, quit mid-transfer, relaunch, open Downloads: a permanently
-"downloading" row with an enabled Pause/Cancel that do nothing at all, with no feedback.
-
-### P3 · Confirmed · Every progress tick does an unthrottled synchronous write + read-back
-
-`item.on('updated', ...)` is unthrottled, and the `elapsed >= 1` guard inside `onUpdated` gates
-**only** the speed/ETA sample — not persistence. Every event runs an `UPDATE` followed by a `SELECT`
-read-back to build the event payload, both synchronous better-sqlite3 calls on the main process.
-`LIMITS.downloadSampleMs` ("Download speed sampling window, ms") is **never referenced anywhere** —
-the intended window was never wired to the write path. The read-back is also avoidable: the service
-already holds every field it just wrote.
-
 ## History & storage
 
 ### P2 · Confirmed · The omnibox full-scans and sorts all history on every keystroke
@@ -188,7 +161,6 @@ fixing; it may just be the theme transition animation.
   main-side `webContents.print()` proc.
 - **P3** `tools.clearBrowsingData` opens Settings instead of a dedicated "Clear browsing data" dialog
   (a `privacy.clearData` dialog with time-range + category checkboxes).
-- **P3** `downloads.start` accepts a `savePath` that is ignored by `startOnSession`.
 - **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session"
   scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).
 

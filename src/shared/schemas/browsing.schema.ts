@@ -66,9 +66,13 @@ export const deleteHistoryInput = z.object({
 
 /* Downloads */
 export const downloadRef = z.object({ downloadId: zId });
+/**
+ * No save path: the destination is settled in `will-download` from the user's
+ * download directory, and is not the caller's to name. See
+ * `DownloadsService.startOnSession`.
+ */
 export const startDownloadInput = z.object({
   url: zUrl,
   profileId: zId,
-  savePath: z.string().optional(),
 });
 export const listDownloadsInput = z.object({ profileId: zId });
