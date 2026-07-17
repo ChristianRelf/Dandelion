@@ -11,6 +11,17 @@ export const LIMITS = {
   thumbnailHeight: 225,
   /** Interval for the sleeping-tab sweeper, ms. */
   tabSweepIntervalMs: 60_000,
+  /**
+   * Tabs allowed to materialise a view and perform their first load at once.
+   * Bounds the renderer-process storm from opening many tabs in quick
+   * succession; further loads wait for a slot. See {@link TabLoadScheduler}.
+   */
+  maxConcurrentTabLoads: 6,
+  /**
+   * How long one such load may hold its slot before it stops blocking others,
+   * ms. A hung page keeps loading — it just no longer starves the queue.
+   */
+  tabLoadSlotTimeoutMs: 12_000,
   /** Default idle threshold before a tab may sleep, minutes. */
   defaultSleepAfterMinutes: 30,
   /** Session autosave cadence, ms. */
