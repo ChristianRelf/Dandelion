@@ -1,6 +1,6 @@
 import type { OnBeforeSendHeadersListenerDetails, Session } from 'electron';
 import type { BlockedResourceKind, ShieldReport } from '@shared/types';
-import { getHostname } from '@shared/utils';
+import { getHostname, harmonizeClientHints } from '@shared/utils';
 import type { Logger } from '../../core/logger';
 import type { SettingsService } from '../settings.service';
 import { BlockEngine } from './block-engine';
@@ -106,6 +106,12 @@ export class PrivacyService {
     session.webRequest.onBeforeSendHeaders({ urls: ['*://*/*'] }, (details, callback) => {
       const privacy = this.settings.get().privacy;
       const headers = details.requestHeaders;
+
+      // Keep the Sec-CH-UA client hints telling the same stock-Chrome story the
+      // UA string does. Always on — the UA strip it mirrors is not a privacy
+      // toggle either, and a hint that still says "Electron" is what Google's
+      // sign-in reads to call the browser insecure.
+      harmonizeClientHints(headers);
 
       if (privacy.doNotTrack) headers['DNT'] = '1';
       if (privacy.globalPrivacyControl) headers['Sec-GPC'] = '1';
