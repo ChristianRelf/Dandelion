@@ -14,6 +14,45 @@ yet isolated.
 
 ## Security & privacy
 
+### P2 · Confirmed · Windows prompts for a passkey on any login form, and no switch turns it off
+
+Focusing a login field on a site that opts into passkey autofill pops the native Windows Security
+dialog, with no click and nothing to dismiss it permanently. Measured against a secure context on
+Electron 43.1.1, WebAuthn is fully live and unguarded:
+
+```text
+isUserVerifyingPlatformAuthenticatorAvailable: true
+isConditionalMediationAvailable:               true
+```
+
+The mechanism is **conditional mediation** (passkey autofill): an `autocomplete="username webauthn"`
+field lets the page call `navigator.credentials.get({ mediation: 'conditional' })` without a gesture,
+Chromium calls the native Windows WebAuthn API, and Windows shows the dialog. Real Chrome renders
+this as a quiet autofill dropdown — that UI is Chrome's own, not Chromium's, so in Electron the
+request degrades to the modal OS dialog. That is why it fires on _any_ login form rather than only
+on a "Sign in with a passkey" button.
+
+**There is no supported off-switch.** Each candidate below was measured against a deliberate
+nonsense-named control, because Blink and Chromium both ignore unknown feature names **silently** —
+without the control every one of these reads as a working fix while changing nothing:
+
+| Attempt                                             | Result                           |
+| --------------------------------------------------- | -------------------------------- |
+| `disableBlinkFeatures: 'WebAuthentication'`         | identical to control — no effect |
+| `--disable-features=WebAuthUseNativeWinApi`         | identical to control — no effect |
+| `--disable-features=WebAuthenticationConditionalUI` | identical to control — no effect |
+| `MadeUpControlFeature` (control)                    | identical                        |
+
+Electron's own `app.configureWebAuthn()` is **`@platform darwin`** and takes only `touchID`; its doc
+("until this is called, `isUserVerifyingPlatformAuthenticatorAvailable()` resolves to `false`")
+does not hold on Windows, where the probe above measures `true` without it — Chromium reaches the
+platform authenticator directly, outside Electron's gate. So the only remaining lever is
+intercepting `navigator.credentials.get` in the page, and tab views are deliberately `sandbox: true`
+with **no preload** ([tab-manager.ts](../src/main/browser/tab-manager.ts) `createView`) — the
+property the "Missing sender validation on `IPC.trpc`" note below depends on. A sandboxed preload
+cannot reach the page's main world, and unsandboxing remote content to suppress a dialog is not a
+trade a browser should make.
+
 ### P3 · Confirmed · The shield counts third-party requests, not blocked cookies
 
 Found while fixing the two cookie defects above in v0.2.3, and deliberately left alone there: the
@@ -47,6 +86,64 @@ last_visited_at DESC)`, so SQLite walks the index in order and stops at `LIMIT 4
 everything. That needs a migration, which is why it is not folded into the retention fix.
 
 ## Chrome & UI
+
+### P1 · Confirmed · The right-click menus are painted over by the page
+
+The defect `PopupHost` was built to fix, in the overlays it was never extended to. `PopupKind` is
+`'downloads' | 'update' | 'zoom'` ([popup.ts](../src/shared/types/popup.ts)) — so those three float
+above the page, and **every other chrome overlay still drops into the content region and is painted
+over by the native view**: [TabContextMenu.tsx](../src/renderer/components/chrome/TabContextMenu.tsx),
+[TabGroupHeader.tsx](../src/renderer/components/chrome/TabGroupHeader.tsx) and
+[WorkspaceBar.tsx](../src/renderer/components/chrome/WorkspaceBar.tsx) — **three** right-click menus,
+not the two the tab strips make obvious.
+
+Tooltips were a fourth, fixed in v0.2.4 by defaulting
+[Tooltip.tsx](../src/renderer/components/ui/Tooltip.tsx) to `side="top"`: the toolbar has chrome
+above it in both layouts, so opening upward keeps a tooltip out of the content region for one line
+and no IPC, and Radix flips it back down where there is no room (the title bar). A tooltip is not
+worth a surface — see "Radix" below for what a migration costs.
+
+Both layouts are affected ([Chrome.tsx](../src/renderer/components/chrome/Chrome.tsx)): `Toolbar`
+sits directly above `ContentArea`, and in the vertical layout the tabs live in the 248px `Sidebar`,
+so a right-click menu opens at the pointer and extends right and down into the content region.
+Right-clicking a tab is a core interaction and the menu is unreachable on any real site — it works
+only on internal pages, where `activate()` destroys the view and leaves nothing on top.
+
+**Not fixable by widening the surface.** `View`/`WebContentsView` expose only `setBounds`,
+`setVisible`, `setBackgroundColor`, `setBorderRadius` and `setBackgroundBlur` — there is **no
+`setIgnoreMouseEvents`** (it exists on `BrowserWindow` alone). A single full-window overlay surface
+hosting every menu would swallow every click meant for the page, which is precisely why `PopupHost`
+sizes itself to the popover. Each overlay has to be migrated individually; the per-menu cost is the
+architecture, not an oversight.
+
+Four things the migration has to solve that the existing three popovers did not. `PopupHost` needs a
+pointer-anchored placement and a `target` on `popup:show` (a menu is opened _on_ something, and the
+surface renders from that id); both were written for v0.2.4 and taken back out, because nothing can
+reach them until the renderer half exists and unused code is not worth shipping. What follows is the
+part that made the renderer half more than a port, and is why it was not:
+
+- **A menu escapes the surface's own measuring tape.** `PopupApp` sizes the surface by measuring a
+  `card` ref and reporting it to `popup.resize`, and main keeps the surface hidden until it hears a
+  real size. A Radix menu **portals to `document.body`** — outside that ref — so the card measures
+  nothing, the surface never reports a size, and the menu never appears at all. The card also brings
+  its own `glass-strong` and border, which a menu supplies for itself. The popup body contract has to
+  change (a body that is its own card, or a portal `container`), which is the redesign this bullet is
+  really describing.
+- **Radix collision detection fights the surface.** Inside the popup the viewport _is_ the surface,
+  so Radix flips and repositions against a rectangle sized to its own content. The bodies that work
+  today (`DownloadsPopoverBody`) are plain markup placed by `PopupHost.place()` — but a menu cannot
+  simply become plain markup either: `menuItemClass` styles off `data-[highlighted]`, which **Radix
+  injects**, and hand-rolled buttons would lose arrow-key navigation with it. The answer is Radix
+  `DropdownMenu` with `avoidCollisions={false}`, letting main place the surface and Radix keep
+  keyboard nav. The `ContextMenu.Sub` for "Add to group…" still cannot survive — a floating submenu
+  portals outside the measured card and clips — so it becomes an inline expanding section.
+- **The popup has no tab state.** `app.initialState` does not return tabs, and `restoreWorkspace` —
+  the only thing that does — creates views as a side effect, so the popup must not call it.
+  `tabs.get`, `tabs.listByWorkspace` and `tabs.listGroups` cover it.
+- **`TabGroupHeader` renames in chrome-local state.** Its menu calls `setEditing(true)` to reveal an
+  inline input **in the chrome**, which a menu living in the popup renderer cannot reach. That one
+  has to go back through main, the way "Later" on the update chip already does — `TabContextMenu` has
+  no equivalent, since every one of its actions is already a tRPC mutation.
 
 ### P2 · Confirmed · The rounded content frame doesn't clip the native `WebContentsView`
 

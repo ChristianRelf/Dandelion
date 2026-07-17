@@ -49,6 +49,15 @@ export const tabRoutes = router({
     ctx.app.tabs.close(input.tabId);
     return true;
   }),
+  /** One call for one intent: the renderer used to loop and close them itself. */
+  closeOthers: publicProcedure.input(tabRef).mutation(({ ctx, input }) => {
+    ctx.app.tabs.closeOthers(input.tabId);
+    return true;
+  }),
+  closeToRight: publicProcedure.input(tabRef).mutation(({ ctx, input }) => {
+    ctx.app.tabs.closeToRight(input.tabId);
+    return true;
+  }),
   navigate: publicProcedure.input(navigateInput).mutation(({ ctx, input }) => {
     ctx.app.tabs.navigate(input.tabId, input.url);
     return true;
