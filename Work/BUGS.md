@@ -178,38 +178,6 @@ fixing; it may just be the theme transition animation.
 - **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session"
   scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).
 
-## Omnibox
-
-### P2 · Confirmed · Inline autocomplete can advertise one destination while Enter goes to another
-
-`OmniboxService.finalize` ([omnibox.service.ts](../src/main/services/omnibox.service.ts)) picks
-`completionSource` as the **first ranked result** whose prettified URL starts with the typed text —
-which may be _any_ result, not the top one — then writes the completion onto `ranked[0]` (`primary`).
-The guard before that write re-checks `completionSource`'s own pretty against the input, which by
-construction always passes, so nothing stops a **lower-ranked** result's completion being stamped onto
-the **top** result:
-
-```ts
-const completionSource = ranked.find((r) => r.url && prettifyUrl(r.url)...startsWith(input));
-if (completionSource?.url) {
-  const pretty = prettifyUrl(completionSource.url);
-  const primary = ranked[0];
-  if (primary && pretty...startsWith(input)) primary.inlineCompletion = pretty.slice(input.length);
-}
-```
-
-**Failure scenario.** Type a word with no dot that also prefixes a visited site — e.g. `github` with
-`github.com` in history. `ranked[0]` is the default **search** result (score 0.95, URL
-`duckduckgo.com/?q=github`), whose pretty does not start with "github"; `completionSource` is the
-**history** result (`github.com`). The omnibox then renders ghost text `github|.com`, but pressing
-Enter activates `results[0]` — the search — so the browser runs a search for "github" instead of going
-to `github.com`. The ghost text and the Enter action disagree. Only search-classified inputs that
-prefix a visited site hit this; a URL-classified input makes `completionSource === ranked[0]` and the
-two agree.
-
-The fix is to set the completion only when it belongs to the primary result — guard on
-`ranked[0] === completionSource`.
-
 ## Windows & workspaces
 
 ### P3 · Confirmed · A newly created workspace never appears in other windows on the same profile
@@ -231,29 +199,6 @@ itself (`refreshWorkspaces()`) so it is fine, but B ignores the event and never 
 reload. Fix: upsert in the handler (append when the id is absent). Related and lower priority:
 `WorkspaceService.delete()` emits no event at all, so a deleted space also lingers in other windows —
 it wants a `workspace:removed` event.
-
-## Sidebar
-
-### P3 · Confirmed · The notes editor can lose the last keystrokes if it closes mid-debounce
-
-`NoteEditor` ([NotesPanel.tsx](../src/renderer/components/chrome/NotesPanel.tsx)) autosaves on a 500 ms
-debounce, and flushes on the Back button and on `blur`. But the debounce effect's cleanup only
-_clears_ the pending timer — it does not flush — and React does not fire `onBlur` when a focused
-element unmounts. So if the panel unmounts within 500 ms of the last keystroke **without** a blur
-(the sidebar collapses via a keyboard shortcut, another panel is opened by shortcut, or the window
-closes), the most recent edits are lost. Fix: flush the latest draft in the unmount cleanup — while
-skipping the flush when the note was just deleted, or the save would resurrect a `note/not-found`
-error toast for a note that no longer exists.
-
-## Documentation
-
-### P3 · Confirmed · `PROJECT_STRUCTURE.md`'s directory tree is corrupted
-
-[docs/PROJECT_STRUCTURE.md](../docs/PROJECT_STRUCTURE.md) has several lines of stray prose — an
-assistant-style narration and a literal `Edit … Added 10 lines` line — spliced into the middle of the
-`tests/` block of the code-fenced directory tree (between `e2e/` and `setup/`). It breaks the diagram
-and reads as leaked scratch output. Fix: restore the tree (`e2e/ → setup/ → docs/`) and delete the
-injected prose.
 
 ---
 

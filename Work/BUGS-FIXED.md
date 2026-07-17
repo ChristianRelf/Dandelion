@@ -7,6 +7,42 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ---
 
+## v0.2.14
+
+### P2 · Omnibox inline autocomplete advertised one destination while Enter went to another
+
+`OmniboxService.finalize` chose the inline completion from the first ranked result whose pretty URL
+prefixed the typed text, then wrote it onto `ranked[0]` whether or not that was the same result — and
+its guard re-checked the _source_'s pretty, which always passes. So typing a plain word that prefixed
+a visited site (e.g. `github` with `github.com` in history) stamped `github.com`'s completion onto the
+top **search** result: the ghost text read `github|.com` while Enter — which activates `ranked[0]` —
+ran a web search instead.
+
+**Fix.** Complete only the top result, and only against its own URL, so the ghost text can never name
+a destination Enter would not go to. Pinned by `tests/unit/omnibox-completion.test.ts`.
+
+### P3 · The notes editor could lose the last keystrokes when it closed mid-debounce
+
+`NoteEditor` autosaved on a 500 ms debounce and flushed on Back and on blur — but the debounce cleanup
+only cleared the timer, and React fires no `onBlur` when a focused element unmounts. Closing the panel
+within that window without a blur (sidebar collapsed by shortcut, another panel opened, the window
+closed) dropped the last edits.
+
+**Fix.** Flush the latest draft — held in a ref — on unmount, guarded by an `abandoned` flag set on
+delete so the flush never resurrects a `note/not-found` error for a note that is already gone.
+
+### P3 · `PROJECT_STRUCTURE.md`'s directory tree was corrupted
+
+Several lines of stray assistant-style prose — including a literal `Edit … Added 10 lines` — had been
+spliced into the middle of the `tests/` block of the code-fenced tree. Restored the tree
+(`e2e/ → setup/ → docs/`) and removed the injected text.
+
+### P3 · `BUGS-FIXED.md` itself carried leftover git conflict markers
+
+A half-resolved merge left a `<<<<<<< HEAD` and a `=======` in this file (with no closing `>>>>>>>`),
+so two merge sides sat concatenated behind two stray markers that broke the document. Removed the
+markers; the two sides held distinct entries, so the union is correct and no heading is duplicated.
+
 ## v0.2.3
 
 ### P2 · The reader's inline images were still fetched by the chrome
@@ -34,8 +70,6 @@ now the policy refuses it.
 The only three `<img>` in the chrome are accounted for: favicons and reader images route through the
 scheme, and tab previews are `data:` URLs from `capturePage`. Pinned by `tests/unit/chrome-csp.test.ts`,
 which asserts no remote origin survives in either mode.
-
-<<<<<<< HEAD
 
 ### P1 · Every toolbar popover rendered _behind_ the page
 
@@ -355,7 +389,6 @@ internal page, or taken down with their window. A call in `destroyView` would ha
 those, which is the largest case: closing a window destroys its views' contents before
 `handleWindowClosed` runs, and `webContents.id` cannot be read once they are gone. The id is captured
 at wiring time for the same reason. Pinned by `tests/unit/tab-webcontents.test.ts`.
-=======
 
 ### P2 · Tab escaped the command palette and the tab switcher, and then Escape stopped working
 
