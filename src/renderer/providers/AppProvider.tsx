@@ -53,13 +53,11 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
         if (event.type === 'download:created' || event.type === 'download:updated') {
           useDownloadsStore.getState().apply(event.download);
         }
-        // A download starting is the one moment the bubble should appear on its
-        // own — that is what makes it progress feedback rather than a menu.
-        if (event.type === 'download:created') {
-          useUiStore.getState().setDownloadsPopoverOpen(true);
-        }
         if (event.type === 'ai:chunk') useAiStore.getState().applyChunk(event.chunk);
         if (event.type === 'ai:providers') useAiStore.getState().setProviders(event.providers);
+        if (event.type === 'app:update-dismissed') {
+          useUpdateStore.getState().dismiss(event.version);
+        }
         if (event.type === 'tab:updated') {
           // A navigation invalidates the distilled reader content for that tab.
           const reader = useReaderStore.getState();

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure, requireWindowId, router } from '../trpc';
+import { popupOpenInput, popupResizeInput } from '@shared/schemas/popup.schema';
 import { executeCommand } from '../../app/command-executor';
 
 const boundsSchema = z.object({
@@ -69,6 +70,12 @@ export const appRoutes = router({
   /** The updater's whole state. Survives a renderer reload. */
   updateStatus: publicProcedure.query(({ ctx }) => ctx.app.updates.status()),
   installUpdate: publicProcedure.mutation(({ ctx }) => ctx.app.updates.install()),
+  dismissUpdate: publicProcedure
+    .input(z.object({ version: z.string() }))
+    .mutation(({ ctx, input }) => {
+      ctx.app.updates.dismiss(input.version);
+      return true;
+    }),
 });
 
 export const windowRoutes = router({
@@ -107,4 +114,24 @@ export const layoutRoutes = router({
       ctx.app.tabs.setContentVisible(requireWindowId(ctx), input.visible);
       return true;
     }),
+});
+
+/**
+ * The surface that floats toolbar popovers above the page. `open` is called by
+ * the chrome; `resize` by the popup itself once it knows how big it is — which
+ * is why both resolve their window from the caller rather than taking one.
+ */
+export const popupRoutes = router({
+  open: publicProcedure.input(popupOpenInput).mutation(({ ctx, input }) => {
+    ctx.app.popups.open(requireWindowId(ctx), input.kind, input.anchor);
+    return true;
+  }),
+  close: publicProcedure.mutation(({ ctx }) => {
+    ctx.app.popups.close(requireWindowId(ctx));
+    return true;
+  }),
+  resize: publicProcedure.input(popupResizeInput).mutation(({ ctx, input }) => {
+    ctx.app.popups.resize(requireWindowId(ctx), input);
+    return true;
+  }),
 });

@@ -20,6 +20,11 @@ export default tseslint.config(
       'node_modules/**',
       'playwright-report/**',
       'test-results/**',
+      // Agent worktrees are whole checkouts of this repo living inside it. Each
+      // brings its own tsconfig, and the type-aware parser refuses to guess
+      // between them — so linting the tree would fail on every file, in a
+      // checkout that already lints itself.
+      '.claude/worktrees/**',
       '**/*.d.ts',
     ],
   },

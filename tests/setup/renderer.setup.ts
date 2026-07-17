@@ -39,3 +39,26 @@ globalThis.IntersectionObserver ??= MockObserver as unknown as typeof Intersecti
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = vi.fn();
 }
+
+// The preload bridge. Any chrome component may reach for it — toolbar popovers
+// read `windowId` to address their popup surface, and everything talks tRPC —
+// so it is stubbed once here rather than in each test that happens to render one.
+// `subscribe` returns its unsubscribe, because effects call it on unmount.
+if (!('dandelion' in window)) {
+  Object.defineProperty(window, 'dandelion', {
+    writable: true,
+    value: {
+      windowId: 'window_test',
+      trpc: { invoke: vi.fn(async () => ({ ok: true, data: { json: null } })) },
+      events: { subscribe: vi.fn(() => vi.fn()) },
+      platform: {
+        os: 'win32',
+        arch: 'x64',
+        isMac: false,
+        isWindows: true,
+        isLinux: false,
+        appVersion: '0.0.0-test',
+      },
+    },
+  });
+}

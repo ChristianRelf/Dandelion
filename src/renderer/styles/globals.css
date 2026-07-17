@@ -163,6 +163,17 @@
     user-select: none;
   }
 
+  /*
+   * The popup surface is a native view floating over the page, sized to a
+   * popover plus the margin its shadow needs. Painting the window background
+   * there would turn that margin into an opaque rectangle sitting on the page —
+   * so nothing paints but the card itself.
+   */
+  :root[data-surface='popup'],
+  :root[data-surface='popup'] body {
+    background-color: transparent;
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--accent) 35%, transparent);
   }

@@ -1,5 +1,4 @@
-import { useState, type ReactElement } from 'react';
-import * as Popover from '@radix-ui/react-popover';
+import type { ReactElement } from 'react';
 import { ArrowUpCircle, ExternalLink } from 'lucide-react';
 import { formatBytes, formatRelativeTime, formatSpeed } from '@shared/utils';
 import { Button } from '../ui/Button';
@@ -9,6 +8,7 @@ import { trpc } from '../../lib/trpc/client';
 import { openUrlOrToast } from '../../lib/navigation';
 import { selectChipStatus, useUpdateStore } from '../../stores/update.store';
 import { toast } from '../../stores/toast.store';
+import { usePopupTrigger } from '../../popup/usePopupTrigger';
 
 const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -45,6 +45,101 @@ function ProgressRing({ percent }: { percent: number }): ReactElement {
 }
 
 /**
+ * The update popover's contents, rendered in the floating popup surface.
+ *
+ * Dismissing goes through main rather than this store: the chip that reads it
+ * lives in the chrome, which is a different renderer and would never hear a
+ * local `dismiss()`.
+ */
+export function UpdateChipBody(): ReactElement | null {
+  const status = useUpdateStore(selectChipStatus);
+  if (!status) return null;
+
+  const close = (): void => void trpc.popup.close.mutate();
+
+  const restart = (): void => {
+    void trpc.app.installUpdate.mutate().catch(() => {
+      close();
+      toast.error('Could not install the update', {
+        description: 'Restart Dandelion to try again.',
+      });
+    });
+  };
+
+  return (
+    <div className="w-[280px] p-3">
+      {status.phase === 'downloading' ? (
+        <>
+          <p className="text-[13px] font-medium text-text">Downloading update</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+            Dandelion {status.version} is downloading in the background. You&apos;ll be able to
+            restart into it once it&apos;s ready.
+          </p>
+          <div
+            className="mt-2.5 h-1 overflow-hidden rounded-full bg-surface-active"
+            role="progressbar"
+            aria-valuenow={status.total > 0 ? status.percent : undefined}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Version ${status.version} download progress`}
+          >
+            <div
+              className="h-full rounded-full bg-accent transition-[width] duration-[var(--duration-fast)]"
+              style={{ width: status.total > 0 ? `${status.percent}%` : '100%' }}
+            />
+          </div>
+          <p className="mt-1.5 text-[11px] text-faint">
+            {status.total > 0
+              ? `${formatBytes(status.transferred)} of ${formatBytes(status.total)}`
+              : formatBytes(status.transferred)}
+            {status.bytesPerSecond > 0 && ` · ${formatSpeed(status.bytesPerSecond)}`}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-[13px] font-medium text-text">Update ready</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-muted">
+            Dandelion {status.version} has been downloaded. It will be applied when you restart —
+            your open tabs are restored.
+          </p>
+          {status.releasedAt !== null && (
+            <p className="mt-1 text-[11px] text-faint">
+              Released {formatRelativeTime(status.releasedAt)}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => {
+              close();
+              openUrlOrToast(status.releaseUrl, 'Could not open the release notes');
+            }}
+            className="mt-2 inline-flex items-center gap-1 rounded-xs text-[12px] text-accent transition-colors hover:underline"
+          >
+            What&apos;s new
+            <ExternalLink className="h-3 w-3" />
+          </button>
+          <div className="mt-3 flex items-center gap-2">
+            <Button size="sm" variant="primary" onClick={restart}>
+              Restart now
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                close();
+                void trpc.app.dismissUpdate.mutate({ version: status.version });
+              }}
+            >
+              Later
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
  * Appears in the toolbar while a new version is downloading, and stays once it
  * is waiting. Updates are never applied underneath an active session, so the
  * ready state is the moment the user chooses to restart into one. Dismissing
@@ -55,122 +150,35 @@ function ProgressRing({ percent }: { percent: number }): ReactElement {
  */
 export function UpdateChip(): ReactElement | null {
   const status = useUpdateStore(selectChipStatus);
-  const dismiss = useUpdateStore((state) => state.dismiss);
-  const [open, setOpen] = useState(false);
+  const { ref, open, toggle } = usePopupTrigger<HTMLButtonElement>('update');
 
   if (!status) return null;
 
-  const restart = (): void => {
-    void trpc.app.installUpdate.mutate().catch(() => {
-      setOpen(false);
-      toast.error('Could not install the update', {
-        description: 'Restart Dandelion to try again.',
-      });
-    });
-  };
-
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
-      <Tooltip
-        content={
+    <Tooltip
+      content={
+        status.phase === 'downloading'
+          ? `Downloading ${status.version}`
+          : `Version ${status.version} is ready`
+      }
+    >
+      <IconButton
+        ref={ref}
+        aria-label={
           status.phase === 'downloading'
-            ? `Downloading ${status.version}`
-            : `Version ${status.version} is ready`
+            ? `Downloading version ${status.version} — ${status.percent}%`
+            : `Update to version ${status.version}`
         }
+        aria-expanded={open}
+        active={open}
+        onClick={toggle}
       >
-        <Popover.Trigger asChild>
-          <IconButton
-            aria-label={
-              status.phase === 'downloading'
-                ? `Downloading version ${status.version} — ${status.percent}%`
-                : `Update to version ${status.version}`
-            }
-            active={open}
-          >
-            {status.phase === 'downloading' ? (
-              <ProgressRing percent={status.percent} />
-            ) : (
-              <ArrowUpCircle className="h-[18px] w-[18px] text-accent" />
-            )}
-          </IconButton>
-        </Popover.Trigger>
-      </Tooltip>
-
-      <Popover.Portal>
-        <Popover.Content
-          align="end"
-          sideOffset={6}
-          className="z-[80] w-[280px] animate-pop rounded-xl border border-line p-3 shadow-[var(--shadow-lg)] glass-strong"
-        >
-          {status.phase === 'downloading' ? (
-            <>
-              <p className="text-[13px] font-medium text-text">Downloading update</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-muted">
-                Dandelion {status.version} is downloading in the background. You&apos;ll be able to
-                restart into it once it&apos;s ready.
-              </p>
-              <div
-                className="mt-2.5 h-1 overflow-hidden rounded-full bg-surface-active"
-                role="progressbar"
-                aria-valuenow={status.total > 0 ? status.percent : undefined}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Version ${status.version} download progress`}
-              >
-                <div
-                  className="h-full rounded-full bg-accent transition-[width] duration-[var(--duration-fast)]"
-                  style={{ width: status.total > 0 ? `${status.percent}%` : '100%' }}
-                />
-              </div>
-              <p className="mt-1.5 text-[11px] text-faint">
-                {status.total > 0
-                  ? `${formatBytes(status.transferred)} of ${formatBytes(status.total)}`
-                  : formatBytes(status.transferred)}
-                {status.bytesPerSecond > 0 && ` · ${formatSpeed(status.bytesPerSecond)}`}
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-[13px] font-medium text-text">Update ready</p>
-              <p className="mt-1 text-[12px] leading-relaxed text-muted">
-                Dandelion {status.version} has been downloaded. It will be applied when you restart
-                — your open tabs are restored.
-              </p>
-              {status.releasedAt !== null && (
-                <p className="mt-1 text-[11px] text-faint">
-                  Released {formatRelativeTime(status.releasedAt)}
-                </p>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  openUrlOrToast(status.releaseUrl, 'Could not open the release notes');
-                }}
-                className="mt-2 inline-flex items-center gap-1 rounded-xs text-[12px] text-accent transition-colors hover:underline"
-              >
-                What&apos;s new
-                <ExternalLink className="h-3 w-3" />
-              </button>
-              <div className="mt-3 flex items-center gap-2">
-                <Button size="sm" variant="primary" onClick={restart}>
-                  Restart now
-                </Button>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => {
-                    setOpen(false);
-                    dismiss();
-                  }}
-                >
-                  Later
-                </Button>
-              </div>
-            </>
-          )}
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+        {status.phase === 'downloading' ? (
+          <ProgressRing percent={status.percent} />
+        ) : (
+          <ArrowUpCircle className="h-[18px] w-[18px] text-accent" />
+        )}
+      </IconButton>
+    </Tooltip>
   );
 }
