@@ -1,0 +1,338 @@
+Date : 2026-07-16 23:17:07
+Directory : c:\Users\chris\Desktop\dandilion
+Total : 239 files,  33779 codes, 1066 comments, 6211 blanks, all 41056 lines
+
+Languages
++--------------------+------------+------------+------------+------------+------------+
+| language           | files      | code       | comment    | blank      | total      |
++--------------------+------------+------------+------------+------------+------------+
+| JSON               |          6 |     10,944 |          0 |          9 |     10,953 |
+| TypeScript         |        145 |     10,697 |        846 |      1,328 |     12,871 |
+| TypeScript JSX     |         59 |      6,588 |        162 |        498 |      7,248 |
+| Skill              |         11 |      3,737 |          0 |      3,583 |      7,320 |
+| Markdown           |         12 |      1,414 |          0 |        746 |      2,160 |
+| PostCSS            |          1 |        244 |         39 |         33 |        316 |
+| JavaScript         |          1 |         64 |         11 |          2 |         77 |
+| YAML               |          1 |         40 |          3 |          9 |         52 |
+| JSON with Comments |          2 |         35 |          0 |          2 |         37 |
+| HTML               |          1 |         16 |          5 |          1 |         22 |
++--------------------+------------+------------+------------+------------+------------+
+
+Directories
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| path                                                                                   | files      | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+| .                                                                                      |        239 |     33,779 |      1,066 |      6,211 |     41,056 |
+| . (Files)                                                                              |         16 |     11,999 |         26 |        540 |     12,565 |
+| .claude                                                                                |         15 |      3,909 |          0 |      3,666 |      7,575 |
+| .claude (Files)                                                                        |          1 |         26 |          0 |          1 |         27 |
+| .claude\rules                                                                          |          3 |        146 |          0 |         82 |        228 |
+| .claude\skills                                                                         |         11 |      3,737 |          0 |      3,583 |      7,320 |
+| .claude\skills\architecture                                                            |          1 |        304 |          0 |        292 |        596 |
+| .claude\skills\browser-internals                                                       |          1 |        380 |          0 |        376 |        756 |
+| .claude\skills\debugging                                                               |          1 |        322 |          0 |        313 |        635 |
+| .claude\skills\electron                                                                |          1 |        341 |          0 |        309 |        650 |
+| .claude\skills\performance                                                             |          1 |        322 |          0 |        305 |        627 |
+| .claude\skills\review                                                                  |          1 |        347 |          0 |        336 |        683 |
+| .claude\skills\security                                                                |          1 |        380 |          0 |        368 |        748 |
+| .claude\skills\state-management                                                        |          1 |        285 |          0 |        279 |        564 |
+| .claude\skills\testing                                                                 |          1 |        286 |          0 |        282 |        568 |
+| .claude\skills\ui                                                                      |          1 |        431 |          0 |        388 |        819 |
+| .claude\skills\ui-polish                                                               |          1 |        339 |          0 |        335 |        674 |
+| Work                                                                                   |          2 |        153 |          0 |         74 |        227 |
+| docs                                                                                   |          3 |        289 |          0 |         79 |        368 |
+| src                                                                                    |        190 |     16,914 |      1,014 |      1,754 |     19,682 |
+| src\main                                                                               |         63 |      6,275 |        343 |        754 |      7,372 |
+| src\main (Files)                                                                       |          1 |         45 |          0 |         13 |         58 |
+| src\main\app                                                                           |          4 |        409 |         30 |         36 |        475 |
+| src\main\browser                                                                       |          4 |      1,175 |         90 |        155 |      1,420 |
+| src\main\core                                                                          |          4 |         90 |         20 |         22 |        132 |
+| src\main\ipc                                                                           |         13 |        818 |         11 |         63 |        892 |
+| src\main\ipc (Files)                                                                   |          3 |        109 |         10 |         16 |        135 |
+| src\main\ipc\routers                                                                   |         10 |        709 |          1 |         47 |        757 |
+| src\main\services                                                                      |         19 |      2,232 |        159 |        286 |      2,677 |
+| src\main\services (Files)                                                              |         13 |      1,554 |        112 |        213 |      1,879 |
+| src\main\services\ai                                                                   |          3 |        398 |         21 |         36 |        455 |
+| src\main\services\privacy                                                              |          3 |        280 |         26 |         37 |        343 |
+| src\main\storage                                                                       |         18 |      1,506 |         33 |        179 |      1,718 |
+| src\main\storage (Files)                                                               |          2 |         58 |          7 |         13 |         78 |
+| src\main\storage\migrations                                                            |          2 |        195 |          6 |          5 |        206 |
+| src\main\storage\repositories                                                          |         14 |      1,253 |         20 |        161 |      1,434 |
+| src\preload                                                                            |          1 |         33 |          5 |          4 |         42 |
+| src\renderer                                                                           |         79 |      7,890 |        324 |        668 |      8,882 |
+| src\renderer (Files)                                                                   |          4 |         61 |          7 |         10 |         78 |
+| src\renderer\components                                                                |         44 |      3,534 |        117 |        294 |      3,945 |
+| src\renderer\components\ai                                                             |          1 |        171 |          0 |         17 |        188 |
+| src\renderer\components\brand                                                          |          1 |         43 |          7 |          5 |         55 |
+| src\renderer\components\chrome                                                         |         19 |      1,977 |         47 |        153 |      2,177 |
+| src\renderer\components\omnibox                                                        |          1 |        243 |          2 |         14 |        259 |
+| src\renderer\components\palette                                                        |          1 |        117 |          2 |         10 |        129 |
+| src\renderer\components\reader                                                         |          1 |        121 |          1 |          6 |        128 |
+| src\renderer\components\sessions                                                       |          1 |        135 |          1 |         11 |        147 |
+| src\renderer\components\ui                                                             |         19 |        727 |         57 |         78 |        862 |
+| src\renderer\hooks                                                                     |          2 |         77 |          9 |         14 |        100 |
+| src\renderer\lib                                                                       |          8 |        442 |         45 |         49 |        536 |
+| src\renderer\lib (Files)                                                               |          6 |        406 |         32 |         42 |        480 |
+| src\renderer\lib\trpc                                                                  |          2 |         36 |         13 |          7 |         56 |
+| src\renderer\pages                                                                     |         12 |      2,939 |         37 |        189 |      3,165 |
+| src\renderer\providers                                                                 |          1 |         79 |         12 |         11 |        102 |
+| src\renderer\stores                                                                    |          7 |        514 |         58 |         68 |        640 |
+| src\renderer\styles                                                                    |          1 |        244 |         39 |         33 |        316 |
+| src\shared                                                                             |         47 |      2,716 |        342 |        328 |      3,386 |
+| src\shared\constants                                                                   |          7 |        686 |         41 |         33 |        760 |
+| src\shared\ipc                                                                         |          4 |         45 |         24 |         12 |         81 |
+| src\shared\schemas                                                                     |         10 |        446 |          4 |         53 |        503 |
+| src\shared\types                                                                       |         18 |        699 |        166 |        124 |        989 |
+| src\shared\utils                                                                       |          8 |        840 |        107 |        106 |      1,053 |
+| tests                                                                                  |         13 |        515 |         26 |         98 |        639 |
+| tests\e2e                                                                              |          1 |         40 |          5 |         10 |         55 |
+| tests\integration                                                                      |          1 |         23 |          0 |          5 |         28 |
+| tests\setup                                                                            |          1 |         32 |          4 |          6 |         42 |
+| tests\unit                                                                             |         10 |        420 |         17 |         77 |        514 |
++----------------------------------------------------------------------------------------+------------+------------+------------+------------+------------+
+
+Files
++----------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| filename                                                                               | language           | code       | comment    | blank      | total      |
++----------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+
+| c:\Users\chris\Desktop\dandilion\.claude\rules\challenge-request.md                    | Markdown           |         12 |          0 |          7 |         19 |
+| c:\Users\chris\Desktop\dandilion\.claude\rules\mandatory-review.md                     | Markdown           |         34 |          0 |         13 |         47 |
+| c:\Users\chris\Desktop\dandilion\.claude\rules\no-assumptions.md                       | Markdown           |        100 |          0 |         62 |        162 |
+| c:\Users\chris\Desktop\dandilion\.claude\settings.json                                 | JSON with Comments |         26 |          0 |          1 |         27 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\architecture\SKILL.md                  | Skill              |        304 |          0 |        292 |        596 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\browser-internals\SKILL.md             | Skill              |        380 |          0 |        376 |        756 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\debugging\SKILL.md                     | Skill              |        322 |          0 |        313 |        635 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\electron\SKILL.md                      | Skill              |        341 |          0 |        309 |        650 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\performance\SKILL.md                   | Skill              |        322 |          0 |        305 |        627 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\review\SKILL.md                        | Skill              |        347 |          0 |        336 |        683 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\security\SKILL.md                      | Skill              |        380 |          0 |        368 |        748 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\state-management\SKILL.md              | Skill              |        285 |          0 |        279 |        564 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\testing\SKILL.md                       | Skill              |        286 |          0 |        282 |        568 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\ui-polish\SKILL.md                     | Skill              |        339 |          0 |        335 |        674 |
+| c:\Users\chris\Desktop\dandilion\.claude\skills\ui\SKILL.md                            | Skill              |        431 |          0 |        388 |        819 |
+| c:\Users\chris\Desktop\dandilion\.prettierrc.json                                      | JSON               |         11 |          0 |          1 |         12 |
+| c:\Users\chris\Desktop\dandilion\CLAUDE.md                                             | Markdown           |        402 |          0 |        344 |        746 |
+| c:\Users\chris\Desktop\dandilion\CONTRIBUTING.md                                       | Markdown           |         36 |          0 |         17 |         53 |
+| c:\Users\chris\Desktop\dandilion\README.md                                             | Markdown           |        116 |          0 |         48 |        164 |
+| c:\Users\chris\Desktop\dandilion\ROADMAP.md                                            | Markdown           |        272 |          0 |        102 |        374 |
+| c:\Users\chris\Desktop\dandilion\Work\BUGS.md                                          | Markdown           |         82 |          0 |         31 |        113 |
+| c:\Users\chris\Desktop\dandilion\Work\TODO.md                                          | Markdown           |         71 |          0 |         43 |        114 |
+| c:\Users\chris\Desktop\dandilion\docs\ARCHITECTURE.md                                  | Markdown           |        135 |          0 |         37 |        172 |
+| c:\Users\chris\Desktop\dandilion\docs\DEVELOPER.md                                     | Markdown           |         79 |          0 |         34 |        113 |
+| c:\Users\chris\Desktop\dandilion\docs\PROJECT_STRUCTURE.md                             | Markdown           |         75 |          0 |          8 |         83 |
+| c:\Users\chris\Desktop\dandilion\electron-builder.yml                                  | YAML               |         40 |          3 |          9 |         52 |
+| c:\Users\chris\Desktop\dandilion\electron.vite.config.ts                               | TypeScript         |         52 |          7 |          3 |         62 |
+| c:\Users\chris\Desktop\dandilion\eslint.config.mjs                                     | JavaScript         |         64 |         11 |          2 |         77 |
+| c:\Users\chris\Desktop\dandilion\package-lock.json                                     | JSON               |     10,772 |          0 |          1 |     10,773 |
+| c:\Users\chris\Desktop\dandilion\package.json                                          | JSON               |        103 |          0 |          1 |        104 |
+| c:\Users\chris\Desktop\dandilion\playwright.config.ts                                  | TypeScript         |         14 |          5 |          2 |         21 |
+| c:\Users\chris\Desktop\dandilion\src\main\app\app-context.ts                           | TypeScript         |        223 |          9 |         16 |        248 |
+| c:\Users\chris\Desktop\dandilion\src\main\app\command-executor.ts                      | TypeScript         |        138 |          7 |         13 |        158 |
+| c:\Users\chris\Desktop\dandilion\src\main\app\menu.ts                                  | TypeScript         |         42 |          8 |          5 |         55 |
+| c:\Users\chris\Desktop\dandilion\src\main\app\security.ts                              | TypeScript         |          6 |          6 |          2 |         14 |
+| c:\Users\chris\Desktop\dandilion\src\main\browser\dandelion-window.ts                  | TypeScript         |         47 |         13 |          5 |         65 |
+| c:\Users\chris\Desktop\dandilion\src\main\browser\session-manager.ts                   | TypeScript         |        123 |         10 |         18 |        151 |
+| c:\Users\chris\Desktop\dandilion\src\main\browser\tab-manager.ts                       | TypeScript         |        844 |         59 |        104 |      1,007 |
+| c:\Users\chris\Desktop\dandilion\src\main\browser\window-manager.ts                    | TypeScript         |        161 |          8 |         28 |        197 |
+| c:\Users\chris\Desktop\dandilion\src\main\core\event-bus.ts                            | TypeScript         |         18 |          7 |          6 |         31 |
+| c:\Users\chris\Desktop\dandilion\src\main\core\logger.ts                               | TypeScript         |         41 |          4 |          8 |         53 |
+| c:\Users\chris\Desktop\dandilion\src\main\core\merge.ts                                | TypeScript         |         17 |          5 |          3 |         25 |
+| c:\Users\chris\Desktop\dandilion\src\main\core\paths.ts                                | TypeScript         |         14 |          4 |          5 |         23 |
+| c:\Users\chris\Desktop\dandilion\src\main\index.ts                                     | TypeScript         |         45 |          0 |         13 |         58 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\ipc-host.ts                              | TypeScript         |         50 |          6 |          7 |         63 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\router.ts                                | TypeScript         |         34 |          1 |          3 |         38 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\app.router.ts                    | TypeScript         |         94 |          1 |         13 |        108 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\browsing.router.ts               | TypeScript         |        148 |          0 |          5 |        153 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\discovery.router.ts              | TypeScript         |         65 |          0 |          4 |         69 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\extensions.router.ts             | TypeScript         |         16 |          0 |          2 |         18 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\privacy.router.ts                | TypeScript         |         71 |          0 |          5 |         76 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\sessions.router.ts               | TypeScript         |         16 |          0 |          2 |         18 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\settings.router.ts               | TypeScript         |         40 |          0 |          4 |         44 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\tabs.router.ts                   | TypeScript         |        130 |          0 |          7 |        137 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\vault.router.ts                  | TypeScript         |         69 |          0 |          2 |         71 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\routers\workspaces.router.ts             | TypeScript         |         60 |          0 |          3 |         63 |
+| c:\Users\chris\Desktop\dandilion\src\main\ipc\trpc.ts                                  | TypeScript         |         25 |          3 |          6 |         34 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\ai\ai.service.ts                    | TypeScript         |        193 |          8 |         22 |        223 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\ai\provider.ts                      | TypeScript         |         40 |          6 |          4 |         50 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\ai\providers.ts                     | TypeScript         |        165 |          7 |         10 |        182 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\bookmarks.service.ts                | TypeScript         |        147 |          4 |         16 |        167 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\downloads.service.ts                | TypeScript         |        179 |          8 |         30 |        217 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\extensions.service.ts               | TypeScript         |         83 |          8 |          9 |        100 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\history.service.ts                  | TypeScript         |         61 |         10 |         15 |         86 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\omnibox.service.ts                  | TypeScript         |        280 |         28 |         32 |        340 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\permissions.service.ts              | TypeScript         |        144 |         10 |         18 |        172 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\privacy\block-engine.ts             | TypeScript         |         49 |         11 |         10 |         70 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\privacy\default-blocklist.ts        | TypeScript         |         76 |          9 |          5 |         90 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\privacy\privacy.service.ts          | TypeScript         |        155 |          6 |         22 |        183 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\profile.service.ts                  | TypeScript         |         80 |          7 |         12 |         99 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\search.service.ts                   | TypeScript         |         81 |          2 |         11 |         94 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\settings.service.ts                 | TypeScript         |         54 |          8 |         12 |         74 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\sync.service.ts                     | TypeScript         |        100 |         11 |         16 |        127 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\update.service.ts                   | TypeScript         |         43 |          5 |          8 |         56 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\vault.service.ts                    | TypeScript         |        216 |          7 |         22 |        245 |
+| c:\Users\chris\Desktop\dandilion\src\main\services\workspace.service.ts                | TypeScript         |         86 |          4 |         12 |        102 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\database.ts                          | TypeScript         |         55 |          7 |         12 |         74 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\index.ts                             | TypeScript         |          3 |          0 |          1 |          4 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\migrations\001_init.ts               | TypeScript         |        187 |          5 |          2 |        194 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\migrations\index.ts                  | TypeScript         |          8 |          1 |          3 |         12 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\bookmarks.repo.ts       | TypeScript         |        147 |          1 |         18 |        166 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\downloads.repo.ts       | TypeScript         |        103 |          1 |         10 |        114 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\helpers.ts              | TypeScript         |         24 |          6 |          5 |         35 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\history.repo.ts         | TypeScript         |        159 |          1 |         20 |        180 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\index.ts                | TypeScript         |         54 |          4 |          4 |         62 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\kv.repo.ts              | TypeScript         |         27 |          1 |          6 |         34 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\passwords.repo.ts       | TypeScript         |        140 |          2 |         17 |        159 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\permissions.repo.ts     | TypeScript         |         72 |          0 |          9 |         81 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\profiles.repo.ts        | TypeScript         |         78 |          0 |         11 |         89 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\search-engines.repo.ts  | TypeScript         |        100 |          0 |         14 |        114 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\sessions.repo.ts        | TypeScript         |         53 |          1 |         10 |         64 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\settings.repo.ts        | TypeScript         |         38 |          0 |          5 |         43 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\tabs.repo.ts            | TypeScript         |        160 |          3 |         20 |        183 |
+| c:\Users\chris\Desktop\dandilion\src\main\storage\repositories\workspaces.repo.ts      | TypeScript         |         98 |          0 |         12 |        110 |
+| c:\Users\chris\Desktop\dandilion\src\preload\index.ts                                  | TypeScript         |         33 |          5 |          4 |         42 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\App.tsx                                  | TypeScript JSX     |         10 |          0 |          2 |         12 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ai\AiSidebar.tsx              | TypeScript JSX     |        171 |          0 |         17 |        188 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\brand\DandelionMark.tsx       | TypeScript JSX     |         43 |          7 |          5 |         55 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\AddressPill.tsx        | TypeScript JSX     |         41 |          1 |          4 |         46 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\BookmarksPanel.tsx     | TypeScript JSX     |        162 |          6 |         12 |        180 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\Chrome.tsx             | TypeScript JSX     |         86 |          1 |          7 |         94 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\ContentArea.tsx        | TypeScript JSX     |         47 |          6 |          4 |         57 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\ContentSlot.tsx        | TypeScript JSX     |         38 |          7 |          7 |         52 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\DownloadsPopover.tsx   | TypeScript JSX     |        178 |          5 |         13 |        196 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\FindBar.tsx            | TypeScript JSX     |        102 |          1 |          7 |        110 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\HorizontalTabStrip.tsx | TypeScript JSX     |         90 |          1 |          5 |         96 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\PermissionPrompt.tsx   | TypeScript JSX     |         93 |          1 |          8 |        102 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\Sidebar.tsx            | TypeScript JSX     |        170 |          3 |         18 |        191 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\TabContextMenu.tsx     | TypeScript JSX     |        127 |          1 |          9 |        137 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\TabGroupHeader.tsx     | TypeScript JSX     |        126 |          2 |          7 |        135 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\TabItem.tsx            | TypeScript JSX     |        145 |          2 |         11 |        158 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\TabPreview.tsx         | TypeScript JSX     |         40 |          1 |          4 |         45 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\TabSwitcher.tsx        | TypeScript JSX     |         86 |          1 |          5 |         92 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\TitleBar.tsx           | TypeScript JSX     |         47 |          5 |          6 |         58 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\Toolbar.tsx            | TypeScript JSX     |        138 |          1 |          8 |        147 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\WorkspaceBar.tsx       | TypeScript JSX     |        198 |          1 |         12 |        211 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\chrome\ZoomControl.tsx        | TypeScript JSX     |         63 |          1 |          6 |         70 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\omnibox\Omnibox.tsx           | TypeScript JSX     |        243 |          2 |         14 |        259 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\palette\CommandPalette.tsx    | TypeScript JSX     |        117 |          2 |         10 |        129 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\reader\ReaderView.tsx         | TypeScript JSX     |        121 |          1 |          6 |        128 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\sessions\SessionsDialog.tsx   | TypeScript JSX     |        135 |          1 |         11 |        147 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Button.tsx                 | TypeScript JSX     |         82 |          8 |          7 |         97 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\ConfirmDialog.tsx          | TypeScript JSX     |         60 |          4 |          3 |         67 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\EmptyState.tsx             | TypeScript JSX     |         44 |          8 |          3 |         55 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Favicon.tsx                | TypeScript JSX     |         19 |          1 |          3 |         23 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Icon.tsx                   | TypeScript JSX     |         22 |          2 |          5 |         29 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\IconButton.tsx             | TypeScript JSX     |         27 |          1 |          3 |         31 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\IconTile.tsx               | TypeScript JSX     |         25 |          1 |          4 |         30 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Kbd.tsx                    | TypeScript JSX     |         15 |          0 |          2 |         17 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\List.tsx                   | TypeScript JSX     |         68 |          9 |          5 |         82 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\SearchField.tsx            | TypeScript JSX     |         47 |          1 |          3 |         51 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\SegmentedControl.tsx       | TypeScript JSX     |         72 |          4 |          6 |         82 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Select.tsx                 | TypeScript JSX     |         73 |          6 |          5 |         84 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Skeleton.tsx               | TypeScript JSX     |          9 |          1 |          3 |         13 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Slider.tsx                 | TypeScript JSX     |         26 |          0 |          3 |         29 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Spinner.tsx                | TypeScript JSX     |         19 |          5 |          3 |         27 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Switch.tsx                 | TypeScript JSX     |         17 |          0 |          3 |         20 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Toast.tsx                  | TypeScript JSX     |         66 |          1 |          7 |         74 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\Tooltip.tsx                | TypeScript JSX     |         26 |          1 |          4 |         31 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\components\ui\menu-styles.ts             | TypeScript         |         10 |          4 |          6 |         20 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\env.d.ts                                 | TypeScript         |         22 |          2 |          4 |         28 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\hooks\useAsyncData.ts                    | TypeScript         |         55 |          9 |          9 |         73 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\hooks\useBrowser.ts                      | TypeScript         |         22 |          0 |          5 |         27 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\index.html                               | HTML               |         16 |          5 |          1 |         22 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\cn.ts                                | TypeScript         |          5 |          1 |          2 |          8 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\commands.ts                          | TypeScript         |        216 |          8 |         14 |        238 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\downloads.ts                         | TypeScript         |         98 |          5 |          9 |        112 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\events.ts                            | TypeScript         |         12 |          2 |          3 |         17 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\tab-colors.ts                        | TypeScript         |         26 |          2 |          4 |         32 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\theme.ts                             | TypeScript         |         49 |         14 |         10 |         73 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\trpc\client.ts                       | TypeScript         |          5 |          5 |          3 |         13 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\lib\trpc\link.ts                         | TypeScript         |         31 |          8 |          4 |         43 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\main.tsx                                 | TypeScript JSX     |         13 |          0 |          3 |         16 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\AboutPage.tsx                      | TypeScript JSX     |        121 |          0 |         14 |        135 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\BookmarksPage.tsx                  | TypeScript JSX     |        222 |          1 |         15 |        238 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\CookiesPage.tsx                    | TypeScript JSX     |        209 |          1 |         14 |        224 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\DownloadsPage.tsx                  | TypeScript JSX     |        210 |          0 |         15 |        225 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\ExtensionsPage.tsx                 | TypeScript JSX     |        148 |          0 |         11 |        159 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\HistoryPage.tsx                    | TypeScript JSX     |        270 |          5 |         18 |        293 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\InternalPage.tsx                   | TypeScript JSX     |         37 |          1 |          2 |         40 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\NewTabPage.tsx                     | TypeScript JSX     |        112 |          0 |         10 |        122 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\PageShell.tsx                      | TypeScript JSX     |         32 |          1 |          3 |         36 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\PasswordsPage.tsx                  | TypeScript JSX     |        469 |         21 |         36 |        526 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\PermissionsPage.tsx                | TypeScript JSX     |        190 |          2 |         12 |        204 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\pages\SettingsPage.tsx                   | TypeScript JSX     |        919 |          5 |         39 |        963 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\providers\AppProvider.tsx                | TypeScript JSX     |         79 |         12 |         11 |        102 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\ai.store.ts                       | TypeScript         |        118 |          7 |         12 |        137 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\browser.store.ts                  | TypeScript         |        161 |         18 |         16 |        195 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\downloads.store.ts                | TypeScript         |         33 |          0 |          7 |         40 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\reader.store.ts                   | TypeScript         |         36 |          3 |          8 |         47 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\tab-preview.store.ts              | TypeScript         |         46 |          4 |          8 |         58 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\toast.store.ts                    | TypeScript         |         49 |          6 |          9 |         64 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\stores\ui.store.ts                       | TypeScript         |         71 |         20 |          8 |         99 |
+| c:\Users\chris\Desktop\dandilion\src\renderer\styles\globals.css                       | PostCSS            |        244 |         39 |         33 |        316 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\app.ts                           | TypeScript         |         11 |          3 |          4 |         18 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\commands.ts                      | TypeScript         |        472 |         14 |         13 |        499 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\index.ts                         | TypeScript         |          6 |          0 |          1 |          7 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\internal-pages.ts                | TypeScript         |         26 |          6 |          6 |         38 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\limits.ts                        | TypeScript         |         13 |         11 |          1 |         25 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\search-engines.ts                | TypeScript         |         64 |          4 |          3 |         71 |
+| c:\Users\chris\Desktop\dandilion\src\shared\constants\settings.defaults.ts             | TypeScript         |         94 |          3 |          5 |        102 |
+| c:\Users\chris\Desktop\dandilion\src\shared\ipc\bridge.ts                              | TypeScript         |         26 |          7 |          5 |         38 |
+| c:\Users\chris\Desktop\dandilion\src\shared\ipc\channels.ts                            | TypeScript         |          5 |          8 |          2 |         15 |
+| c:\Users\chris\Desktop\dandilion\src\shared\ipc\contract.ts                            | TypeScript         |         11 |          9 |          4 |         24 |
+| c:\Users\chris\Desktop\dandilion\src\shared\ipc\index.ts                               | TypeScript         |          3 |          0 |          1 |          4 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\ai.schema.ts                       | TypeScript         |         27 |          0 |          6 |         33 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\browsing.schema.ts                 | TypeScript         |         68 |          3 |          4 |         75 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\common.ts                          | TypeScript         |         18 |          0 |          2 |         20 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\index.ts                           | TypeScript         |          9 |          0 |          1 |         10 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\omnibox.schema.ts                  | TypeScript         |         17 |          0 |          3 |         20 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\privacy.schema.ts                  | TypeScript         |         62 |          0 |          6 |         68 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\settings.schema.ts                 | TypeScript         |        116 |          1 |         14 |        131 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\tabs.schema.ts                     | TypeScript         |         58 |          0 |          8 |         66 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\vault.schema.ts                    | TypeScript         |         35 |          0 |          5 |         40 |
+| c:\Users\chris\Desktop\dandilion\src\shared\schemas\workspaces.schema.ts               | TypeScript         |         36 |          0 |          4 |         40 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\ai.ts                                | TypeScript         |         43 |          5 |         10 |         58 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\browsing.ts                          | TypeScript         |         73 |         15 |         12 |        100 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\command.ts                           | TypeScript         |         20 |          9 |          2 |         31 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\events.ts                            | TypeScript         |         47 |          6 |          6 |         59 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\ids.ts                               | TypeScript         |         17 |          8 |          2 |         27 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\index.ts                             | TypeScript         |         17 |          4 |          1 |         22 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\omnibox.ts                           | TypeScript         |         32 |         12 |          4 |         48 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\privacy.ts                           | TypeScript         |         73 |         15 |         16 |        104 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\profile.ts                           | TypeScript         |         12 |         12 |          2 |         26 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\result.ts                            | TypeScript         |         32 |         11 |         11 |         54 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\search.ts                            | TypeScript         |         11 |          3 |          2 |         16 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\session.ts                           | TypeScript         |         33 |          3 |          6 |         42 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\settings.ts                          | TypeScript         |        111 |         15 |         14 |        140 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\sync.ts                              | TypeScript         |         19 |          5 |          4 |         28 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\tab.ts                               | TypeScript         |         81 |         19 |         17 |        117 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\vault.ts                             | TypeScript         |         38 |         11 |          7 |         56 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\window.ts                            | TypeScript         |         21 |          3 |          4 |         28 |
+| c:\Users\chris\Desktop\dandilion\src\shared\types\workspace.ts                         | TypeScript         |         19 |         10 |          4 |         33 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\calculator.ts                        | TypeScript         |        184 |         10 |         18 |        212 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\debounce.ts                          | TypeScript         |         60 |          2 |          7 |         69 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\format.ts                            | TypeScript         |         47 |          4 |          8 |         59 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\id.ts                                | TypeScript         |         35 |         10 |          4 |         49 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\index.ts                             | TypeScript         |          7 |          0 |          1 |          8 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\timezone.ts                          | TypeScript         |        229 |         57 |         30 |        316 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\units.ts                             | TypeScript         |        199 |          8 |         22 |        229 |
+| c:\Users\chris\Desktop\dandilion\src\shared\utils\url.ts                               | TypeScript         |         79 |         16 |         16 |        111 |
+| c:\Users\chris\Desktop\dandilion\tests\e2e\app.spec.ts                                 | TypeScript         |         40 |          5 |         10 |         55 |
+| c:\Users\chris\Desktop\dandilion\tests\integration\components.test.tsx                 | TypeScript JSX     |         23 |          0 |          5 |         28 |
+| c:\Users\chris\Desktop\dandilion\tests\setup\renderer.setup.ts                         | TypeScript         |         32 |          4 |          6 |         42 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\block-engine.test.ts                       | TypeScript         |         27 |          0 |          6 |         33 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\browser-store.test.ts                      | TypeScript         |         71 |          0 |         14 |         85 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\calculator.test.ts                         | TypeScript         |         24 |          0 |          5 |         29 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\format.test.ts                             | TypeScript         |         28 |          0 |          4 |         32 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\history-title.test.ts                      | TypeScript         |         30 |          0 |          5 |         35 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\merge.test.ts                              | TypeScript         |         19 |          0 |          5 |         24 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\omnibox-clipboard.test.ts                  | TypeScript         |         67 |          6 |         13 |         86 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\timezone.test.ts                           | TypeScript         |         75 |         11 |         16 |        102 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\units.test.ts                              | TypeScript         |         21 |          0 |          2 |         23 |
+| c:\Users\chris\Desktop\dandilion\tests\unit\url.test.ts                                | TypeScript         |         58 |          0 |          7 |         65 |
+| c:\Users\chris\Desktop\dandilion\tsconfig.base.json                                    | JSON               |         34 |          0 |          4 |         38 |
+| c:\Users\chris\Desktop\dandilion\tsconfig.json                                         | JSON with Comments |          9 |          0 |          1 |         10 |
+| c:\Users\chris\Desktop\dandilion\tsconfig.node.json                                    | JSON               |         14 |          0 |          1 |         15 |
+| c:\Users\chris\Desktop\dandilion\tsconfig.web.json                                     | JSON               |         10 |          0 |          1 |         11 |
+| c:\Users\chris\Desktop\dandilion\vitest.config.ts                                      | TypeScript         |         50 |          0 |          3 |         53 |
+| Total                                                                                  |                    |     33,779 |      1,066 |      6,211 |     41,056 |
++----------------------------------------------------------------------------------------+--------------------+------------+------------+------------+------------+

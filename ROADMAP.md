@@ -138,8 +138,10 @@ structural rather than local:
 - [x] History
 - [x] Downloads
 - [ ] Notes — needs storage of its own; nothing in the app persists user text yet
-- [ ] Reading list — needs storage, and a decision on whether it is a bookmark
-      folder with a read/unread flag or its own entity
+- [x] Reading list — its own entity (not a bookmark folder with a flag): a
+      reading-list item has a read/unread lifecycle and is meant to be emptied as
+      it is read, the opposite of a kept bookmark. "Save this page" from the
+      sidebar panel; opening an item marks it read
 - [ ] Split screen controls
 
 ## Omnibox
