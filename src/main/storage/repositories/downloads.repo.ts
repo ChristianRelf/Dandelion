@@ -18,6 +18,18 @@ interface DownloadRow {
   completed_at: number | null;
 }
 
+/** The mutable fields of a download. Absent keys are left as they are. */
+export type DownloadPatch = Partial<
+  Pick<Download, 'state' | 'receivedBytes' | 'totalBytes' | 'safety' | 'completedAt' | 'savePath'>
+>;
+
+/**
+ * The states only a running `DownloadItem` can own. Everything else has
+ * finished, one way or another — so `clearCompleted` and `markInterrupted` are
+ * complements of this one list and cannot drift apart.
+ */
+const LIVE_STATES = "('in_progress', 'paused')";
+
 const toDownload = (row: DownloadRow): Download => {
   const state = row.state as DownloadState;
   return {
@@ -82,15 +94,7 @@ export class DownloadsRepository {
       });
   }
 
-  update(
-    id: string,
-    patch: Partial<
-      Pick<
-        Download,
-        'state' | 'receivedBytes' | 'totalBytes' | 'safety' | 'completedAt' | 'savePath'
-      >
-    >,
-  ): void {
+  update(id: string, patch: DownloadPatch): void {
     updateColumns(this.db, 'downloads', id, {
       state: patch.state,
       received_bytes: patch.receivedBytes,
@@ -105,9 +109,31 @@ export class DownloadsRepository {
     this.db.prepare('DELETE FROM downloads WHERE id = ?').run(id);
   }
 
+  /**
+   * Remove every download that is no longer running.
+   *
+   * Listed by exclusion rather than by naming the terminal states: the filter
+   * used to be `IN ('completed', 'cancelled')`, which missed `interrupted`
+   * entirely, so a failed download could not be cleared by "Clear completed" or
+   * by "Clear browsing data → downloads" — only one row at a time, by hand.
+   */
   clearCompleted(profileId: string): void {
     this.db
-      .prepare("DELETE FROM downloads WHERE profile_id = ? AND state IN ('completed', 'cancelled')")
+      .prepare(`DELETE FROM downloads WHERE profile_id = ? AND state NOT IN ${LIVE_STATES}`)
       .run(profileId);
+  }
+
+  /**
+   * Mark every download still claiming a live state as `interrupted`, returning
+   * how many were reconciled.
+   *
+   * `completed_at` is deliberately left alone: the transfer stopped at some
+   * unknown point in the previous run, and stamping it with the time we noticed
+   * would record a moment that never happened.
+   */
+  markInterrupted(): number {
+    return this.db
+      .prepare(`UPDATE downloads SET state = 'interrupted' WHERE state IN ${LIVE_STATES}`)
+      .run().changes;
   }
 }

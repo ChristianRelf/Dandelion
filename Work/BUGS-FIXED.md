@@ -7,6 +7,91 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ---
 
+## v0.2.3
+
+### P2 · Downloads restored from disk presented live controls that did nothing, silently
+
+Start a large download, quit mid-transfer, relaunch, open Downloads: a row stuck on "Downloading"
+**forever**, behind a progress bar frozen at wherever it got to, offering a Pause and a Cancel that
+did nothing at all — no error, no log, no feedback of any kind. Neither "Clear completed" nor "Clear
+browsing data → downloads" would remove it. Only "Remove from list" did.
+
+Three separate causes behind one row.
+
+**The controls.** `toDownload` derives affordances from persisted state (`canResume: state ===
+'paused' || state === 'interrupted'`), so the buttons render from the row. But `pause`/`resume`/
+`cancel` acted only through `this.live` — a map populated exclusively by `handleWillDownload`. A
+`DownloadItem` cannot outlive the process that created it, so after a restart `live` is empty and
+every control was a no-op lookup (`this.live.get(id)?.item.pause()`). The router returned `true`
+regardless, so the renderer's `.catch(() => toast.error(...))` was **dead code** — the same silent
+lie `openFile` told before v0.2.2j.
+
+**The permanence.** Nothing reconciled orphaned rows at boot, so a transfer the last run never
+finished kept claiming `in_progress` forever, and `isActive()` kept it in the active list.
+
+**The sweep.** `clearCompleted` filtered `state IN ('completed', 'cancelled')` and missed
+`interrupted` entirely — so even a download that failed normally, on a network drop, could never be
+cleared in bulk. Reconciliation alone would have made that far more common rather than fixing it.
+
+**Fix.** `pause`/`resume`/`cancel` throw when there is no live transfer, following the v0.2.2j
+pattern exactly; the renderer needed no change, its error path was already written and merely
+unreachable. `resume` throws too when Chromium says the server will not restart from an offset,
+which previously did nothing silently. `remove` deliberately still works without a live item —
+taking a row out of the list is something we can always do, and it was the only control that worked
+at all before.
+
+`reconcileInterrupted()` runs from `bootstrap()`, marking every row still claiming `in_progress` or
+`paused` as `interrupted`: no `will-download` has been handled at that point, so every live state in
+the table is stale by definition. Both live states are swept, not just `in_progress` — a download
+paused when the app quit was stuck in exactly the same way, for exactly the same reason. `completed_at`
+is left alone: the transfer stopped at an unknown point in the previous run, and stamping it with the
+time we noticed would record a moment that never happened.
+
+`clearCompleted` now deletes `NOT IN ('in_progress', 'paused')` — the complement of the one list the
+reconciler uses, so the two cannot drift apart — which means a failed download is finally clearable
+and "Clear browsing data → downloads" removes what it says it removes.
+
+Genuinely **resuming** across a restart is not this fix and is not built: it needs
+`session.createInterruptedDownload` plus an offset and ETag the row does not store. Until then a
+restored download is honestly `interrupted` rather than dishonestly `in_progress`.
+
+Pinned by `tests/unit/downloads-service.test.ts`.
+
+### P3 · Every progress tick did an unthrottled synchronous write + read-back
+
+`item.on('updated', ...)` was unthrottled, and the `elapsed >= 1` guard inside `onUpdated` gated
+**only** the speed/ETA sample — not persistence. Every event ran an `UPDATE` followed by a `SELECT`
+read-back to rebuild the payload it had just written, both synchronous better-sqlite3 calls on the
+main process, at whatever rate Chromium chose to fire on a fast connection.
+
+`LIMITS.downloadSampleMs` ("Download speed sampling window, ms") was **referenced nowhere**: the
+window the constant documented had never been wired to the write path.
+
+**Fix.** Each download gets its own `throttle(…, LIMITS.downloadSampleMs)` — the existing shared
+helper, per download so concurrent transfers do not share a window — and the constant finally means
+what it says. The read-back is gone: the service caches the row it last wrote on the live entry and
+keeps it in step with every patch, because it already held every field it had just written.
+
+The tick reads the item when it **fires**, not when it was scheduled. `throttle`'s trailing call
+carries the arguments of the call that scheduled it, so a tick landing after `done` would otherwise
+drag a finished download back to `in_progress` — the same trap `update.service.ts` documents on
+`publishProgress`, where a late tick must not drag `ready` back to `downloading`. Guarded on the
+`completedAt` stamp that `done` writes, which matters while a safety scan is still in flight and the
+live entry outlives the transfer.
+
+### P3 · `downloads.start` accepted a `savePath` that was ignored
+
+`startDownloadInput` advertised an optional `savePath` and `startOnSession` never read it —
+`session.downloadURL(url)` takes no destination.
+
+**Removed rather than honoured.** The target is decided in `will-download`, where
+`handleWillDownload` applies the user's download directory and the `uniqueSavePath` anti-clobber
+walk — one owner for that decision. Honouring a per-call path would mean correlating it back through
+`will-download`, which identifies a transfer by nothing but its URL (ambiguous the moment the same
+URL is downloaded twice), and would let a caller write to an arbitrary filesystem location behind the
+user's chosen directory — a write primitive worth more than the feature. Nothing called it: the route
+had no caller in the renderer at all.
+
 ## v0.2.2
 
 ### P2 · A disabled extension could never be removed

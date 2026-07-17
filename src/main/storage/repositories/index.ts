@@ -52,7 +52,7 @@ export { WorkspacesRepository } from './workspaces.repo';
 export { TabsRepository, type PersistedTab } from './tabs.repo';
 export { HistoryRepository, type RecordVisitParams } from './history.repo';
 export { BookmarksRepository } from './bookmarks.repo';
-export { DownloadsRepository } from './downloads.repo';
+export { DownloadsRepository, type DownloadPatch } from './downloads.repo';
 export { PermissionsRepository } from './permissions.repo';
 export { PasswordsRepository, type VaultMeta } from './passwords.repo';
 export { SearchEnginesRepository } from './search-engines.repo';
