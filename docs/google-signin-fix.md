@@ -45,18 +45,15 @@ The audit confirmed the following were **not** the problem and were left as-is:
   partitions (`src/main/services/profile.service.ts`), so cookies, Local
   Storage, IndexedDB, Cache Storage and Service Workers persist to disk. Private
   profiles intentionally use in-memory partitions.
-- **User-Agent.** `SessionManager.chromeUserAgent` strips the ` Electron/<ver>`
-  and ` Dandelion/<ver>` tokens from every partition session's UA, so pages
-  (tabs and OAuth popups, which share the opener's partition session) see a stock
-  Chrome UA at the real bundled Chromium version — no `Electron` token, no
-  impossible/spoofed version.
+- **User-Agent (partition sessions).** `SessionManager.chromeUserAgent` strips
+  the ` Electron/<ver>` and ` Dandelion/<ver>` tokens from every partition
+  session's UA, so tab pages see a stock Chrome UA at the real bundled Chromium
+  version — no `Electron` token, no impossible/spoofed version. _(But see the
+  v0.2.8 follow-up: OAuth popups were **not** using a partition session.)_
 - **Security flags.** Tab views and popups use `webSecurity: true`,
   `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`. There is
   no `webSecurity: false`, no `allowRunningInsecureContent`, and no experimental
   flags. Nothing was weakened.
-- **OAuth popups.** `window.open` popups (disposition `new-window`) are allowed
-  with `outlivesOpener: false`, preserving `window.opener` so the OAuth popup can
-  `postMessage` its result back to the opener.
 - **Block list.** No Google _authentication_ domain is in the built-in blocklist;
   only Google's ad/analytics domains (`doubleclick.net`, `googlesyndication.com`,
   `google-analytics.com`, `googletagmanager.com`, …) are.
@@ -125,3 +122,43 @@ Application → Cookies panels.
   `https://accounts.google.com`, then load `https://youtube.com` and
   `https://mail.google.com` and confirm the account is recognised without a
   re-login loop. Repeat a "Sign in with Google" button on a third-party site.
+
+## Follow-up: v0.2.8
+
+Two bugs the cookie fix above did not cover, both in the `window.open` path
+(`src/main/browser/tab-manager.ts`).
+
+### The "Sign in with Google" popup used the wrong session
+
+**Symptom.** Only the "Sign in with Google" _popup_ failed — with Google's
+unsupported-browser page ("JavaScript isn't enabled") — while tabs and every
+other site worked.
+
+**Cause.** `createView` sets `webPreferences.session` to the profile's configured
+session for a tab's view, but `popupResult` did not. Overriding `webPreferences`
+at all stops a `window.open` child inheriting the opener's session, so the popup
+fell back to Electron's **default** session: a User-Agent still carrying the
+`Electron` token (only partition sessions are stripped) and an empty cookie jar.
+Google served that popup its "unsupported / secure browser" page. The code's own
+comment claimed the popup "shares the opener's session" — it never did.
+
+**Fix.** `popupResult` now sets `webPreferences.session` to
+`sessions.getSession(profile)`, exactly as `createView` does — so the popup gets
+the stock Chrome UA and shares the profile's cookies.
+
+### `blob:` downloads threw a page error
+
+**Symptom.** A JavaScript error on the page when downloading from some sites.
+
+**Cause.** "Download", "Export" and "Open PDF" buttons commonly call
+`window.open(URL.createObjectURL(blob))`. `isWebContentUrl` only accepts
+`http/https/about:blank`, so the window-open handler **denied** the `blob:` URL
+and returned `null` to the page — and the site's own script then threw
+dereferencing the null window.
+
+**Fix.** The handler now allows a `blob:` `window.open` through the popup path
+(which shares the opener's session, so the popup's renderer can resolve the
+blob). `data:` and other schemes stay denied, matching Chromium's own top-level
+navigation rules.
+
+Both are covered by `tests/unit/tab-window-open.test.ts`.
