@@ -1,6 +1,6 @@
 import type { Bookmark, BookmarkFolder } from '@shared/types';
 import type { SqliteDatabase } from '../database';
-import { parseJson, updateColumns } from './helpers';
+import { LIKE_ESCAPE, likeContains, parseJson, updateColumns } from './helpers';
 
 interface BookmarkRow {
   id: string;
@@ -57,12 +57,21 @@ export class BookmarksRepository {
     const clauses = ['profile_id = @profileId'];
     if (folderId !== undefined)
       clauses.push(folderId === null ? 'folder_id IS NULL' : 'folder_id = @folderId');
-    if (query) clauses.push('(url LIKE @like OR title LIKE @like OR tags LIKE @like)');
+    if (query)
+      clauses.push(
+        `(url LIKE @like ESCAPE '${LIKE_ESCAPE}'` +
+          ` OR title LIKE @like ESCAPE '${LIKE_ESCAPE}'` +
+          ` OR tags LIKE @like ESCAPE '${LIKE_ESCAPE}')`,
+      );
     const rows = this.db
       .prepare(
         `SELECT * FROM bookmarks WHERE ${clauses.join(' AND ')} ORDER BY order_index ASC, created_at DESC`,
       )
-      .all({ profileId, folderId: folderId ?? null, like: `%${query ?? ''}%` }) as BookmarkRow[];
+      .all({
+        profileId,
+        folderId: folderId ?? null,
+        like: likeContains(query ?? ''),
+      }) as BookmarkRow[];
     return rows.map(toBookmark);
   }
 

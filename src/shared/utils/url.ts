@@ -136,7 +136,20 @@ export function buildSearchUrl(template: string, query: string): string {
   return template.replace('%s', encodeURIComponent(query));
 }
 
-/** Reduce a hostname to its registrable-ish root for grouping (best-effort). */
+/**
+ * Reduce a hostname to its registrable-ish root, for **display and grouping
+ * only**.
+ *
+ * Best-effort by construction: it counts labels, and no count is right for
+ * every suffix. `bbc.co.uk` and `tracker.co.uk` both reduce to `co.uk`, which
+ * is harmless when captioning a list and wrong when deciding who may read a
+ * cookie — it once backed the third-party shield and silently failed it open on
+ * every multi-part TLD.
+ *
+ * Anything load-bearing wants a real registrable domain from the Public Suffix
+ * List: `registrableDomain` in `main/services/privacy/public-suffix.ts`. It is
+ * not here because the list is ~140KB and no renderer needs it.
+ */
 export function rootDomain(hostname: string): string {
   const labels = hostname.split('.').filter(Boolean);
   if (labels.length <= 2) return hostname;

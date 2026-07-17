@@ -64,22 +64,18 @@ only ever called with one superjson value and never eval'd, and it is reachable 
 chrome renderer. Robustness, not a vulnerability. Resolve with `Object.hasOwn` per segment, or match
 against a flattened procedure allowlist.
 
-### P3 · Confirmed · Third-party cookie shield fails open on every multi-part TLD
+### P3 · Confirmed · The shield counts third-party requests, not blocked cookies
 
-`rootDomain` ([url.ts](../src/shared/utils/url.ts)) takes the last two labels unconditionally, with
-no public-suffix list in the repo. `bbc.co.uk` and `tracker.co.uk` both reduce to `co.uk`, so
-`isThirdParty` returns `false` and [third-party.ts](../src/main/services/privacy/third-party.ts)
-declines to strip. The comment marks it "best-effort … for grouping", but a privacy decision now
-depends on it. On any `.co.uk` / `.com.au` / `.co.jp` page, genuinely third-party requests keep their
-cookies. Fails open, so nothing breaks visibly — the feature just doesn't do what it claims for a
-large slice of the web.
+Found while fixing the two cookie defects above in v0.2.3, and deliberately left alone there: the
+`onBeforeSendHeaders` half bumps `thirdPartyCookies` whenever `shouldStripCookies` says yes —
+**regardless of whether a `Cookie` header was present**. A page with 50 third-party images reports
+"50 third-party cookies blocked" when zero cookies existed. The `onHeadersReceived` half added in
+v0.2.3 only counts a real removal, so the two halves now disagree about what the number means.
 
-### P2 · Confirmed · Third-party cookies are stored, only never sent
-
-The same feature deletes the `Cookie` **request** header but there is no `onHeadersReceived`, so
-`Set-Cookie` still lands and `document.cookie` is untouched. Third-party cookies are therefore still
-written to disk — the feature does not deliver the privacy it advertises in the README and settings
-UI. Either strip `Set-Cookie` too, or narrow the claim.
+Cosmetic (the number is only ever shown in the shield popover) but it inflates the one figure that
+tells the user the feature is working. The fix is to bump only when a header was actually deleted,
+which makes both halves count the same thing; it was left out of v0.2.3 to keep a security fix from
+quietly changing a user-visible number.
 
 ### P3 · Confirmed · Stored AI keys carry no encoding marker
 
@@ -108,13 +104,6 @@ still a full scan, but of 90 days of history instead of all of it.
 The real fix is a **stored generated column** for the score plus an index on `(profile_id, rank DESC,
 last_visited_at DESC)`, so SQLite walks the index in order and stops at `LIMIT 4` instead of sorting
 everything. That needs a migration, which is why it is not folded into the retention fix.
-
-### P3 · Confirmed · `LIKE` wildcards in search input are not escaped
-
-`` like: `%${params.query}%` `` interpolates raw input into a `LIKE` pattern with no `ESCAPE` clause
-(`history.repo.ts`, `bookmarks.repo.ts`). Values **are** bound as parameters — there is no SQL
-injection — but `%` and `_` stay wildcards. Searching history for `50%` matches every entry
-containing "50"; searching `_` matches every non-empty row.
 
 ## Chrome & UI
 

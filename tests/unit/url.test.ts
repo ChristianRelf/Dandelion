@@ -62,3 +62,28 @@ describe('url helpers', () => {
     expect(rootDomain('a.b.example.com')).toBe('example.com');
   });
 });
+
+describe('rootDomain', () => {
+  it('takes the last two labels', () => {
+    expect(rootDomain('example.com')).toBe('example.com');
+    expect(rootDomain('cdn.example.com')).toBe('example.com');
+    expect(rootDomain('a.b.c.example.com')).toBe('example.com');
+  });
+
+  it('returns short hostnames untouched', () => {
+    expect(rootDomain('localhost')).toBe('localhost');
+    expect(rootDomain('example.com')).toBe('example.com');
+    expect(rootDomain('')).toBe('');
+  });
+
+  // Pinned deliberately, and *not* as a defect to fix here. Label counting
+  // cannot resolve a multi-part suffix, which is why this must never again back
+  // a privacy decision — the third-party shield now uses `registrableDomain`,
+  // and this stays the cheap approximation for display and grouping. If someone
+  // "fixes" these expectations, the question to ask is which caller needed it.
+  it('cannot resolve a multi-part suffix — approximation, by design', () => {
+    expect(rootDomain('bbc.co.uk')).toBe('co.uk');
+    expect(rootDomain('tracker.co.uk')).toBe('co.uk');
+    expect(rootDomain('shop.com.au')).toBe('com.au');
+  });
+});
