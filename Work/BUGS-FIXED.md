@@ -9,6 +9,60 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · Every `Switch` and `Slider` had no accessible name — Settings was unnavigable by screen reader
+
+32 `toggleRow` call sites, 4 `sliderRow` call sites and one Switch per extension row all announced as
+"switch, on" / "slider, 100". Nothing said _which_ setting.
+
+`SwitchProps` and `SliderProps` declared only `checked`/`value` and a change handler — there was no
+`aria-label` prop to pass. Radix renders `<button role="switch">` over an empty thumb and
+`role="slider"` on an empty thumb: it supplies the role and the state but cannot invent a name, and
+the label sat in `SettingsRow` as a bare `<p>` with no `id`/`htmlFor`/`aria-labelledby`. Adjacent
+text is not an accessible name.
+
+A defect rather than unbuilt work: the sibling primitives already carry labels — `Select` accepts
+`'aria-label'?` and `SegmentedControl` **requires** it. These two were simply never given the prop.
+
+**Fix.** Both now **require** `'aria-label'`, following `SegmentedControl` rather than `Select` — the
+type then finds every call site, which is how the one in `ExtensionsPage` surfaced. `toggleRow` and
+`sliderRow` already had the row's `title` in hand, so all 36 rows were named by two lines. `Slider`
+also gained `valueText`, wired to the same `format()` the read-out uses, so it speaks "30 min" rather
+than "30" — the unit lives in a sibling `<span>` that is not announced, and that span is now
+`aria-hidden` since it duplicates the value.
+
+### P2 · `outline-none` silently killed the global focus ring
+
+Verified by compiling this project's Tailwind: `.outline-none` emits `{ outline-style: none }` into
+`@layer utilities`, while the single global `:focus-visible` rule sits in `@layer base`. Cascade
+layers are compared **before** specificity, so utilities won and the focus treatment was overridden
+everywhere it was used. (Tailwind v4 renamed the v3 behaviour people expect here to
+`outline-hidden`.)
+
+Four components used it with nothing in its place, so keyboard focus was **invisible**: `Switch`,
+`Slider`, `Select` (focused-but-closed), and `List`'s row button — whose `focus-visible:text-text`
+was a no-op anyway, since both children set their own colour and nothing inherited it.
+
+**Fix.** Removed from those four; the global rule applies again. Modern Chromium only paints its own
+default ring on `:focus-visible`, and author styles beat the UA sheet, so nothing regresses for mouse
+users. Deliberately left elsewhere: text inputs pair it with `focus:border-accent` (the field is its
+own indicator), cmdk/menu rows render `data-[selected]`/`data-[highlighted]` state, and
+`SplitDivider` replaces it with a ring.
+
+### P2 · `--tab-height` was a dead token: "Compact" density didn't shrink tabs
+
+`--tab-height` was defined (34px → 29px under `[data-density='compact']`) and read by **nothing**.
+`TabItem` hardcoded `h-[34px]` and `TabsPanel`'s enter animation hardcoded `height: 34` — both exactly
+the default value, so it looked right and was inert. Every sibling density token _was_ consumed
+(`--toolbar-height`, `--row-py`, `--field-height`), and the `globals.css` comment claimed tabs read
+these tokens.
+
+Settings → Appearance → Density is real and works: Compact retuned the toolbar, list rows and form
+fields while the tab rows stayed 34px, so the sidebar read as half-converted.
+
+**Fix.** `TabItem` reads `h-[var(--tab-height)]`. `TabsPanel`'s motion constant lives at module scope
+and cannot read a CSS variable, so it animates to `height: 'auto'` — which resolves to the row's own
+token and follows any future density without another hardcoded number.
+
 ### P1 · The AI chat wedged forever on its first use
 
 Fresh install, no API key → open the AI sidebar, send a message → the message appears, the panel

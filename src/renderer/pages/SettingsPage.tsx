@@ -119,7 +119,9 @@ function toggleRow(
     title,
     description: extra?.description,
     keywords: extra?.keywords,
-    control: <Switch checked={checked} onCheckedChange={onCheckedChange} />,
+    // The row's title is the switch's name. It is only rendered as adjacent
+    // text, which a screen reader will not read as the control's label.
+    control: <Switch checked={checked} onCheckedChange={onCheckedChange} aria-label={title} />,
   };
 }
 
@@ -145,8 +147,12 @@ function sliderRow(
           max={max}
           step={extra?.step ?? 1}
           onValueChange={onValueChange}
+          aria-label={title}
+          // The same string the read-out shows: "30 min" carries the unit that
+          // a bare "30" drops.
+          valueText={format(value)}
         />
-        <span className="w-16 shrink-0 text-right text-xs text-muted tabular-nums">
+        <span aria-hidden className="w-16 shrink-0 text-right text-xs text-muted tabular-nums">
           {format(value)}
         </span>
       </div>

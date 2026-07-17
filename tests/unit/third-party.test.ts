@@ -32,7 +32,11 @@ describe('shouldStripCookies', () => {
   // sent it out cookieless — every site appeared logged-out on first hit.
   it('never strips a top-level document request, whatever it is navigating from', () => {
     expect(
-      shouldStripCookies('mainFrame', 'dandelion://newtab', 'https://accounts.google.com/ServiceLogin'),
+      shouldStripCookies(
+        'mainFrame',
+        'dandelion://newtab',
+        'https://accounts.google.com/ServiceLogin',
+      ),
     ).toBe(false);
     expect(
       shouldStripCookies('mainFrame', 'https://example.com/', 'https://accounts.google.com/'),
@@ -40,9 +44,9 @@ describe('shouldStripCookies', () => {
   });
 
   it('strips a cross-site subresource', () => {
-    expect(shouldStripCookies('image', 'https://example.com/', 'https://tracker.io/pixel.gif')).toBe(
-      true,
-    );
+    expect(
+      shouldStripCookies('image', 'https://example.com/', 'https://tracker.io/pixel.gif'),
+    ).toBe(true);
     expect(shouldStripCookies('xhr', 'https://example.com/', 'https://ads.net/beacon')).toBe(true);
     expect(shouldStripCookies('subFrame', 'https://example.com/', 'https://tracker.io/frame')).toBe(
       true,

@@ -19,7 +19,7 @@ function makeService(options: { keys?: Record<string, string>; page?: PageContex
 
   const repos = {
     kv: {
-      get: <T,>(key: string, fallback: T) => (store.get(key) ?? fallback) as T,
+      get: <T>(key: string, fallback: T) => (store.get(key) ?? fallback) as T,
       set: (key: string, value: string) => store.set(key, value),
       remove: (key: string) => store.delete(key),
     },

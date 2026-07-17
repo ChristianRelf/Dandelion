@@ -92,7 +92,7 @@ export function TabItem({
           if (event.button === 1) void trpc.tabs.close.mutate({ tabId: tab.id });
         }}
         className={cn(
-          'group relative flex h-[34px] cursor-default items-center gap-2 rounded-lg pr-1.5 pl-2 text-[13px]',
+          'group relative flex h-[var(--tab-height)] cursor-default items-center gap-2 rounded-lg pr-1.5 pl-2 text-[13px]',
           'transition-[background-color,color,opacity] duration-[var(--duration-fast)]',
           active
             ? 'bg-surface-active text-text shadow-[var(--shadow-sm)]'
