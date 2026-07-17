@@ -4,8 +4,16 @@ import { APP_NAME } from '@shared/constants';
 import type { Logger } from '../core/logger';
 import type { SettingsService } from '../services/settings.service';
 import type { PrivacyService } from '../services/privacy/privacy.service';
+import { isGoogleAuthUrl } from '../services/privacy/google-auth-domains';
 import type { PermissionsService } from '../services/permissions.service';
 import type { DownloadsService } from '../services/downloads.service';
+
+/**
+ * Opt-in authentication tracing. Set `DANDELION_AUTH_DEBUG=1` to log every
+ * sign-in cookie as it is stored or dropped — the fastest way to see whether
+ * Google's session cookies are landing, and with which SameSite/Secure flags.
+ */
+const AUTH_DEBUG = Boolean(process.env['DANDELION_AUTH_DEBUG']);
 
 function toCookieRecord(cookie: Cookie): CookieRecord {
   return {
@@ -72,8 +80,11 @@ export class SessionManager {
   }
 
   private configure(target: Session, profile: Profile): void {
-    target.setUserAgent(this.chromeUserAgent(target));
+    const userAgent = this.chromeUserAgent(target);
+    target.setUserAgent(userAgent);
+    this.logger.debug(`session ${profile.partition} user-agent: ${userAgent}`);
     this.privacy.configureSession(target);
+    if (AUTH_DEBUG) this.traceAuthCookies(target, profile);
 
     target.setPermissionRequestHandler((webContents, permission, callback, details) => {
       const mediaTypes = 'mediaTypes' in details ? details.mediaTypes : undefined;
@@ -104,6 +115,25 @@ export class SessionManager {
       .getUserAgent()
       .replace(/ Electron\/[\d.]+/, '')
       .replace(new RegExp(` ${APP_NAME}\\/[\\d.]+`, 'i'), '');
+  }
+
+  /**
+   * Log Google sign-in cookies as Chromium stores or drops them. A cookie that
+   * never appears here is one the browser rejected — usually a `SameSite=None`
+   * cookie missing `Secure`, or a cross-site cookie the shield stripped — which
+   * is exactly what a broken Google login looks like from the outside.
+   */
+  private traceAuthCookies(target: Session, profile: Profile): void {
+    target.cookies.on('changed', (_event, cookie, cause, removed) => {
+      const bareDomain = (cookie.domain ?? '').replace(/^\./, '');
+      if (!isGoogleAuthUrl(`https://${bareDomain}/`)) return;
+      this.logger.info(
+        `[auth] cookie ${removed ? 'dropped' : 'stored'} ` +
+          `name=${cookie.name} domain=${cookie.domain ?? ''} ` +
+          `sameSite=${cookie.sameSite ?? 'unspecified'} secure=${Boolean(cookie.secure)} ` +
+          `httpOnly=${Boolean(cookie.httpOnly)} cause=${cause} profile=${profile.id}`,
+      );
+    });
   }
 
   /* ---- Cookies ---- */
