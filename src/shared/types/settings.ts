@@ -118,6 +118,23 @@ export interface ShortcutBinding {
   enabled: boolean;
 }
 
+export interface GestureBinding {
+  /** Command identifier the binding invokes — the same registry shortcuts use. */
+  action: string;
+  /** Right-drag stroke as cardinal segments, e.g. `L`, `DR`, `UD`. */
+  gesture: string;
+  enabled: boolean;
+}
+
+export interface GestureSettings {
+  /**
+   * Master switch. Gestures are a feature people turn off wholesale far more
+   * often than they rebind, and a single toggle is cheaper than five.
+   */
+  enabled: boolean;
+  bindings: GestureBinding[];
+}
+
 /**
  * The full, versioned settings document. Persisted per profile; the `version`
  * drives forward-migrations in the settings store.
@@ -131,6 +148,7 @@ export interface Settings {
   privacy: PrivacySettings;
   security: SecuritySettings;
   ai: AiSettings;
+  gestures: GestureSettings;
   shortcuts: ShortcutBinding[];
 }
 

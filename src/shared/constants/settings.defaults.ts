@@ -1,6 +1,7 @@
 import type { Settings } from '../types/settings';
 import { DEFAULT_SEARCH_ENGINE_ID } from './search-engines';
 import { DEFAULT_SHORTCUTS } from './commands';
+import { DEFAULT_GESTURES } from './gestures';
 import { INTERNAL_PAGES } from './internal-pages';
 
 /** Current settings schema version. Bump when adding a migration. */
@@ -92,6 +93,10 @@ export const DEFAULT_SETTINGS: Settings = {
     sidebarEnabled: true,
     streamResponses: true,
     endpoints: {},
+  },
+  gestures: {
+    enabled: true,
+    bindings: [...DEFAULT_GESTURES],
   },
   shortcuts: [...DEFAULT_SHORTCUTS],
 };
