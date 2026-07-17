@@ -281,7 +281,8 @@ function GestureRow({
 }): ReactElement {
   const [recording, setRecording] = useState(false);
   const points = useRef<GesturePoint[]>([]);
-  const defaultGesture = DEFAULT_GESTURES.find((entry) => entry.action === command.id)?.gesture ?? '';
+  const defaultGesture =
+    DEFAULT_GESTURES.find((entry) => entry.action === command.id)?.gesture ?? '';
   const isCustom = gesture !== defaultGesture;
 
   const finish = (): void => {
@@ -482,7 +483,8 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
     ...GESTURABLE_COMMANDS.flatMap((commandId) => {
       const command = COMMANDS.find((entry) => entry.id === commandId);
       if (!command) return [];
-      const gesture = s.gestures.bindings.find((entry) => entry.action === commandId)?.gesture ?? '';
+      const gesture =
+        s.gestures.bindings.find((entry) => entry.action === commandId)?.gesture ?? '';
       return [
         {
           title: command.title,

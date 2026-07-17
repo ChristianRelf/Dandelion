@@ -163,7 +163,11 @@ export function WallpaperDialog({
                 )}
 
                 {draft.kind === 'gradient' && (
-                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Gradient">
+                  <div
+                    className="flex flex-wrap items-center gap-1.5"
+                    role="group"
+                    aria-label="Gradient"
+                  >
                     {GRADIENT_PRESETS.map((preset) => (
                       <button
                         key={preset.id}

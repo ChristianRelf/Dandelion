@@ -17,7 +17,11 @@ const wallpaperLayer = { blur: z.number().min(0).max(100), dim: z.number().min(0
 
 const wallpaperSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('color'), value: zHexColor, ...wallpaperLayer }),
-  z.object({ kind: z.literal('gradient'), value: z.string().regex(GRADIENT_RE), ...wallpaperLayer }),
+  z.object({
+    kind: z.literal('gradient'),
+    value: z.string().regex(GRADIENT_RE),
+    ...wallpaperLayer,
+  }),
   z.object({
     kind: z.literal('image'),
     value: z.string().regex(WALLPAPER_FILE_RE),
