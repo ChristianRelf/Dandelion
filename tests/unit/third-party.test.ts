@@ -189,6 +189,32 @@ describe('shouldStripCookies', () => {
   it('fails open when the owning document is unknown', () => {
     expect(shouldStripCookies('image', null, 'https://tracker.io/pixel.gif')).toBe(false);
   });
+
+  // Google sign-in is cross-domain by design, so its cookies would otherwise be
+  // stripped as third-party and log the user out. The exemption keeps SSO working
+  // while every other cross-site cookie is still shielded.
+  describe('Google sign-in exemption', () => {
+    it('keeps Google auth cookies on cross-site subresources and iframes', () => {
+      // YouTube reading the Google session.
+      expect(
+        shouldStripCookies('xhr', 'https://www.youtube.com/', 'https://accounts.google.com/token'),
+      ).toBe(false);
+      // Gmail authorising an API call.
+      expect(
+        shouldStripCookies('xhr', 'https://mail.google.com/', 'https://people.googleapis.com/v1'),
+      ).toBe(false);
+      // "Sign in with Google" one-tap iframe embedded on any site.
+      expect(
+        shouldStripCookies('subFrame', 'https://news.example/', 'https://accounts.google.com/gsi'),
+      ).toBe(false);
+    });
+
+    it('still strips non-Google trackers on a Google page', () => {
+      expect(
+        shouldStripCookies('image', 'https://www.google.com/search', 'https://tracker.io/px.gif'),
+      ).toBe(true);
+    });
+  });
 });
 
 describe('stripSetCookieHeaders', () => {

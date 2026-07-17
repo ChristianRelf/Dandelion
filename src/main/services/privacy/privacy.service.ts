@@ -5,6 +5,7 @@ import type { Logger } from '../../core/logger';
 import type { SettingsService } from '../settings.service';
 import { BlockEngine } from './block-engine';
 import { shouldStripCookies, stripSetCookieHeaders } from './third-party';
+import { isGoogleAuthUrl } from './google-auth-domains';
 
 interface ShieldCounters {
   ads: number;
@@ -84,7 +85,13 @@ export class PrivacyService {
         }
       }
 
-      if (privacy.blockAds || privacy.blockTrackers || privacy.blockFingerprinting) {
+      // Google's sign-in infrastructure is never blocked — a cancelled auth
+      // request silently breaks Gmail/YouTube/Accounts. Its third-party ad and
+      // tracker domains are separate registrable domains and stay blockable.
+      if (
+        (privacy.blockAds || privacy.blockTrackers || privacy.blockFingerprinting) &&
+        !isGoogleAuthUrl(url)
+      ) {
         const match = this.engine.match(url);
         if (match.blocked && match.kind && this.kindEnabled(match.kind, privacy)) {
           this.bump(webContentsId, match.kind);
