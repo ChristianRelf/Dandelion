@@ -8,6 +8,7 @@
 import type { OnBeforeSendHeadersListenerDetails } from 'electron';
 import { getHostname } from '@shared/utils';
 import { registrableDomain } from './public-suffix';
+import { isGoogleAuthUrl } from './google-auth-domains';
 
 type ResourceType = OnBeforeSendHeadersListenerDetails['resourceType'];
 
@@ -52,6 +53,10 @@ export function isThirdParty(topUrl: string, requestUrl: string): boolean {
  * Everything else is judged against the document owning its frame tree. An
  * unknown top URL fails open: without a document to compare against there is no
  * evidence the request is third-party, and stripping on a guess breaks pages.
+ *
+ * Google's sign-in infrastructure is exempt: its cross-domain cookies are what
+ * carry SSO between YouTube, Gmail, Accounts and "Sign in with Google", so
+ * stripping them logs the user out. See {@link isGoogleAuthUrl}.
  */
 export function shouldStripCookies(
   resourceType: ResourceType,
@@ -60,6 +65,7 @@ export function shouldStripCookies(
 ): boolean {
   if (resourceType === 'mainFrame') return false;
   if (!topUrl) return false;
+  if (isGoogleAuthUrl(requestUrl)) return false;
   return isThirdParty(topUrl, requestUrl);
 }
 
