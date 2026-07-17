@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { motion } from 'motion/react';
 import { Command, Search } from 'lucide-react';
-import type { HistoryEntry } from '@shared/types';
+import type { ClosedTab, HistoryEntry } from '@shared/types';
 import { getHostname, prettifyUrl } from '@shared/utils';
 import { DandelionMark } from '../components/brand/DandelionMark';
 import { Favicon } from '../components/ui/Favicon';
@@ -37,6 +37,15 @@ export function NewTabPage(): ReactElement {
     [profile?.id],
     [],
   );
+
+  // Re-fetched per profile so the list matches the space; the recently-closed
+  // buffer itself is populated in the main process as tabs close.
+  const { data: recentlyClosed } = useAsyncData<ClosedTab[]>(
+    () => trpc.app.recentlyClosed.query(),
+    [profile?.id],
+    [],
+  );
+  const recent = recentlyClosed.slice(0, 6);
 
   const openSite = (url: string): void => {
     const { activeTabId, activeWorkspaceId } = useBrowserStore.getState();
@@ -135,6 +144,36 @@ export function NewTabPage(): ReactElement {
                 );
               })}
         </div>
+      )}
+
+      {recent.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, delay: 0.14, ease: [0.16, 1, 0.3, 1] }}
+          className="relative z-10 flex w-[560px] max-w-full flex-col items-center gap-2"
+        >
+          <span className="text-[11px] font-semibold tracking-wide text-faint uppercase">
+            Recently closed
+          </span>
+          <div className="flex flex-wrap justify-center gap-2">
+            {recent.map((tab) => {
+              const label = tab.title.trim() || prettifyUrl(tab.url);
+              return (
+                <button
+                  key={`${tab.url}-${tab.closedAt}`}
+                  type="button"
+                  onClick={() => openSite(tab.url)}
+                  title={`${label}\n${tab.url}`}
+                  className={`flex max-w-[220px] items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 transition-colors no-drag hover:border-line-strong hover:bg-surface-hover ${FOCUS_RING}`}
+                >
+                  <Favicon src={tab.favicon} className="h-4 w-4 shrink-0" />
+                  <span className="truncate text-[12px] text-muted">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
       )}
     </div>
   );

@@ -203,7 +203,8 @@ structural rather than local:
 - [ ] Weather widget
 - [x] Quick links
 - [x] Search box
-- [ ] Recent tabs
+- [x] Recent tabs — a "Recently closed" row on the new tab page, from the
+      main-process recently-closed buffer; one click reopens
 - [ ] Notes widget
 - [ ] Custom widgets
 
