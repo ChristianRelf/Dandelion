@@ -17,6 +17,7 @@ interface AiStore {
   modelByProvider: Record<string, string>;
 
   loadProviders: () => Promise<void>;
+  setProviders: (providers: AiProviderInfo[]) => void;
   setModel: (providerId: string, model: string) => void;
   send: (providerId: string, model: string, text: string) => Promise<void>;
   runPageAction: (
@@ -48,6 +49,9 @@ export const useAiStore = create<AiStore>((set, get) => ({
     const providers = await trpc.ai.providers.query();
     set({ providers, providersLoaded: true });
   },
+
+  /** From `ai:providers`. Main owns `configured`, so it tells us when it moves. */
+  setProviders: (providers) => set({ providers, providersLoaded: true }),
 
   setModel: (providerId, model) =>
     set((state) => ({ modelByProvider: { ...state.modelByProvider, [providerId]: model } })),
@@ -85,10 +89,8 @@ export const useAiStore = create<AiStore>((set, get) => ({
       streaming: '',
     }));
     try {
-      const { requestId } = await trpc.ai.pageAction.mutate({ tabId, task });
+      const { requestId } = await trpc.ai.pageAction.mutate({ tabId, task, providerId, model });
       set({ requestId });
-      void providerId;
-      void model;
     } catch (error) {
       get().applyChunk({
         requestId: get().requestId ?? '',

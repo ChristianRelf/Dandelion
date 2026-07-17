@@ -104,21 +104,30 @@ export class AIService {
       const endpoints = { ...this.settings.get().ai.endpoints, [providerId]: baseUrl };
       this.settings.update({ ai: { endpoints } });
     }
+    // `configured` is derived in main from the stored key, so only main can know
+    // it changed. Without this a sidebar opened before the key was saved stays
+    // "Assistant unavailable" until the renderer reloads — behind a toast saying
+    // the key was saved.
+    this.events.emit({ type: 'ai:providers', providers: this.listProviders() });
   }
 
+  /**
+   * Starts a streaming completion and returns the id its chunks will carry.
+   *
+   * Anything knowable before the stream exists **throws** rather than emitting a
+   * terminal chunk. A chunk emitted here would be sent inside the still-running
+   * `ipcMain.handle` call, so it would reach the renderer before the reply
+   * carrying the `requestId` needed to match it — and be dropped, leaving the
+   * chat busy forever. These are failures of the call, not events in a stream.
+   */
   complete(request: AiCompletionRequest): string {
-    const requestId = createId('ai');
     const provider = this.providers.get(request.providerId);
-    if (!provider) {
-      this.emitChunk(requestId, '', true, `Unknown provider: ${request.providerId}`);
-      return requestId;
-    }
-    const apiKey = provider.requiresApiKey ? this.getKey(request.providerId) : '';
-    if (provider.requiresApiKey && !apiKey) {
-      this.emitChunk(requestId, '', true, `${provider.name} is not configured`);
-      return requestId;
-    }
+    if (!provider) throw new Error(`Unknown provider: ${request.providerId}`);
 
+    const apiKey = provider.requiresApiKey ? this.getKey(request.providerId) : '';
+    if (provider.requiresApiKey && !apiKey) throw new Error(`${provider.name} is not configured`);
+
+    const requestId = createId('ai');
     const controller = new AbortController();
     this.active.set(requestId, controller);
     const baseUrl = this.settings.get().ai.endpoints[request.providerId] ?? null;
@@ -152,13 +161,17 @@ export class AIService {
     this.active.delete(requestId);
   }
 
-  async pageAction(tabId: string, task: AiTask, targetLanguage = 'English'): Promise<string> {
+  async pageAction(
+    tabId: string,
+    task: AiTask,
+    targetLanguage = 'English',
+    override?: { providerId?: string; model?: string },
+  ): Promise<string> {
     const context = await this.pageContext(tabId);
-    const requestId = createId('ai');
-    if (!context) {
-      this.emitChunk(requestId, '', true, 'No readable page content');
-      return requestId;
-    }
+    // Throws for the same reason `complete` does: there is no stream yet to
+    // carry the failure, and the renderer cannot match a chunk for a request it
+    // has not been told the id of.
+    if (!context) throw new Error('No readable page content');
     const template = BUILTIN_PROMPTS.find((prompt) => prompt.task === task) ?? BUILTIN_PROMPTS[0]!;
     const prompt = template.template
       .replace('{{content}}', context.text)
@@ -166,11 +179,13 @@ export class AIService {
       .replace('{{title}}', context.title)
       .replace('{{language}}', targetLanguage);
 
-    const providerId = this.settings.get().ai.defaultProvider;
+    // Honour the picker when the caller sent one; the default provider and its
+    // first model are the fallback, not the rule.
+    const providerId = override?.providerId ?? this.settings.get().ai.defaultProvider;
     const provider = this.providers.get(providerId);
     return this.complete({
       providerId,
-      model: provider?.models[0]?.id ?? '',
+      model: override?.model || (provider?.models[0]?.id ?? ''),
       messages: [
         {
           role: 'system',

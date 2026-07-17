@@ -59,6 +59,7 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
           useUiStore.getState().setDownloadsPopoverOpen(true);
         }
         if (event.type === 'ai:chunk') useAiStore.getState().applyChunk(event.chunk);
+        if (event.type === 'ai:providers') useAiStore.getState().setProviders(event.providers);
         if (event.type === 'tab:updated') {
           // A navigation invalidates the distilled reader content for that tab.
           const reader = useReaderStore.getState();

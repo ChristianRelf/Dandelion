@@ -53,7 +53,10 @@ export const aiRoutes = router({
     return true;
   }),
   pageAction: publicProcedure.input(aiPageActionInput).mutation(async ({ ctx, input }) => ({
-    requestId: await ctx.app.ai.pageAction(input.tabId, input.task, input.targetLanguage),
+    requestId: await ctx.app.ai.pageAction(input.tabId, input.task, input.targetLanguage, {
+      providerId: input.providerId,
+      model: input.model,
+    }),
   })),
   prompts: router({
     list: publicProcedure.query(({ ctx }) => ctx.app.ai.listPrompts()),

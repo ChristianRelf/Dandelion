@@ -5,7 +5,7 @@ import type { WindowState } from './window';
 import type { Workspace } from './workspace';
 import type { VaultState } from './vault';
 import type { PermissionType, ShieldReport } from './privacy';
-import type { AiStreamChunk } from './ai';
+import type { AiProviderInfo, AiStreamChunk } from './ai';
 import type { UpdateStatus } from './update';
 
 export interface PermissionRequest {
@@ -50,6 +50,8 @@ export type BrowserEvent =
   | { type: 'shield:report'; tabId: TabId; report: ShieldReport }
   | { type: 'find:result'; result: FindResult }
   | { type: 'ai:chunk'; chunk: AiStreamChunk }
+  /** Providers and their `configured` flag, whenever a key or endpoint changes. */
+  | { type: 'ai:providers'; providers: AiProviderInfo[] }
   /** The whole updater state, whenever any of it moves. */
   | { type: 'app:update-status'; status: UpdateStatus }
   | { type: 'app:command'; commandId: string };
