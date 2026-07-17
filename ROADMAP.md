@@ -407,7 +407,9 @@ The specifics behind "Complete accessibility support" above.
 ## Utilities
 
 - [ ] QR code generator
-- [ ] Screenshot tool
+- [x] Screenshot tool — Camera in the toolbar (or ⌘⇧S) saves a full-resolution
+      PNG of the page to Downloads, registered as a completed download so Open
+      and Show-in-folder work on it
 - [ ] Colour picker
 - [ ] PDF viewer
 - [ ] Markdown viewer

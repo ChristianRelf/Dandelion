@@ -25,6 +25,7 @@ const UI_COMMANDS = new Set([
   'tools.bookmarkPage',
   'tools.viewSource',
   'tools.print',
+  'tools.screenshot',
   'tools.clearBrowsingData',
   'tab.search',
   'tabGroup.create',
@@ -78,6 +79,13 @@ async function printActiveTab(): Promise<void> {
   if (!activeTabId) return;
   const printed = await trpc.tabs.print.mutate({ tabId: activeTabId });
   if (!printed) toast.show('This page can’t be printed');
+}
+
+async function screenshotActiveTab(): Promise<void> {
+  const { activeTabId } = useBrowserStore.getState();
+  if (!activeTabId) return;
+  const { filename } = await trpc.tabs.screenshot.mutate({ tabId: activeTabId });
+  toast.success(`Saved ${filename} to Downloads`);
 }
 
 function viewSource(): void {
@@ -196,6 +204,13 @@ export function handleUiCommand(commandId: string): void {
       return;
     case 'tools.print':
       void printActiveTab().catch(() => toast.error('Could not print this page'));
+      return;
+    case 'tools.screenshot':
+      void screenshotActiveTab().catch((error) =>
+        toast.error('Couldn’t save screenshot', {
+          description: error instanceof Error ? error.message : undefined,
+        }),
+      );
       return;
     case 'tools.clearBrowsingData':
       void openInternalPage(INTERNAL_PAGES.settings);

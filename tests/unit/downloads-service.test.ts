@@ -14,6 +14,9 @@ import type { EventBus } from '@main/core/event-bus';
 import type { Logger } from '@main/core/logger';
 import type { SettingsService } from '@main/services/settings.service';
 import { LIMITS } from '@shared/constants';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const PROFILE = { id: 'profile_1' } as Profile;
 
@@ -66,7 +69,9 @@ function makeItem(options: { canResume?: boolean } = {}) {
   };
 }
 
-function makeService(options: { scanDownloads?: boolean; orphans?: number } = {}) {
+function makeService(
+  options: { scanDownloads?: boolean; orphans?: number; downloadDir?: string } = {},
+) {
   const updates: Array<{ id: string; patch: DownloadPatch }> = [];
   const emitted: BrowserEvent[] = [];
   const removed: string[] = [];
@@ -97,7 +102,7 @@ function makeService(options: { scanDownloads?: boolean; orphans?: number } = {}
     // `true` keeps `uniqueSavePath` — and the real filesystem — out of these
     // tests; it has its own in unique-save-path.test.ts.
     get: () => ({
-      behavior: { askWhereToSaveDownloads: true, downloadDirectory: null },
+      behavior: { askWhereToSaveDownloads: true, downloadDirectory: options.downloadDir ?? null },
       security: { scanDownloads: options.scanDownloads ?? false },
     }),
   } as unknown as SettingsService;
@@ -132,6 +137,7 @@ function makeService(options: { scanDownloads?: boolean; orphans?: number } = {}
     warnings,
     infos,
     reads: () => reads,
+    getInserted: () => inserted,
     states: () => updates.map((entry) => entry.patch.state).filter(Boolean),
   };
 }
@@ -435,5 +441,45 @@ describe('DownloadsRepository', () => {
     const { repo, statements } = makeRepo();
     repo.markInterrupted();
     expect(statements[0]).not.toContain('completed_at');
+  });
+});
+
+describe('DownloadsService.saveScreenshot', () => {
+  let dir: string;
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'dandelion-shot-'));
+  });
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('writes the PNG and registers it as a completed download in the list', () => {
+    const harness = makeService({ downloadDir: dir });
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const result = harness.service.saveScreenshot(PROFILE, png, 'https://example.com/a?b=1');
+
+    // Filename: sanitised host + a dashed timestamp (no colons — invalid on Windows).
+    expect(result.filename).toMatch(/^Screenshot example\.com [\d-]+ [\d-]+\.png$/);
+    expect(existsSync(join(dir, result.filename))).toBe(true);
+    expect(readFileSync(join(dir, result.filename))).toEqual(png);
+
+    // It joins the downloads list as a finished row, so Open / Show-in-folder work.
+    expect(harness.getInserted()).toMatchObject({
+      state: 'completed',
+      mimeType: 'image/png',
+      totalBytes: png.length,
+      receivedBytes: png.length,
+    });
+    expect(harness.emitted.some((event) => event.type === 'download:created')).toBe(true);
+  });
+
+  it('does not clobber a second screenshot of the same page', () => {
+    const harness = makeService({ downloadDir: dir });
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    const first = harness.service.saveScreenshot(PROFILE, png, 'https://example.com/');
+    const second = harness.service.saveScreenshot(PROFILE, png, 'https://example.com/');
+    expect(second.filename).not.toBe(first.filename);
+    expect(existsSync(join(dir, first.filename))).toBe(true);
+    expect(existsSync(join(dir, second.filename))).toBe(true);
   });
 });

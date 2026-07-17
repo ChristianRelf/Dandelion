@@ -425,6 +425,14 @@ export const COMMANDS: readonly CommandDescriptor[] = [
     palette: true,
   },
   {
+    id: 'tools.screenshot',
+    title: 'Screenshot Page',
+    category: 'tools',
+    icon: 'camera',
+    defaultKeys: 'CmdOrCtrl+Shift+S',
+    palette: true,
+  },
+  {
     id: 'tools.clearBrowsingData',
     title: 'Clear Browsing Data…',
     category: 'tools',

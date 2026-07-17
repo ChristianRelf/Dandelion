@@ -735,6 +735,21 @@ export class TabManager {
     };
   }
 
+  /**
+   * Capture the tab's visible page at full resolution as PNG bytes, with the
+   * page URL and owning profile so a caller can name and attribute the file.
+   * Returns `null` when the tab has no live view — an internal page, or one that
+   * is asleep — which is exactly when there is nothing to capture.
+   */
+  async capturePng(tabId: string): Promise<{ png: Buffer; url: string; profileId: string } | null> {
+    const live = this.tabs.get(tabId);
+    if (!live?.view) return null;
+    const profile = this.profileForWorkspace(live.state.workspaceId);
+    if (!profile) return null;
+    const image = await live.view.webContents.capturePage();
+    return { png: image.toPNG(), url: live.state.url, profileId: profile.id };
+  }
+
   /* ------------------------------------------------------------------ *
    * Layout coordination (driven by the renderer)
    * ------------------------------------------------------------------ */

@@ -146,6 +146,14 @@ export const tabRoutes = router({
   capture: publicProcedure
     .input(tabRef)
     .mutation(({ ctx, input }) => ctx.app.tabs.captureThumbnail(input.tabId)),
+  /** Save a full-resolution PNG of the page to Downloads. Rejects (for the toast) on an uncapturable tab. */
+  screenshot: publicProcedure.input(tabRef).mutation(async ({ ctx, input }) => {
+    const capture = await ctx.app.tabs.capturePng(input.tabId);
+    if (!capture) throw new Error('This page can’t be captured');
+    const profile = ctx.app.profiles.get(capture.profileId);
+    if (!profile) throw new Error('Profile not found');
+    return ctx.app.downloads.saveScreenshot(profile, capture.png, capture.url);
+  }),
   getZoom: publicProcedure
     .input(tabRef)
     .query(({ ctx, input }) => ctx.app.tabs.getZoomPercent(input.tabId)),
