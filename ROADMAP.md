@@ -320,12 +320,18 @@ Gestures, which records a stroke by having you draw it.
 
 ## Import
 
-- [ ] Chrome
-- [ ] Edge
-- [ ] Brave
-- [ ] Firefox
-- [ ] Opera
-- [ ] Arc
+Bookmarks import from a file (Bookmarks → Import). Chrome, Edge, Brave, Opera,
+Vivaldi and Arc all write the same Chromium `Bookmarks` JSON, so one parser reads
+every one of them; Firefox is imported via its HTML export, which the Netscape
+importer already handled. Full profile import (open tabs, passwords, history)
+is still ahead.
+
+- [x] Chrome
+- [x] Edge
+- [x] Brave
+- [x] Firefox — via its HTML bookmark export
+- [x] Opera
+- [x] Arc
 
 ---
 
