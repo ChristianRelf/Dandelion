@@ -285,6 +285,38 @@ export class TabManager {
     this.deps.windows.broadcastState(dandelionWindow);
   }
 
+  /**
+   * The other tabs in this tab's strip, or the ones after it.
+   *
+   * Both were renderer loops firing one `tabs.close` per tab: N round trips for
+   * one intent, against a list that could move underneath them mid-loop. Main
+   * owns the ordering, so it resolves the set once and closes it — and the popup
+   * surface, which has no tab list of its own, can ask for either by tab id
+   * alone.
+   *
+   * The set is resolved **before** any of it is closed: `close()` re-indexes the
+   * strip and can activate a neighbour, so reading the list as it is walked
+   * would be reading a list the walk is rewriting.
+   */
+  closeOthers(tabId: string): void {
+    this.closeSiblings(tabId, (tab, subject) => tab.id !== subject.id);
+  }
+
+  closeToRight(tabId: string): void {
+    this.closeSiblings(tabId, (tab, subject) => tab.index > subject.index);
+  }
+
+  private closeSiblings(tabId: string, shouldClose: (tab: Tab, subject: Tab) => boolean): void {
+    const live = this.tabs.get(tabId);
+    if (!live) return;
+    const { windowId, workspaceId } = live.state;
+    if (!windowId) return;
+    const doomed = this.listInWindow(windowId, workspaceId)
+      .filter((tab) => shouldClose(tab, live.state))
+      .map((tab) => tab.id);
+    for (const id of doomed) this.close(id);
+  }
+
   duplicate(tabId: string): Tab | null {
     const live = this.tabs.get(tabId);
     if (!live) return null;

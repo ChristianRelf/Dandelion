@@ -11,7 +11,18 @@ interface TooltipProps {
   shortcut?: string;
 }
 
-export function Tooltip({ content, children, side = 'bottom', shortcut }: TooltipProps) {
+/**
+ * `side` defaults to `top` because the toolbar sits directly above the content
+ * region, and that region belongs to a native `WebContentsView` stacked above
+ * this renderer — a tooltip dropping into it is painted over by the page and
+ * cannot be seen on any real site. Opening upward keeps it inside the chrome,
+ * and Radix flips it back down where there is no room above (the title bar), so
+ * the safe placement is also the default a new toolbar button inherits.
+ *
+ * Overlays large enough to be worth hosting in the floating surface go through
+ * `PopupHost` instead; a tooltip is not worth an IPC round trip per hover.
+ */
+export function Tooltip({ content, children, side = 'top', shortcut }: TooltipProps) {
   return (
     <RadixTooltip.Root>
       <RadixTooltip.Trigger asChild>{children}</RadixTooltip.Trigger>

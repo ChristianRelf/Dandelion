@@ -3,7 +3,6 @@ import * as ContextMenu from '@radix-ui/react-context-menu';
 import { Check } from 'lucide-react';
 import type { Tab } from '@shared/types';
 import { trpc } from '../../lib/trpc/client';
-import { useBrowserStore, selectOrderedTabs } from '../../stores/browser.store';
 import { useGroups } from '../../hooks/useBrowser';
 import { nextGroupColor, TAB_GROUP_COLORS } from '../../lib/tab-colors';
 import {
@@ -25,18 +24,11 @@ export function TabContextMenu({
 }): ReactElement {
   const groups = useGroups().filter((group) => group.workspaceId === tab.workspaceId);
 
-  const closeOthers = (): void => {
-    for (const candidate of selectOrderedTabs(useBrowserStore.getState())) {
-      if (candidate.id !== tab.id) void trpc.tabs.close.mutate({ tabId: candidate.id });
-    }
-  };
-  const closeToRight = (): void => {
-    const ordered = selectOrderedTabs(useBrowserStore.getState());
-    const index = ordered.findIndex((candidate) => candidate.id === tab.id);
-    for (const candidate of ordered.slice(index + 1)) {
-      void trpc.tabs.close.mutate({ tabId: candidate.id });
-    }
-  };
+  // Both used to walk the store and fire one `tabs.close` per tab — N round
+  // trips for one intent, against a list main re-indexes as it goes. Main owns
+  // the ordering, so it resolves the set and closes it in one call.
+  const closeOthers = (): void => void trpc.tabs.closeOthers.mutate({ tabId: tab.id });
+  const closeToRight = (): void => void trpc.tabs.closeToRight.mutate({ tabId: tab.id });
   const addToNewGroup = (): void => {
     void trpc.tabs.createGroup.mutate({
       workspaceId: tab.workspaceId,
