@@ -42,6 +42,11 @@ export const DEFAULT_SETTINGS: Settings = {
     maxTabsBeforeWarning: 80,
     hoverPreview: true,
   },
+  reader: {
+    theme: 'auto',
+    fontScale: 1,
+    speechRate: 1,
+  },
   search: {
     defaultEngineId: DEFAULT_SEARCH_ENGINE_ID,
     searchSuggestions: true,

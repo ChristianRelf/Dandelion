@@ -113,6 +113,63 @@
   --surface: rgba(255, 255, 255, 0.05);
 }
 
+/* ---- Reader themes ----------------------------------------------------- */
+/*
+ * Unlike the palettes above these are scoped to an element, not `:root`: the
+ * reader is one surface inside the app, and a sepia page must not turn the
+ * toolbar and tab strip sepia with it. CSS variables inherit, so redefining
+ * them on the reader's own root retunes exactly its subtree.
+ *
+ * Note these must redeclare the `--color-*` tokens, not just the raw palette
+ * vars underneath them. `@theme` declares `--color-text: var(--text)` on
+ * `:root`, and a custom property is substituted where it is *declared* — so
+ * `--color-text` inherits down already resolved to the root's `--text`, and
+ * setting `--text` here alone would change nothing. The palettes above get away
+ * with setting only the raw vars because they sit on `:root`, where the
+ * substitution happens.
+ *
+ * `color-scheme` is restated for a related reason: without it a light reader
+ * inside a dark app keeps dark scrollbars and form controls.
+ */
+[data-reader-theme] {
+  --color-bg-elevated: var(--bg-elevated);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+}
+
+[data-reader-theme='light'] {
+  --bg-elevated: #ffffff;
+  --surface: rgba(0, 0, 0, 0.04);
+  --line: rgba(0, 0, 0, 0.1);
+  --text: #18181b;
+  --muted: #52525b;
+  --faint: #a1a1aa;
+  color-scheme: light;
+}
+
+[data-reader-theme='sepia'] {
+  --bg-elevated: #f4ecd8;
+  --surface: rgba(90, 60, 20, 0.06);
+  --line: rgba(90, 60, 20, 0.16);
+  --text: #3b2f1e;
+  --muted: #6b5940;
+  --faint: #9a866b;
+  color-scheme: light;
+}
+
+[data-reader-theme='dark'] {
+  --bg-elevated: #141417;
+  --surface: rgba(255, 255, 255, 0.045);
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f4f4f5;
+  --muted: #a1a1aa;
+  --faint: #6b6b74;
+  color-scheme: dark;
+}
+
 /* ---- Density ----------------------------------------------------------- */
 /*
  * Density-aware sizing tokens. Chrome elements (tabs, toolbar, list rows,

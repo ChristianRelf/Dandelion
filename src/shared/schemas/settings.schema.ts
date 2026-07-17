@@ -100,11 +100,18 @@ const shortcutSchema = z.object({
   enabled: z.boolean(),
 });
 
+const readerSchema = z.object({
+  theme: z.enum(['auto', 'light', 'sepia', 'dark']),
+  fontScale: z.number().min(0.8).max(1.6),
+  speechRate: z.number().min(0.5).max(2),
+});
+
 export const settingsSchema = z.object({
   version: z.number().int(),
   appearance: appearanceSchema,
   behavior: behaviorSchema,
   tabs: tabsSchema,
+  reader: readerSchema,
   search: searchSchema,
   privacy: privacySchema,
   security: securitySchema,
@@ -117,6 +124,7 @@ export const settingsPatchSchema = z.object({
   appearance: appearanceSchema.partial().optional(),
   behavior: behaviorSchema.partial().optional(),
   tabs: tabsSchema.partial().optional(),
+  reader: readerSchema.partial().optional(),
   search: searchSchema.partial().optional(),
   privacy: privacySchema.partial().optional(),
   security: securitySchema.partial().optional(),

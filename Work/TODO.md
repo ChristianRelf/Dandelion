@@ -13,6 +13,17 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 - [ ] **P2** Extraction is a heuristic (best-container + block walk in [tab-manager.ts](../src/main/browser/tab-manager.ts) `getReaderContent`). Swap in a real Readability pass for reliable article boundaries.
 - [ ] **P3** Images with relative `src` can fail to load in the reader (no `<base>`/URL resolution).
 - [ ] **P3** No per-site "always use reader" preference; reader closes on navigation by design.
+- [ ] **P3** Read-aloud stops when you switch tabs, because the reader unmounts while
+      `reader.tabId` stays set and the speech engine is global to the renderer — the alternative was
+      audio playing on from a tab you are no longer looking at, with no visible control to stop it.
+      Resuming where it left off on return would be better than either.
+- [ ] **P3** Pausing read-aloud cancels and re-speaks the current sentence on resume, rather than
+      resuming mid-sentence: `speechSynthesis.pause()` does not hold — the native voice plays the
+      utterance out and `paused` flips back on its own (observed on Windows/Electron 43).
+- [ ] **P3** No voice picker. `speechSynthesis.getVoices()` is async-populated and returns `[]` on
+      first call until `voiceschanged`, which a picker would need to handle.
+- [ ] **P3** Read-aloud highlights the block being spoken, not the word. Word-level needs the block
+      split into spans plus `onboundary`, whose reliability varies by voice.
 
 ### Per-site zoom
 
