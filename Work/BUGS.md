@@ -7,12 +7,124 @@ defects that have been fixed move to [BUGS-FIXED.md](BUGS-FIXED.md).
 Priorities: **P1** = fix before a public release · **P2** = noticeable / worth fixing · **P3** =
 rough edge.
 
-Status: **Confirmed** = reproduced, with the reproduction recorded · **Suspected** = observed once,
-not yet isolated.
+Status: **Confirmed** = traced to the code path that causes it · **Suspected** = observed once, not
+yet isolated.
 
 ---
 
-## Privacy engine
+## Sessions & restore
+
+### P1 · Confirmed · Every normal quit saves an _empty_ session, then prunes the real ones away
+
+"Restore previous session" never restores anything after a normal quit, and each quit destroys one
+more genuine snapshot.
+
+**Why.** `saveSession()` is only reached from `shutdown()`, wired to `before-quit`
+([index.ts](../src/main/index.ts)). On the ordinary Windows/Linux quit path the ordering is fatal:
+
+1. Closing the last window fires `browserWindow.on('closed')` →
+   [window-manager.ts](../src/main/browser/window-manager.ts) deletes it from `windows`, then
+   notifies `closeListeners` → `TabManager.handleWindowClosed()` deletes every tab of that window
+   from `this.tabs`.
+2. `window-all-closed` → `app.quit()`.
+3. `app.quit()` emits `before-quit` → `shutdown()` → `saveSession('shutdown')`.
+
+By step 3 both maps are already empty, so `this.windows.all().map(...)`
+([app-context.ts](../src/main/app/app-context.ts)) yields `[]`. The snapshot is written
+unconditionally and then `prune(15)` keeps only the 15 newest — so after 15 quits every real snapshot
+has been evicted by an empty one. The `'Empty session'` fallback already in `app-context.ts` is the
+symptom being papered over.
+
+**Reproduction.** Open tabs → close the window with the X → relaunch → Sessions lists "Empty
+session". Only `app.quit` from the menu/palette (windows still alive) saves correctly.
+
+### P3 · Confirmed · `restoreSession` ignores the calling window
+
+`restoreSession` resolves its target with `this.windows.first()`
+([app-context.ts](../src/main/app/app-context.ts)) instead of the caller's window, and
+[sessions.router.ts](../src/main/ipc/routers/sessions.router.ts) never passes `ctx.windowId` — unlike
+every other window-scoped route, which uses `requireWindowId(ctx)`. With two windows open, restoring
+from window B dumps every tab into window A and activates them there.
+
+## Security & privacy
+
+### P1 · Confirmed · The chrome renderer runs in the **default session**, so favicons escape the profile partition
+
+`WebContentsView`s are built with `session` bound to the profile partition
+([tab-manager.ts](../src/main/browser/tab-manager.ts)), but the chrome `BrowserWindow` passes no
+session ([window-manager.ts](../src/main/browser/window-manager.ts)) and so silently uses
+`session.defaultSession` — a persistent, on-disk jar that `PrivacyService` was never attached to
+([session-manager.ts](../src/main/browser/session-manager.ts) configures per-profile partitions
+only).
+
+`page-favicon-updated` stores the **site-chosen** URL verbatim, broadcasts it to the chrome renderer,
+and [Favicon.tsx](../src/renderer/components/ui/Favicon.tsx) renders it as `<img src>` — in the
+chrome window, i.e. outside the profile.
+
+**Impact.** A page in a **private** window sets `<link rel="icon" href="https://tracker/id?u=123">`.
+That request is issued through the persistent default session — the exact boundary
+[profile.service.ts](../src/main/services/profile.service.ts) documents as "in-memory partitions that
+vanish on exit". The tracker gets a cookie-bearing request in a jar shared with normal browsing that
+survives restart, linking private and normal activity. It is also never ad/tracker-blocked (no
+`webRequest` filter on the default session) and never counts toward the shields. The same path
+applies to reader images and to history/bookmark favicons, which re-fetch those URLs long after the
+private session is gone.
+
+### P2 · Confirmed · The CSP comment documents production hardening that does not exist
+
+[index.html](../src/renderer/index.html) claims production hardening "is intersected on top of this
+via response headers in the security service". No such code exists — the only
+`Content-Security-Policy` anywhere in `src` is that meta tag, and `src/main/app/security.ts` is 13
+lines that only `preventDefault()` `will-attach-webview`. The shipped policy is the dev one:
+`script-src 'self' 'unsafe-inline' 'unsafe-eval'`.
+
+The comment is load-bearing misinformation — it will lead a reviewer to conclude the renderer is
+hardened when it is not. The chrome is served over `file://` via `loadFile`, where `webRequest`
+header injection does not fire, so the design the comment describes cannot work as written: the
+policy has to be tightened in the meta tag with a build-time dev/prod split.
+
+### P2 · Confirmed · `permission:request` is broadcast to every window
+
+[ipc-host.ts](../src/main/ipc/ipc-host.ts) fans every event out to `BrowserWindow.getAllWindows()`,
+and the emitted request carries `{id, tabId, origin, type}` with no `windowId`
+([permissions.service.ts](../src/main/services/permissions.service.ts)) — so
+[PermissionPrompt.tsx](../src/renderer/components/chrome/PermissionPrompt.tsx) structurally cannot
+filter, even though `browser.store.ts` filters other events by `windowId` as a matter of course.
+
+**Reproduction.** Two windows open; a site in window A requests the camera. **Both** windows render
+the prompt, each auto-focusing "Allow". Window B shows "example.com wants to use your camera" for a
+tab it does not contain, for a site the user is not looking at. A consent prompt shown without its
+originating context, with the affirmative pre-focused, is a consent-integrity problem rather than a
+UX wart.
+
+### P3 · Confirmed · Page-controlled URLs reach `loadURL` with no scheme allowlist
+
+`setWindowOpenHandler` passes the page-supplied `url` into `createTab` → `activate` → `loadURL`, and
+`zUrl` ([common.ts](../src/shared/schemas/common.ts)) validates only length, never scheme. A page
+calling `window.open('dandelion://passwords')` reaches `isInternalUrl`, which destroys the web view
+and renders the **internal password manager** in the chrome. Web content should not be able to drive
+privileged internal UI. Because the navigation is main-process-initiated, Chromium's renderer-side
+scheme restrictions are not the enforcing layer — the allowlist has to exist in `createTab` /
+`navigate`.
+
+### P3 · Confirmed · tRPC procedure lookup walks `Object.prototype`
+
+[ipc-host.ts](../src/main/ipc/ipc-host.ts) resolves `op.path` by walking properties and guards only
+with `typeof target !== 'function'`. Inherited members satisfy it: `"constructor"` resolves to
+`Object`, `"__proto__.constructor.constructor"` to `Function`. **Not exploitable** — the result is
+only ever called with one superjson value and never eval'd, and it is reachable only from the trusted
+chrome renderer. Robustness, not a vulnerability. Resolve with `Object.hasOwn` per segment, or match
+against a flattened procedure allowlist.
+
+### P3 · Confirmed · Third-party cookie shield fails open on every multi-part TLD
+
+`rootDomain` ([url.ts](../src/shared/utils/url.ts)) takes the last two labels unconditionally, with
+no public-suffix list in the repo. `bbc.co.uk` and `tracker.co.uk` both reduce to `co.uk`, so
+`isThirdParty` returns `false` and [third-party.ts](../src/main/services/privacy/third-party.ts)
+declines to strip. The comment marks it "best-effort … for grouping", but a privacy decision now
+depends on it. On any `.co.uk` / `.com.au` / `.co.jp` page, genuinely third-party requests keep their
+cookies. Fails open, so nothing breaks visibly — the feature just doesn't do what it claims for a
+large slice of the web.
 
 ### P2 · Confirmed · Third-party cookies are stored, only never sent
 
@@ -21,75 +133,360 @@ The same feature deletes the `Cookie` **request** header but there is no `onHead
 written to disk — the feature does not deliver the privacy it advertises in the README and settings
 UI. Either strip `Set-Cookie` too, or narrow the claim.
 
+### P3 · Confirmed · `recentlyClosed` has no private-profile guard
+
+`close()` pushes url/title/favicon into `recentlyClosed` for any `https?:` tab with no `isPrivate`
+check ([tab-manager.ts](../src/main/browser/tab-manager.ts)), while both comparable sinks —
+`persist()` and `recordVisit()` — guard explicitly. `Ctrl+Shift+T` from a normal window resurrects a
+closed **private** tab. In-memory only, and `app.recentlyClosed` has no renderer consumer, so
+exposure is limited to the reopen command.
+
+### P3 · Confirmed · Stored AI keys carry no encoding marker
+
+[ai.service.ts](../src/main/services/ai/ai.service.ts) branches independently on
+`safeStorage.isEncryptionAvailable()` on write and on read, and the stored blob records nothing about
+which branch produced it. A key written while encryption was available and read when it is not (a
+Linux keyring not yet unlocked — real across restarts) makes `buffer.toString('utf8')` return
+**binary garbage rather than throw**, and that garbage is sent as the API key → an opaque 401. The
+reverse order at least throws and is caught.
+
 ## Tabs & windows
-
-### P1 · Confirmed · `Ctrl/Cmd+N` steals a tab out of the window you were using
-
-Opening a new window moves the *current* window's active tab into the new one. Window 1's content
-area goes blank while its tab strip still renders that tab as active; clicking it does nothing
-visible, because it now drives window 2.
-
-**Reproduction.** Browse to a page, press `Ctrl+N`. The new window shows the tab you were just on;
-the original is left empty.
-
-**Why.** `openWindow()` ([app-context.ts](../src/main/app/app-context.ts)) creates the window with
-`activeWorkspaceId = null`. The new renderer's `bootstrap()` queries `initialState`, where
-`dandelionWindow?.activeWorkspaceId ?? workspaces[0]?.id` falls through to **the workspace window 1
-already has**. `restoreWorkspace` then hits its "already open" branch — `listByWorkspace` is not
-window-filtered — and `reparent()`s window 1's live tab into window 2. Window 1's `layout()` is
-never re-run, and `tab:activated` for window 2 is filtered out by the renderer's `windowId` check,
-so window 1's chrome never learns the tab left.
-
-`window.newPrivate` is unaffected precisely because it pre-sets `created.activeWorkspaceId` before
-the renderer boots; `window.new` does not, which is the asymmetry that exposes this.
-
-**Why it is still open.** The mechanical fix (filter `alreadyOpen` by `windowId`) is not sufficient:
-the code then falls through to the `persisted` branch and re-materialises the *same* stored tabs
-into the new window, duplicating them. It needs a decision first — **may two windows share a
-workspace?** If yes, tab lists must become window-scoped throughout; if no, `Ctrl+N` should create
-or adopt its own workspace. Deferred from v0.2.1 as design work, not a patch.
 
 ### P1 · Confirmed · Every popup is blocked — `window.open()` returns `null`
 
 `setWindowOpenHandler` denies **all** popups and re-opens the URL as a tab
-([tab-manager.ts:724-733](../src/main/browser/tab-manager.ts#L724-L733)). Confirmed by evaluating
-`window.open(...)` in a real page: it returns `null`.
+([tab-manager.ts](../src/main/browser/tab-manager.ts)). Confirmed by evaluating `window.open(...)` in
+a real page: it returns `null`.
 
-**Impact.** Any flow that depends on a popup and its opener is broken. "Sign in with Google" and
-most OAuth buttons open a popup and wait for `window.opener.postMessage` to hand back the
-credential; with no opener there is no channel home, so even a successful sign-in delivers nothing.
+**Impact.** Any flow that depends on a popup and its opener is broken. "Sign in with Google" and most
+OAuth buttons open a popup and wait for `window.opener.postMessage` to hand back the credential; with
+no opener there is no channel home, so even a successful sign-in delivers nothing.
 
-**Fix.** Match real browser behaviour: route `disposition === 'new-window'` (i.e. `window.open` with
-features) to an actual popup window on the same session via `{ action: 'allow' }`, preserving the
-opener chain, and keep `foreground-tab` / `background-tab` (i.e. `target="_blank"` links) becoming
-tabs.
+**Also dead because of it.** `popups` exists as a `PermissionType`
+([privacy.ts](../src/shared/types/privacy.ts)) and renders as a real row in the Permissions page —
+but nothing consults it, because the handler denies unconditionally before any rule is read.
 
-## Appearance
+**Fix.** Route `disposition === 'new-window'` (`window.open` with features) to an actual popup window
+on the same session via `{ action: 'allow' }`, preserving the opener chain, gated on the `popups`
+rule; keep `foreground-tab` / `background-tab` (`target="_blank"` links) becoming tabs.
+
+### P2 · Confirmed · `Ctrl+Shift+T` from a different workspace silently empties the tab strip
+
+`reopenClosed()` recreates the tab in the workspace it was closed **from**, and `createTab` →
+`activate` sets `dandelionWindow.activeWorkspaceId = live.state.workspaceId` — switching the window's
+workspace from the main process. The renderer cannot follow: `tab:created` is dropped by the
+workspace filter (still the old workspace at that moment), the later `window:state` sets
+`activeWorkspaceId` **without refetching tabs**, and `selectOrderedTabs` then filters to nothing. The
+only rehydration paths are `bootstrap()` and `switchWorkspace()`, both renderer-initiated.
+
+**Reproduction.** Close a tab in workspace A → switch to B → `Ctrl+Shift+T`. The page materialises
+and renders, but the sidebar shows A selected with an **empty strip**. The tab is unreachable and
+uncloseable until a workspace is re-picked by hand.
+
+### P2 · Confirmed · `setSplit()` never clears `asleep`; a live split pane stays dimmed forever
+
+`setSplit` ([tab-manager.ts](../src/main/browser/tab-manager.ts)) materialises and `loadURL`s each
+pane but — unlike `activate()` — never clears `asleep`, never `emitUpdate`s and never sets
+`lastActiveAt`. `sleep()` correctly refuses to sleep a split pane, so nothing ever corrects the flag
+either. Restored tabs arrive `asleep: true`, and `toggleSplitView` picks the first non-active tab,
+which after a session restore is asleep.
+
+**Reproduction.** Restart → split view. The second pane renders live content while its strip entry
+stays at `opacity-50` indefinitely. State says asleep; the screen says awake.
+
+### P3 · Confirmed · `duplicate()` collides tab indices, so the copy lands in the wrong slot
+
+`duplicate` passes `index: live.state.index + 1` and `createTab` assigns it verbatim without shifting
+siblings ([tab-manager.ts](../src/main/browser/tab-manager.ts)). With `A(0) B(1) C(2)`, duplicating
+`A` yields `A2(1)`, colliding with `B(1)`; sorts are stable so the copy always lands _after_ the
+incumbent. Duplicating `A` in `A B C` gives `A B A2 C`. The colliding index is persisted, and nothing
+renormalises except a manual drag-reorder.
+
+## Downloads
+
+### P2 · Confirmed · Downloads restored from disk present live controls that do nothing, silently
+
+`toDownload` derives affordances from persisted state (`canResume: state === 'paused' || state ===
+'interrupted'`), but `pause`/`resume`/`cancel` act only through `this.live`, populated exclusively by
+`handleWillDownload`. After a restart `live` is empty, so every mutator is a no-op lookup
+(`this.live.get(id)?.item.pause()`). The router returns `true` unconditionally, so the renderer's
+`.catch(() => toast.error(...))` **never fires** — the error path is dead code.
+
+Compounding it, a download interrupted by the app quitting stays `in_progress` **forever**: nothing
+reconciles orphaned rows at boot. `isActive()` keeps it in the active list with a frozen progress
+bar, and `clearCompleted` filters `state IN ('completed','cancelled')` — so neither "Clear completed"
+nor "Clear browsing data → downloads" will remove it. Only "Remove from list" does.
+
+**Reproduction.** Start a large download, quit mid-transfer, relaunch, open Downloads: a permanently
+"downloading" row with an enabled Pause/Cancel that do nothing at all, with no feedback.
+
+### P3 · Confirmed · `openFile` / `showInFolder` discard the failure
+
+`shell.openPath` resolves to `''` on success or an **error message** on failure;
+[downloads.service.ts](../src/main/services/downloads.service.ts) does `void shell.openPath(...)`,
+throwing it away. The router returns `true` regardless, so the renderer's `.catch(() =>
+toast.error('Could not open file'))` can never run. Clicking Open on a download whose file was moved
+or deleted does nothing whatsoever — no error, no log. Directly contradicts the repo's "never
+silently ignore errors" rule.
+
+### P3 · Confirmed · Every progress tick does an unthrottled synchronous write + read-back
+
+`item.on('updated', ...)` is unthrottled, and the `elapsed >= 1` guard inside `onUpdated` gates
+**only** the speed/ETA sample — not persistence. Every event runs an `UPDATE` followed by a `SELECT`
+read-back to build the event payload, both synchronous better-sqlite3 calls on the main process.
+`LIMITS.downloadSampleMs` ("Download speed sampling window, ms") is **never referenced anywhere** —
+the intended window was never wired to the write path. The read-back is also avoidable: the service
+already holds every field it just wrote.
+
+## History & storage
+
+### P1 · Confirmed · History grows without bound; the documented 90-day retention never runs
+
+Two independent causes, same outcome:
+
+1. **`HistoryService.prune()` is dead code.** Its JSDoc says "called periodically"; nothing calls it.
+   `LIMITS.historyRetentionDays = 90` is referenced only from inside the function that never runs —
+   the retention policy is documented but unenforced.
+2. **`history_visits` is write-only.** `recordVisit()` inserts a row per navigation
+   ([history.repo.ts](../src/main/storage/repositories/history.repo.ts)) and **no query ever reads
+   the table**. Rows leave only via `ON DELETE CASCADE`. It carries an index that grows alongside it.
+
+Every navigation appends a permanent row plus index entry to a table nothing consumes, and neither
+table is ever pruned. For a daily driver this becomes the largest table in `dandelion.db` while
+providing zero value — and it compounds the next entry.
+
+### P2 · Confirmed · The omnibox full-scans and sorts all history on every keystroke
+
+[history.repo.ts](../src/main/storage/repositories/history.repo.ts) orders by a **computed
+expression** (`visit_count * 2 + typed_count * 5`), which no index can satisfy, and the `OR title LIKE
+@prefix` disjunction defeats any prefix range-scan on the `UNIQUE(profile_id, url)` index. SQLite
+scans every row for the profile, evaluates the expression per row, and builds a temp B-tree — to
+`LIMIT 4`. It runs **synchronously on the main process per keystroke** (90 ms debounce), bounded only
+by how much history exists, which per the entry above is unbounded. `topSites()` is correctly served
+by `idx_history_visits`; only `prefixMatch` is affected.
+
+### P3 · Confirmed · `LIKE` wildcards in search input are not escaped
+
+`` like: `%${params.query}%` `` interpolates raw input into a `LIKE` pattern with no `ESCAPE` clause
+(`history.repo.ts`, `bookmarks.repo.ts`). Values **are** bound as parameters — there is no SQL
+injection — but `%` and `_` stay wildcards. Searching history for `50%` matches every entry
+containing "50"; searching `_` matches every non-empty row.
+
+## Bookmarks
+
+### P1 · Confirmed · The bookmark star never reflects `⌘D` or the command palette
+
+`⌘D` reaches `toggleBookmarkActive()`, which mutates the DB and returns. There is **no** `bookmark:*`
+event in [events.ts](../src/shared/types/events.ts), and the Toolbar's `bookmarked` state only
+refreshes via an effect keyed on `[profileId, canBookmark, tab, tab?.url]` — none of which change
+when a bookmark toggles. Its only other update path is the optimistic `setBookmarked(v => !v)` in the
+star's own `onClick`.
+
+**Reproduction.** Press `⌘D` → the bookmark is saved, the star stays hollow, no toast, zero feedback.
+Press `⌘D` again → the bookmark is silently **removed**. Mixing inputs inverts the indicator: click
+the star (optimistic → filled), then `⌘D` (removes it, star stays filled) → the star now claims
+bookmarked on an unbookmarked page.
+
+**Secondary.** The effect depends on the whole `tab` object, so it refires an `isBookmarked` IPC
+query on every `tab:updated` (title, favicon, status) during page load, and an in-flight response can
+clobber the optimistic toggle.
+
+### P2 · Confirmed · Bookmark import never decodes HTML entities, corrupting every URL with a query string
+
+`exportHtml` escapes the href — `escape(bookmark.url)` turns `&` into `&amp;` — but `importHtml`
+reads the capture group raw ([bookmarks.service.ts](../src/main/services/bookmarks.service.ts)), so
+`https://example.com/?a=1&amp;b=2` is stored verbatim. Titles are equally affected: `escape` also
+encodes `<`, `>`, `"`, and the import only strips tags, never decodes entities.
+
+Dandelion's **own** export → import round-trip breaks any URL with more than one query parameter and
+mangles any title containing `&` into `Tips &amp; Tricks`. Chrome and Firefox escape hrefs the same
+way, so importing a real browser's bookmark file corrupts those URLs too. Imports are silent, so the
+damage only shows when a link is clicked.
+
+## AI assistant
+
+### P1 · Confirmed · A terminal `ai:chunk` is emitted before the renderer knows the `requestId`, wedging the chat forever
+
+The renderer learns `requestId` only **after** the mutation resolves, but main emits its early-exit
+chunks **before** returning:
+
+```ts
+// ai.service.ts — emitted synchronously, before the promise resolves
+if (!context) {
+  this.emitChunk(requestId, '', true, 'No readable page content');
+  return requestId;
+}
+```
+
+```ts
+// ai.store.ts — requestId is still null while the await is pending
+const { requestId } = await trpc.ai.pageAction.mutate({ tabId, task });
+set({ requestId });
+// …
+if (chunk.requestId && chunk.requestId !== get().requestId) return; // 'ai_x' !== null → dropped
+```
+
+`emitChunk` → `events.emit` is a plain synchronous `EventEmitter`, and `ipc-host.ts` forwards it via
+`webContents.send` **inside the still-running `ipcMain.handle` callback**, so the event reaches the
+renderer strictly before the invoke reply. This is deterministic, not racy — the guard can never
+match. `busy` is only cleared by `applyChunk`'s error/done branches, both now unreachable, and
+`send()` early-returns on `busy`.
+
+**Impact.** This is the primary onboarding path. Fresh install, no API key → open the AI sidebar, send
+a message → the message appears, the panel enters its thinking state and **never leaves**. No error is
+ever shown, and the chat is bricked until the user finds Stop/Clear. `pageAction` on any internal page
+or unmaterialised tab has the identical shape.
+
+Not symmetric with `cancel()` — `stop()` nulls `requestId` before the abort lands, so that chunk is
+filtered correctly. Only the early-error paths break.
+
+### P1 · Confirmed · Saving an API key never reaches an already-open sidebar
+
+`loadProviders` sets `providersLoaded: true` permanently, and its **only** call site is guarded by
+that same flag ([AiSidebar.tsx](../src/renderer/components/ai/AiSidebar.tsx)).
+`providers[].configured` is computed in main from the stored key, but `trpc.ai.configure` emits **no
+event** and `SettingsPage` never refreshes the AI store — it only toasts "API key saved". Nothing can
+flip `configured` false → true in a live window. Settings is an internal page in the same renderer, so
+the module-level store survives the whole journey.
+
+**Reproduction.** Open the AI sidebar (providers load, `configured: false`) → Settings → paste key →
+Save ("API key saved") → back to the sidebar. Composer still disabled, placeholder still "Assistant
+unavailable". Only a renderer reload fixes it. This is the natural setup order: the user finds the
+sidebar unavailable, goes to configure it, and it stays broken behind a success toast.
+
+Together with the entry above these compound — this one blocks reaching the assistant, that one wedges
+it once reached.
+
+## Extensions
+
+### P2 · Confirmed · A disabled extension can never be removed
+
+`setEnabled(id, false)` moves the extension into the in-memory `disabled` map and unloads it.
+`remove(id)` only calls `session.extensions.removeExtension(id)` — a no-op for something already
+unloaded — and nothing deletes the `disabled` entry
+([extensions.service.ts](../src/main/services/extensions.service.ts)). `list()` unions the session's
+extensions with `this.disabled`, so it reappears forever. Needs `this.disabled.delete(id)`. Distinct
+from the known "disabled set is in-memory / not reloaded on boot" limitation — this one breaks
+**within** a single session.
+
+## Chrome & UI
+
+### P1 · Confirmed · Every `Switch` and `Slider` in the app has no accessible name
+
+`SwitchProps` and `SliderProps` declare only `checked`/`value` + a change handler — there is no
+`aria-label` prop to pass. `RadixSwitch.Root` renders `<button role="switch">` whose only child is an
+empty thumb; `RadixSlider.Thumb` renders `role="slider"`. Radix supplies roles and state but cannot
+invent a name, and the label lives in `SettingsRow` as a bare `<p>` with no
+`id`/`htmlFor`/`aria-labelledby`. Sibling text is not an accessible name.
+
+**Impact.** 32 `toggleRow` call sites + 4 `sliderRow` call sites + one Switch per extension row
+announce as "switch, on" / "slider, 100" with no name. **Settings is unnavigable by screen reader.**
+
+This is a defect rather than unbuilt work because the sibling primitives already carry labels:
+`Select` accepts `'aria-label'?` and `SegmentedControl` **requires** it. These two were simply never
+given the prop.
+
+### P2 · Confirmed · `outline-none` silently kills the global focus ring (Tailwind v4 layer order)
+
+Verified by compiling this project's Tailwind: `.outline-none` emits into `@layer utilities` while the
+global `:focus-visible` rule sits in `@layer base`. Cascade layers are compared **before** specificity,
+so utilities wins and the focus treatment is overridden. (Tailwind v4 renamed the old v3 behaviour to
+`outline-hidden`.)
+
+- `Switch` / `Slider` — `outline-none` with **no** replacement → keyboard focus is completely
+  invisible on every Settings toggle and slider.
+- `List` — `outline-none focus-visible:text-text` is a **no-op**: both children set their own colour,
+  so nothing inherits it. Affects the Bookmarks and History pages.
+- `Select` — only `data-[state=open]:border-accent`, so focused-but-closed has no indicator.
+
+Text inputs are **not** affected: they pair `outline-none` with `focus:border-accent`.
+
+### P2 · Confirmed · Tab escapes the command palette and tab switcher, then Escape stops working
+
+Both are hand-rolled `motion.div` overlays wrapping cmdk's plain `<Command>`. cmdk handles only
+ArrowDown/ArrowUp/Enter — it does not trap Tab. It ships a Radix-backed `Command.Dialog`, which
+neither component uses. The `fixed inset-0` overlay blocks pointer events only; the chrome behind
+stays in the tab order (not `inert`, not `aria-hidden`). Neither has `role="dialog"`, `aria-modal`, or
+focus restore on close.
+
+**Reproduction.** Open `⌘K` → press Tab → focus lands on a Toolbar button behind the overlay. Now
+press Escape: the handler is `onKeyDown` on the palette's own inner div, so the event never reaches it
+and **the palette cannot be closed by keyboard**. Mouse users are fine (`onMouseDown={close}`).
+
+A defect rather than unbuilt work: the sibling `Omnibox` — same overlay pattern — deliberately traps
+Tab and restores focus on close, and the Radix dialogs are trapped correctly. These two are the
+outliers.
+
+### P2 · Confirmed · `workspace.switcher` is a dead command
+
+`case 'workspace.switcher': ui.openPalette()`. The palette renders only "Commands" and "Open Tabs" —
+it has no workspace list. From the palette itself, `onSelect` runs `dispatchCommand(id)` then
+`close()`, so `openPalette()` sets `paletteOpen: true` and `closePalette()` immediately sets it back:
+**net effect, the palette just closes**. Via `⌘⌥S` it opens the generic palette, which cannot switch
+workspaces. Not unbuilt work — workspaces _are_ switchable via `WorkspaceBar`; the command is
+mis-wired.
+
+### P2 · Confirmed · `--tab-height` is a dead token: "Compact" density doesn't shrink tabs
+
+`--tab-height` is defined (34px → 29px under `[data-density='compact']`) and read by **nothing**.
+`TabItem` hardcodes `h-[34px]` and `TabsPanel`'s enter animation hardcodes `height: 34` — both exactly
+the default. Every sibling density token _is_ consumed (`--toolbar-height`, `--row-py`,
+`--field-height`), and the `globals.css` comment explicitly claims tabs read these tokens.
+
+**Impact.** Settings → Appearance → Density is real and works — Compact retunes the toolbar, list rows
+and fields, but tab rows stay 34px. The sidebar reads as half-converted.
+
+### P2 · Confirmed · The rounded content frame doesn't clip the native `WebContentsView`
+
+Web pages render square-cornered inside the rounded frame
+([ContentArea.tsx](../src/renderer/components/chrome/ContentArea.tsx)). Round the native view in the
+main process, or accept and document it.
+
+### P3 · Confirmed · `SessionsDialog` swallows its error state
+
+It destructures `{ status, data, reload }` and never `error`, branching on `loading` and `ready` only,
+though `useAsyncData` has a first-class `'error'` status. If `sessions.list` rejects, the dialog
+renders its header and "Save current" over a blank body — no message, no retry. Every other consumer
+handles it; this is the sole outlier.
+
+### P3 · Confirmed · History/Bookmarks panels render "nothing here" when the query fails
+
+Both branch loading → empty and never `status === 'error'`, and `useAsyncData` returns `data: []` on
+rejection, so the empty branch wins. A failed fetch is indistinguishable from a genuinely empty list —
+"No history yet" shown to a user who has history.
+
+### P3 · Confirmed · TitleBar tooltips advertise the wrong modifier
+
+[TitleBar.tsx](../src/renderer/components/chrome/TitleBar.tsx) uses `⌃` (U+2303, Control) for both,
+but `view.toggleSidebar` is `CmdOrCtrl+B` and `tools.aiSidebar` is `CmdOrCtrl+/`. Every other tooltip
+uses `⌘` for CmdOrCtrl, as does `acceleratorLabel`. On macOS the tooltips claim Ctrl+B / Ctrl+/; the
+real bindings are ⌘B / ⌘/.
 
 ### P3 · Suspected · Active tab pill keeps light styling after switching to dark
 
-Switching Theme → Dark from Settings left the active tab pill rendered light while the rest of the
-chrome went dark; a later capture (after tabs re-rendered) showed it correctly dark. `data-theme`
-flips on `<html>` and `body` background updates immediately, so this looks like the tab row not
-restyling until it re-renders — but it was observed in a screenshot mid-session and has not been
-isolated. Reproduce before fixing; it may just be the theme transition animation.
+Switching Theme → Dark left the active tab pill rendered light while the rest of the chrome went dark;
+a later capture (after tabs re-rendered) showed it correctly dark. `data-theme` flips on `<html>` and
+the body background updates immediately, so this looks like the tab row not restyling until it
+re-renders — but it was seen in a screenshot mid-session and has not been isolated. Reproduce before
+fixing; it may just be the theme transition animation.
 
-## Chrome & commands
+## Commands
 
-_Carried over from earlier audits; not yet re-verified against current `main`._
-
-- **P2** The rounded content frame doesn't clip the native `WebContentsView` — web pages render
-  square-cornered inside the rounded frame
-  ([ContentArea.tsx](../src/renderer/components/chrome/ContentArea.tsx)). Round the native view in
-  the main process, or accept + document.
-- **P2** `tools.print` (⌘P) forwards to the renderer but has no handler → it's a dead command. Add a
+- **P2** `tools.print` (⌘P) forwards to the renderer but has no handler → a dead command. Add a
   main-side `webContents.print()` proc.
-- **P3** `tools.clearBrowsingData` opens Settings instead of a dedicated "Clear browsing data"
-  dialog (a `privacy.clearData` dialog with time-range + category checkboxes).
+- **P3** `tools.clearBrowsingData` opens Settings instead of a dedicated "Clear browsing data" dialog
+  (a `privacy.clearData` dialog with time-range + category checkboxes).
 - **P3** `downloads.start` accepts a `savePath` that is ignored by `startOnSession`.
-- **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this
-  session" scope (would need a session-scoped grant map + `expiresAt`/`scope` on
-  `SitePermissionRule`).
+- **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session"
+  scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).
+
+## Leaks
+
+### P3 · Confirmed · `PrivacyService.counters` is never freed when a tab closes
+
+`resetCounters` is called only from `did-start-navigation`; `destroyView` never calls it. The map gains
+one entry per webContents ever created and nothing removes it. webContents ids are monotonic so there
+is no stale-read hazard — just an unbounded map over a long session, ~50 bytes per tab.
 
 ---
 
@@ -100,11 +497,29 @@ Recorded so they are not re-investigated:
 - **Google sign-in fails with an "embedded user-agent" error.** Deliberate on Google's side, and
   correct by their published definition — an embedded user-agent is any library that can "insert
   arbitrary scripts, alter the default routing of a request to the Google OAuth server, or access
-  session cookies", and Dandelion does all three by design (reader mode, HTTPS-upgrade redirects,
-  the cookie manager). Not fixable from here; switching to a Chromium fork would not change it,
-  since Electron already ships real Chromium and Google's own error page names other real-Chromium
+  session cookies", and Dandelion does all three by design (reader mode, HTTPS-upgrade redirects, the
+  cookie manager). Not fixable from here; switching to a Chromium fork would not change it, since
+  Electron already ships real Chromium and Google's own error page names other real-Chromium
   embedders. The cookie bug above is a genuine defect found while investigating this, but it is not
   the cause.
 - **The user-agent strip in `SessionManager.chromeUserAgent()` looks like a hack but is
   load-bearing.** With the stock Electron UA, Google rejects the sign-in navigation outright
   (`ERR_FAILED`). Don't "simplify" it away.
+- **Renderer store races on `switchWorkspace` / `hydrate` / `downloads.load`.** `restoreWorkspace`,
+  `updateStatus` and `downloads.list` are all **synchronous** resolvers, and replies plus
+  `webContents.send` share one ordered IPC pipe per renderer, so main-process ordering is preserved
+  and no stale response can clobber a fresh one. (This same ordering property is what makes the AI
+  chunk defect above fire deterministically.)
+- **StrictMode double-`bootstrap`.** `restoreWorkspace` is explicitly idempotent, and pinned by
+  `tests/unit/tab-window-scope.test.ts`.
+- **Missing sender validation on `IPC.trpc`.** `WebContentsView`s are created with no preload, so
+  remote content has no `ipcRenderer` handle and cannot reach `ipcMain`. Not exploitable.
+- **Extra bound params in `history.repo.search()`.** better-sqlite3 iterates the _statement's_ bind
+  map and only errors on missing params; extra object keys are ignored. Not a bug.
+- **`updateColumns` interpolates column names.** Every call site passes repo-local literals, never user
+  input. Safe as documented.
+- **`SearchEnginesRepository.list()[0]!`.** `remove` carries `AND is_builtin = 0`, so the six built-ins
+  are undeletable and the list cannot empty.
+- **`useAsyncData` races, and renderer listener leaks.** Audited: the sequence guard, mount guard and
+  cleanup are all correct, and every subscription (`onBrowserEvent`, `FindBar`, `PermissionPrompt`,
+  debounce timers) returns and honours its unsubscribe.

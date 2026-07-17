@@ -7,6 +7,42 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ---
 
+## v0.2.2
+
+### P1 · `Ctrl/Cmd+N` stole a tab out of the window you were using
+
+Opening a new window moved the _current_ window's active tab into the new one. Window 1's content
+area went blank while its strip still drew that tab as active; clicking it did nothing visible,
+because it now drove window 2.
+
+`openWindow()` created the window with `activeWorkspaceId = null`, so the new renderer's `bootstrap()`
+queried `initialState`, where `dandelionWindow?.activeWorkspaceId ?? workspaces[0]?.id` fell through
+to **the workspace window 1 already had**. `restoreWorkspace` then hit its "already open" branch —
+`listByWorkspace` spanned every window — and `reparent()`ed window 1's live tab into window 2. Window
+1's `layout()` never re-ran, and `tab:activated` for window 2 was filtered out by the renderer's
+`windowId` check, so window 1's chrome never learned the tab had left. `window.newPrivate` was
+unaffected precisely because it pre-set `created.activeWorkspaceId` before the renderer booted.
+
+Deferred from v0.2.1 because the mechanical fix is **not sufficient**: window-filtering `alreadyOpen`
+alone falls through to the persisted branch and re-materialises the same stored tabs into the new
+window, duplicating them. It needed the model decision first — **may two windows share a workspace?**
+
+**Resolved: yes, and each window keeps the tabs it holds.** A tab carries one `windowId` and owns one
+`WebContentsView`, so it can only render in one window; two windows on a workspace show different
+tabs from it. That makes window scope the unit for anything driving one window's UI — hence
+`listInWindow(windowId, workspaceId)`, used by restore, `Ctrl+Tab` and `Ctrl+1..9` (the latter two
+cycled a workspace-wide list and could activate a tab living in another window — the same root cause).
+Restore now materialises only persisted tabs no window has claimed, so a window opening an occupied
+workspace gets a fresh tab instead of duplicating. `window.new` carries the current workspace over
+explicitly, fixing the quieter half where `Ctrl+N` from any other space landed in the first one.
+`reparent()` was the theft vector and had no other caller; it is gone. The model is documented in
+[ARCHITECTURE.md](../docs/ARCHITECTURE.md) § Windows and workspaces.
+
+Pinned by `tests/unit/tab-window-scope.test.ts` — including the duplication trap that made the naive
+fix wrong.
+
+---
+
 ## v0.2.1
 
 ### P1 · Third-party cookie blocking stripped cookies from first-party navigations
@@ -40,7 +76,7 @@ exact reproduction (`mainFrame` from `dandelion://newtab` to `accounts.google.co
 `setPermissionCheckHandler` dropped Electron's 4th `details` argument, which carries `mediaType`.
 `handleCheck` therefore called `mapPermission(permission)` with no media types, and
 `mediaTypes?.includes('video')` on `undefined` is falsy — so **`media` could never map to `camera`
-on the check path**. The *request* path forwarded `mediaTypes` correctly, so grants were written as
+on the check path**. The _request_ path forwarded `mediaTypes` correctly, so grants were written as
 `camera` and read back as `microphone`.
 
 Two consequences: a camera grant looked absent (reported denied despite an explicit grant), and —
@@ -79,7 +115,7 @@ switch that already handled it.
 ### P2 · Duplicate Tab opened the duplicate in the wrong window
 
 `TabManager.duplicate()` never forwarded the source tab's `windowId`, so `createTab` fell back to
-`windows.first()` — the *first-created* window, not the caller's. With two windows open, duplicating
+`windows.first()` — the _first-created_ window, not the caller's. With two windows open, duplicating
 a tab in the second window put the copy in the first (and raised it). If that window was on another
 workspace, nothing appeared to happen at all.
 
@@ -87,7 +123,7 @@ workspace, nothing appeared to happen at all.
 
 ### P3 · Sleeping a split pane left a dead half in the window
 
-`sleep()` guarded the active tab but not split membership, so sleeping the *other* half of a split
+`sleep()` guarded the active tab but not split membership, so sleeping the _other_ half of a split
 destroyed its view while `splitTabIds` still listed it. `layout()` then skipped it on the null-view
 guard, leaving a blank rect until the tab was clicked again.
 
