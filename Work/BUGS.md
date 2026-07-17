@@ -14,27 +14,19 @@ yet isolated.
 
 ## Security & privacy
 
-### P1 · Confirmed · The chrome renderer runs in the **default session**, so favicons escape the profile partition
+### P2 · Confirmed · The reader's inline images are still fetched by the chrome
 
-`WebContentsView`s are built with `session` bound to the profile partition
-([tab-manager.ts](../src/main/browser/tab-manager.ts)), but the chrome `BrowserWindow` passes no
-session ([window-manager.ts](../src/main/browser/window-manager.ts)) and so silently uses
-`session.defaultSession` — a persistent, on-disk jar that `PrivacyService` was never attached to
-([session-manager.ts](../src/main/browser/session-manager.ts) configures per-profile partitions
-only).
+Favicons were routed through the profile's session in v0.2.2f — but
+[ReaderView.tsx](../src/renderer/components/reader/ReaderView.tsx) still renders `<img src={block.src}>`
+for a page's own images, and the chrome has no session, so those land in the **default session**: a
+persistent, on-disk jar shared by every profile including private ones, with none of the privacy
+engine's filters attached.
 
-`page-favicon-updated` stores the **site-chosen** URL verbatim, broadcasts it to the chrome renderer,
-and [Favicon.tsx](../src/renderer/components/ui/Favicon.tsx) renders it as `<img src>` — in the
-chrome window, i.e. outside the profile.
-
-**Impact.** A page in a **private** window sets `<link rel="icon" href="https://tracker/id?u=123">`.
-That request is issued through the persistent default session — the exact boundary
-[profile.service.ts](../src/main/services/profile.service.ts) documents as "in-memory partitions that
-vanish on exit". The tracker gets a cookie-bearing request in a jar shared with normal browsing that
-survives restart, linking private and normal activity. It is also never ad/tracker-blocked (no
-`webRequest` filter on the default session) and never counts toward the shields. The same path
-applies to reader images and to history/bookmark favicons, which re-fetch those URLs long after the
-private session is gone.
+Narrower than the favicon leak was — it needs reader mode to be open on a page with images, where
+favicons were fetched for every tab and every history row — but it is the same defect and the same
+fix. Route them through `dandelion-favicon:` (renaming it to something that isn't favicon-specific),
+and `https:` can then come out of the chrome's `img-src` altogether, which is what makes the routing
+enforceable rather than merely intended.
 
 ### P2 · Confirmed · The CSP comment documents production hardening that does not exist
 
