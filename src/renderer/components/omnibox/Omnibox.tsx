@@ -7,17 +7,29 @@ import {
   type ReactElement,
 } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Search } from 'lucide-react';
+import { Copy, ExternalLink, Search, Trash2 } from 'lucide-react';
 import type { OmniboxResult } from '@shared/types';
 import { classifyOmniboxInput } from '@shared/utils';
 import { cn } from '../../lib/cn';
 import { Icon } from '../ui/Icon';
+import { IconButton } from '../ui/IconButton';
 import { Spinner } from '../ui/Spinner';
 import { trpc } from '../../lib/trpc/client';
 import { dispatchCommand } from '../../lib/commands';
+import { copyText } from '../../lib/clipboard';
+import { openUrl, openUrlInNewTab } from '../../lib/navigation';
 import { toast } from '../../stores/toast.store';
 import { useUiStore } from '../../stores/ui.store';
 import { useBrowserStore } from '../../stores/browser.store';
+
+/** Computed answers have no destination — their text is the thing worth copying. */
+const ANSWER_KINDS = new Set<OmniboxResult['kind']>(['calculator', 'unitConversion', 'timezone']);
+
+/** What a result's copy action puts on the clipboard, or `null` if it has none. */
+function copyableText(result: OmniboxResult): string | null {
+  if (ANSWER_KINDS.has(result.kind)) return result.title;
+  return result.url;
+}
 
 export function Omnibox(): ReactElement {
   const open = useUiStore((state) => state.omniboxOpen);
@@ -79,10 +91,7 @@ export function Omnibox(): ReactElement {
   }, [open]);
 
   const navigateTo = (url: string): void => {
-    const { activeTabId, activeWorkspaceId } = useBrowserStore.getState();
-    if (activeTabId) void trpc.tabs.navigate.mutate({ tabId: activeTabId, url });
-    else if (activeWorkspaceId)
-      void trpc.tabs.create.mutate({ workspaceId: activeWorkspaceId, url, active: true });
+    void openUrl(url).catch(() => toast.error('Could not open that link'));
   };
 
   const activate = (result: OmniboxResult): void => {
@@ -97,13 +106,44 @@ export function Omnibox(): ReactElement {
       case 'calculator':
       case 'unitConversion':
       case 'timezone':
-        void navigator.clipboard.writeText(result.title);
-        toast.success('Copied to clipboard', { description: result.title });
+        void copyText(result.title, result.title);
         break;
       default:
         if (result.url) navigateTo(result.url);
     }
     close();
+  };
+
+  const copyResult = (result: OmniboxResult): void => {
+    const text = copyableText(result);
+    if (text) void copyText(text, text);
+    close();
+  };
+
+  const openInNewTab = (result: OmniboxResult): void => {
+    if (!result.url) return;
+    void openUrlInNewTab(result.url).catch(() => toast.error('Could not open that link'));
+    close();
+  };
+
+  /**
+   * Drop a result's URL from history and prune the row in place.
+   *
+   * Deliberately not a re-query: `history.prefixMatch` full-scans and sorts all
+   * history on the main process (a known P2), so refetching to redraw one fewer
+   * row would pay that cost again for nothing.
+   */
+  const removeFromHistory = (result: OmniboxResult, index: number): void => {
+    if (!profileId || !result.url) return;
+    const url = result.url;
+    void trpc.history.delete
+      .mutate({ profileId, url })
+      .then(() => {
+        setResults((current) => current.filter((entry) => entry.id !== result.id));
+        setSelected((current) => Math.max(0, current > index ? current - 1 : current));
+        toast.success('Removed from history', { description: url });
+      })
+      .catch(() => toast.error('Could not remove from history'));
   };
 
   const commitRaw = (): void => {
@@ -130,8 +170,23 @@ export function Omnibox(): ReactElement {
       case 'Enter': {
         event.preventDefault();
         const chosen = results[selected] ?? results[0];
-        if (chosen) activate(chosen);
-        else commitRaw();
+        if (!chosen) {
+          commitRaw();
+          return;
+        }
+        // The switch keys off `event.key` alone, so without this guard a
+        // modified Enter would fall through and navigate as well.
+        if ((event.ctrlKey || event.metaKey) && chosen.url) openInNewTab(chosen);
+        else activate(chosen);
+        return;
+      }
+      // Chrome's convention for dropping the suggestion under the cursor.
+      case 'Delete': {
+        if (!event.shiftKey) return;
+        const chosen = results[selected];
+        if (!chosen?.inHistory) return;
+        event.preventDefault();
+        removeFromHistory(chosen, selected);
         return;
       }
       case 'Escape':
@@ -219,30 +274,103 @@ export function Omnibox(): ReactElement {
                 aria-label="Suggestions"
                 className="scrollbar-slim max-h-[52vh] overflow-y-auto border-t border-line p-1.5"
               >
-                {results.map((result, index) => (
-                  <div
-                    key={result.id}
-                    id={`omnibox-option-${index}`}
-                    role="option"
-                    aria-selected={index === selected}
-                    onMouseEnter={() => setSelected(index)}
-                    onClick={() => activate(result)}
-                    className={cn(
-                      'flex w-full cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
-                      index === selected ? 'bg-surface-active' : 'hover:bg-surface-hover',
-                    )}
-                  >
-                    <Icon name={result.icon ?? 'globe'} className="h-4 w-4 shrink-0 text-muted" />
-                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-text">
-                      {result.title}
-                    </span>
-                    {result.subtitle && (
-                      <span className="shrink-0 truncate text-xs text-faint">
-                        {result.subtitle}
+                {results.map((result, index) => {
+                  const copyable = copyableText(result);
+                  const hasActions = copyable || result.url || result.inHistory;
+                  return (
+                    <div
+                      key={result.id}
+                      id={`omnibox-option-${index}`}
+                      role="option"
+                      aria-selected={index === selected}
+                      onMouseEnter={() => setSelected(index)}
+                      onClick={() => activate(result)}
+                      className={cn(
+                        'group flex w-full cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors',
+                        index === selected ? 'bg-surface-active' : 'hover:bg-surface-hover',
+                      )}
+                    >
+                      <Icon name={result.icon ?? 'globe'} className="h-4 w-4 shrink-0 text-muted" />
+                      <span className="min-w-0 flex-1 truncate text-[13.5px] text-text">
+                        {result.title}
                       </span>
-                    )}
-                  </div>
-                ))}
+                      {result.subtitle && (
+                        // Allowed to shrink rather than hide when the actions
+                        // appear: the subtitle is the URL, which is precisely
+                        // what you are reaching for Copy to take.
+                        <span className="min-w-0 shrink truncate text-xs text-faint">
+                          {result.subtitle}
+                        </span>
+                      )}
+                      {hasActions && (
+                        /*
+                         * Hidden from the accessibility tree on purpose.
+                         * Interactive children of a `role="option"` are not
+                         * reachable regardless — focus stays in the input and
+                         * selection runs through `aria-activedescendant` — so
+                         * exposing them would buy nothing and would fold "Copy
+                         * link Open in new tab Remove from history" into every
+                         * option's announced name.
+                         *
+                         * The keyboard paths are the ones Chrome uses:
+                         * Ctrl+Enter opens in a new tab, Shift+Delete forgets a
+                         * suggestion, and Enter copies a computed answer.
+                         * Copying a *link* is mouse-only, as it is in Chrome —
+                         * Ctrl+Shift+C, the obvious candidate, never arrives:
+                         * Chromium claims it for inspect-element before the
+                         * page sees the keydown.
+                         */
+                        <div
+                          aria-hidden
+                          className="hidden shrink-0 items-center gap-0.5 group-hover:flex"
+                          // The row itself navigates, so a click on an action
+                          // must not reach it.
+                          onClick={(event) => event.stopPropagation()}
+                          // Chromium focuses a button on mousedown, which would
+                          // take focus out of the field and leave the omnibox
+                          // keyboard-dead — arrow keys and Escape are handled
+                          // there. Removing a suggestion should not cost you
+                          // the ability to type.
+                          onMouseDown={(event) => event.preventDefault()}
+                        >
+                          {copyable && (
+                            <IconButton
+                              size="sm"
+                              tabIndex={-1}
+                              title={ANSWER_KINDS.has(result.kind) ? 'Copy answer' : 'Copy link'}
+                              aria-label="Copy"
+                              onClick={() => copyResult(result)}
+                            >
+                              <Copy className="h-3.5 w-3.5" />
+                            </IconButton>
+                          )}
+                          {result.url && (
+                            <IconButton
+                              size="sm"
+                              tabIndex={-1}
+                              title="Open in new tab"
+                              aria-label="Open in new tab"
+                              onClick={() => openInNewTab(result)}
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </IconButton>
+                          )}
+                          {result.inHistory && (
+                            <IconButton
+                              size="sm"
+                              tabIndex={-1}
+                              title="Remove from history"
+                              aria-label="Remove from history"
+                              onClick={() => removeFromHistory(result, index)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </IconButton>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
                 {!loading && results.length === 0 && value.trim() && (
                   <div className="px-3 py-6 text-center text-[13px] text-faint">
                     Press <span className="text-muted">Enter</span> to search for “{value.trim()}”

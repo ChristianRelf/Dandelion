@@ -43,6 +43,7 @@ function makeResult(seed: ResultSeed): OmniboxResult {
     inlineCompletion: null,
     actionId: null,
     tabId: null,
+    inHistory: false,
     ...seed,
   };
 }
@@ -231,10 +232,20 @@ export class OmniboxService {
   private finalize(results: OmniboxResult[], input: string, limit: number): OmniboxResult[] {
     // Deduplicate by destination URL (keep highest score).
     const byKey = new Map<string, OmniboxResult>();
+    const historyUrls = new Set<string>();
     for (const result of results) {
+      if (result.kind === 'history' && result.url) historyUrls.add(result.url);
       const key = result.url ? `url:${result.url}` : `${result.kind}:${result.title}`;
       const existing = byKey.get(key);
       if (!existing || result.score > existing.score) byKey.set(key, result);
+    }
+
+    // Dedupe drops the loser, so a page that is both bookmarked and visited
+    // keeps only its bookmark. Carry "this is in history" onto whichever result
+    // survived, or the removal action would be absent from the pages that most
+    // need it.
+    for (const result of byKey.values()) {
+      if (result.url && historyUrls.has(result.url)) result.inHistory = true;
     }
 
     const ranked = [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, limit);

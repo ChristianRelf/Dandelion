@@ -148,7 +148,9 @@ structural rather than local:
       exist, but no provider ever produces one, so the setting is currently dead
 - [ ] Currency conversion — deliberately excluded from the unit converter
       because it needs live rates; wants a cached provider and an offline story
-- [ ] Per-result actions (copy, open in new tab, remove from history)
+- [x] Per-result actions (copy, open in new tab, remove from history) — on hover,
+      or with Chrome's keys: `Ctrl+Enter` opens in a new tab and `Shift+Delete`
+      forgets a suggestion
 
 ## Split View
 
