@@ -128,6 +128,7 @@ export function ExtensionsPage(): ReactElement {
                   <Switch
                     checked={extension.enabled}
                     onCheckedChange={(value) => setEnabled(extension, value)}
+                    aria-label={`Enable ${extension.name}`}
                   />
                 }
                 actions={

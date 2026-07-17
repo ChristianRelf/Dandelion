@@ -13,7 +13,10 @@ const END = '__end__';
 
 const itemMotion = {
   initial: { opacity: 0, height: 0 },
-  animate: { opacity: 1, height: 34 },
+  // `auto` resolves to the row's own `--tab-height`, so this follows the density
+  // setting. A literal 34 hardcoded the comfortable value and left Compact tabs
+  // full height.
+  animate: { opacity: 1, height: 'auto' },
   exit: { opacity: 0, height: 0 },
   transition: { duration: 0.16, ease: [0.16, 1, 0.3, 1] as const },
 };

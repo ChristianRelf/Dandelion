@@ -60,11 +60,7 @@ export function ListRow({
     >
       {leading && <div className="shrink-0">{leading}</div>}
       {onActivate ? (
-        <button
-          type="button"
-          onClick={onActivate}
-          className="min-w-0 flex-1 rounded text-left outline-none focus-visible:text-text"
-        >
+        <button type="button" onClick={onActivate} className="min-w-0 flex-1 rounded text-left">
           {body}
         </button>
       ) : (

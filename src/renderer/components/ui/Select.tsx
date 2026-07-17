@@ -38,7 +38,7 @@ export function Select<T extends string>({
         aria-label={ariaLabel}
         className={cn(
           'inline-flex h-[var(--field-height)] min-w-32 items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 text-[13px] text-text no-drag',
-          'transition-colors duration-[var(--duration-fast)] outline-none',
+          'transition-colors duration-[var(--duration-fast)]',
           'hover:border-line-strong hover:bg-surface-hover data-[state=open]:border-accent data-[state=open]:bg-surface-hover',
           className,
         )}

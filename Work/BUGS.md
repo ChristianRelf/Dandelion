@@ -283,36 +283,6 @@ from the known "disabled set is in-memory / not reloaded on boot" limitation —
 
 ## Chrome & UI
 
-### P1 · Confirmed · Every `Switch` and `Slider` in the app has no accessible name
-
-`SwitchProps` and `SliderProps` declare only `checked`/`value` + a change handler — there is no
-`aria-label` prop to pass. `RadixSwitch.Root` renders `<button role="switch">` whose only child is an
-empty thumb; `RadixSlider.Thumb` renders `role="slider"`. Radix supplies roles and state but cannot
-invent a name, and the label lives in `SettingsRow` as a bare `<p>` with no
-`id`/`htmlFor`/`aria-labelledby`. Sibling text is not an accessible name.
-
-**Impact.** 32 `toggleRow` call sites + 4 `sliderRow` call sites + one Switch per extension row
-announce as "switch, on" / "slider, 100" with no name. **Settings is unnavigable by screen reader.**
-
-This is a defect rather than unbuilt work because the sibling primitives already carry labels:
-`Select` accepts `'aria-label'?` and `SegmentedControl` **requires** it. These two were simply never
-given the prop.
-
-### P2 · Confirmed · `outline-none` silently kills the global focus ring (Tailwind v4 layer order)
-
-Verified by compiling this project's Tailwind: `.outline-none` emits into `@layer utilities` while the
-global `:focus-visible` rule sits in `@layer base`. Cascade layers are compared **before** specificity,
-so utilities wins and the focus treatment is overridden. (Tailwind v4 renamed the old v3 behaviour to
-`outline-hidden`.)
-
-- `Switch` / `Slider` — `outline-none` with **no** replacement → keyboard focus is completely
-  invisible on every Settings toggle and slider.
-- `List` — `outline-none focus-visible:text-text` is a **no-op**: both children set their own colour,
-  so nothing inherits it. Affects the Bookmarks and History pages.
-- `Select` — only `data-[state=open]:border-accent`, so focused-but-closed has no indicator.
-
-Text inputs are **not** affected: they pair `outline-none` with `focus:border-accent`.
-
 ### P2 · Confirmed · Tab escapes the command palette and tab switcher, then Escape stops working
 
 Both are hand-rolled `motion.div` overlays wrapping cmdk's plain `<Command>`. cmdk handles only
@@ -337,16 +307,6 @@ it has no workspace list. From the palette itself, `onSelect` runs `dispatchComm
 **net effect, the palette just closes**. Via `⌘⌥S` it opens the generic palette, which cannot switch
 workspaces. Not unbuilt work — workspaces _are_ switchable via `WorkspaceBar`; the command is
 mis-wired.
-
-### P2 · Confirmed · `--tab-height` is a dead token: "Compact" density doesn't shrink tabs
-
-`--tab-height` is defined (34px → 29px under `[data-density='compact']`) and read by **nothing**.
-`TabItem` hardcodes `h-[34px]` and `TabsPanel`'s enter animation hardcodes `height: 34` — both exactly
-the default. Every sibling density token _is_ consumed (`--toolbar-height`, `--row-py`,
-`--field-height`), and the `globals.css` comment explicitly claims tabs read these tokens.
-
-**Impact.** Settings → Appearance → Density is real and works — Compact retunes the toolbar, list rows
-and fields, but tab rows stay 34px. The sidebar reads as half-converted.
 
 ### P2 · Confirmed · The rounded content frame doesn't clip the native `WebContentsView`
 
