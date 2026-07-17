@@ -492,6 +492,29 @@ export function getCommand(id: string): CommandDescriptor | undefined {
   return COMMAND_INDEX.get(id);
 }
 
+const MODIFIER_GLYPHS: Record<string, string> = {
+  CmdOrCtrl: '⌘',
+  Shift: '⇧',
+  Alt: '⌥',
+};
+
+/**
+ * A command's default binding rendered as glyphs, derived from the registry
+ * above so a label cannot drift from the key it advertises — which is how the
+ * title bar came to claim `⌃B` for a `CmdOrCtrl+B` binding.
+ *
+ * `separator` belongs to the caller rather than to this function: tooltips run
+ * the glyphs together (`⌘⇧J`), the palette's `Kbd` chips space them (`⌘ ⇧ J`).
+ */
+export function acceleratorLabel(commandId: string, separator = ' '): string | null {
+  const keys = getCommand(commandId)?.defaultKeys;
+  if (!keys) return null;
+  return keys
+    .split('+')
+    .map((part) => MODIFIER_GLYPHS[part] ?? part)
+    .join(separator);
+}
+
 /** Default keybindings derived from the command registry. */
 export const DEFAULT_SHORTCUTS: readonly ShortcutBinding[] = COMMANDS.filter(
   (command): command is CommandDescriptor & { defaultKeys: string } => command.defaultKeys !== null,

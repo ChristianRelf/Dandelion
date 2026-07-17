@@ -145,34 +145,11 @@ containing "50"; searching `_` matches every non-empty row.
 
 ## Chrome & UI
 
-### P2 · Confirmed · Tab escapes the command palette and tab switcher, then Escape stops working
-
-Both are hand-rolled `motion.div` overlays wrapping cmdk's plain `<Command>`. cmdk handles only
-ArrowDown/ArrowUp/Enter — it does not trap Tab. It ships a Radix-backed `Command.Dialog`, which
-neither component uses. The `fixed inset-0` overlay blocks pointer events only; the chrome behind
-stays in the tab order (not `inert`, not `aria-hidden`). Neither has `role="dialog"`, `aria-modal`, or
-focus restore on close.
-
-**Reproduction.** Open `⌘K` → press Tab → focus lands on a Toolbar button behind the overlay. Now
-press Escape: the handler is `onKeyDown` on the palette's own inner div, so the event never reaches it
-and **the palette cannot be closed by keyboard**. Mouse users are fine (`onMouseDown={close}`).
-
-A defect rather than unbuilt work: the sibling `Omnibox` — same overlay pattern — deliberately traps
-Tab and restores focus on close, and the Radix dialogs are trapped correctly. These two are the
-outliers.
-
 ### P2 · Confirmed · The rounded content frame doesn't clip the native `WebContentsView`
 
 Web pages render square-cornered inside the rounded frame
 ([ContentArea.tsx](../src/renderer/components/chrome/ContentArea.tsx)). Round the native view in the
 main process, or accept and document it.
-
-### P3 · Confirmed · TitleBar tooltips advertise the wrong modifier
-
-[TitleBar.tsx](../src/renderer/components/chrome/TitleBar.tsx) uses `⌃` (U+2303, Control) for both,
-but `view.toggleSidebar` is `CmdOrCtrl+B` and `tools.aiSidebar` is `CmdOrCtrl+/`. Every other tooltip
-uses `⌘` for CmdOrCtrl, as does `acceleratorLabel`. On macOS the tooltips claim Ctrl+B / Ctrl+/; the
-real bindings are ⌘B / ⌘/.
 
 ### P3 · Suspected · Active tab pill keeps light styling after switching to dark
 
@@ -184,10 +161,20 @@ fixing; it may just be the theme transition animation.
 
 ## Commands
 
-- **P2** `tools.print` (⌘P) forwards to the renderer but has no handler → a dead command. Add a
-  main-side `webContents.print()` proc.
 - **P3** `tools.clearBrowsingData` opens Settings instead of a dedicated "Clear browsing data" dialog
-  (a `privacy.clearData` dialog with time-range + category checkboxes).
+  (a `privacy.clearData` dialog with time-range + category checkboxes). The **categories** are fully
+  backed by `privacy.clearData`; the **time range** is not, and cannot simply be plumbed through:
+  - `clearDataInput` ([privacy.schema.ts](../src/shared/schemas/privacy.schema.ts)) already declares
+    `since`, and [privacy.router.ts](../src/main/ipc/routers/privacy.router.ts) destructures only
+    `{ options }` — so `since` is **accepted and silently ignored** today. A dialog that sends it
+    would inherit that lie.
+  - Only history could honour it (`history.repo.deleteRange` exists). Electron's session API has no
+    time-filtered clearing at all: `clearStorageData({ storages })` and `clearCache()` are
+    all-or-nothing, so cookies/cache/storage would ignore the range whatever the UI says.
+
+  So it needs a product decision before it is built — either drop the range, or scope it to history
+  and say so in the dialog. Deleting more than the user asked for is the failure mode to avoid.
+
 - **P3** `downloads.start` accepts a `savePath` that is ignored by `startOnSession`.
 - **P3** Permissions support "allow once" vs "always" but there's no durable "allow for this session"
   scope (would need a session-scoped grant map + `expiresAt`/`scope` on `SitePermissionRule`).

@@ -1,7 +1,7 @@
-import { useState, type ReactElement } from 'react';
+import { useState, type ReactElement, type RefObject } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Command } from 'cmdk';
-import { COMMANDS, getCommand } from '@shared/constants';
+import { acceleratorLabel, COMMANDS } from '@shared/constants';
 import { prettifyUrl } from '@shared/utils';
 import { Icon } from '../ui/Icon';
 import { Kbd } from '../ui/Kbd';
@@ -13,18 +13,9 @@ import { useShallow } from 'zustand/react/shallow';
 import { useUiStore } from '../../stores/ui.store';
 import { useBrowserStore } from '../../stores/browser.store';
 import { useOrderedTabs } from '../../hooks/useBrowser';
+import { useModalOverlay } from '../../hooks/useModalOverlay';
 
 const paletteCommands = COMMANDS.filter((command) => command.palette);
-
-function acceleratorLabel(action: string): string | null {
-  const keys = getCommand(action)?.defaultKeys;
-  if (!keys) return null;
-  return keys
-    .replaceAll('CmdOrCtrl', '⌘')
-    .replaceAll('Shift', '⇧')
-    .replaceAll('Alt', '⌥')
-    .replaceAll('+', ' ');
-}
 
 const groupHeading =
   '[&_[cmdk-group-heading]]:px-2.5 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-semibold [&_[cmdk-group-heading]]:tracking-wide [&_[cmdk-group-heading]]:text-faint [&_[cmdk-group-heading]]:uppercase';
@@ -32,8 +23,14 @@ const groupHeading =
 const itemClass =
   'flex cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] text-muted outline-none data-[selected=true]:bg-surface-active data-[selected=true]:text-text';
 
+interface PaletteBodyProps {
+  close: () => void;
+  /** Focused by `useModalOverlay` once it has recorded what focus came from. */
+  fieldRef: RefObject<HTMLInputElement | null>;
+}
+
 /** Palette body — only mounted while open, so the tab list isn't computed when closed. */
-function PaletteBody({ close }: { close: () => void }): ReactElement {
+function PaletteBody({ close, fieldRef }: PaletteBodyProps): ReactElement {
   const tabs = useOrderedTabs();
   const workspaces = useBrowserStore(useShallow((state) => state.workspaces));
   const activeWorkspaceId = useBrowserStore((state) => state.activeWorkspaceId);
@@ -46,7 +43,7 @@ function PaletteBody({ close }: { close: () => void }): ReactElement {
     <Command loop className="flex flex-col">
       <div className="border-b border-line px-4">
         <Command.Input
-          autoFocus
+          ref={fieldRef}
           value={query}
           onValueChange={setQuery}
           placeholder="Type a command or search…"
@@ -132,6 +129,7 @@ function PaletteBody({ close }: { close: () => void }): ReactElement {
 export function CommandPalette(): ReactElement {
   const open = useUiStore((state) => state.paletteOpen);
   const close = useUiStore((state) => state.closePalette);
+  const field = useModalOverlay(open, close);
 
   return (
     <AnimatePresence>
@@ -145,17 +143,17 @@ export function CommandPalette(): ReactElement {
           onMouseDown={close}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Command palette"
             className="mt-[12vh] h-fit w-[600px] max-w-[92vw] overflow-hidden rounded-2xl border border-line shadow-[var(--shadow-lg)] glass-strong"
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -8, scale: 0.98 }}
             transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
             onMouseDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') close();
-            }}
           >
-            <PaletteBody close={close} />
+            <PaletteBody close={close} fieldRef={field} />
           </motion.div>
         </motion.div>
       )}

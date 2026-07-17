@@ -360,6 +360,25 @@ export class TabManager {
     else wc.openDevTools({ mode: 'detach' });
   }
 
+  /**
+   * Opens the system print dialog for a tab's page. Returns whether there was
+   * anything to print: the browser's own pages are drawn by the chrome renderer
+   * and have no view of their own (`isInternalUrl` → `destroyView`), and a
+   * sleeping tab has had its view released, so the caller — not this method —
+   * decides how to tell the user.
+   */
+  print(tabId: string): boolean {
+    const wc = this.tabs.get(tabId)?.view?.webContents;
+    if (!wc) return false;
+    wc.print({}, (success, failureReason) => {
+      // Dismissing the dialog is a decision, not a failure.
+      if (!success && failureReason !== 'cancelled') {
+        this.deps.logger.warn(`printing failed for tab ${tabId}: ${failureReason}`);
+      }
+    });
+    return true;
+  }
+
   /* ------------------------------------------------------------------ *
    * Tab state mutations
    * ------------------------------------------------------------------ */

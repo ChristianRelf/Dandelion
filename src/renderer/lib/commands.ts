@@ -24,6 +24,7 @@ const UI_COMMANDS = new Set([
   'tools.passwords',
   'tools.bookmarkPage',
   'tools.viewSource',
+  'tools.print',
   'tools.clearBrowsingData',
   'tab.search',
   'tabGroup.create',
@@ -65,6 +66,18 @@ function collapseAllGroups(): void {
   for (const group of Object.values(useBrowserStore.getState().groups)) {
     if (!group.collapsed) void trpc.tabs.updateGroup.mutate({ groupId: group.id, collapsed: true });
   }
+}
+
+/**
+ * Print the active tab. Main owns the print dialog because only it holds the
+ * page's `webContents`; it reports back whether the tab had a view at all, so
+ * `⌘P` on one of the browser's own pages says so rather than doing nothing.
+ */
+async function printActiveTab(): Promise<void> {
+  const { activeTabId } = useBrowserStore.getState();
+  if (!activeTabId) return;
+  const printed = await trpc.tabs.print.mutate({ tabId: activeTabId });
+  if (!printed) toast.show('This page can’t be printed');
 }
 
 function viewSource(): void {
@@ -180,6 +193,9 @@ export function handleUiCommand(commandId: string): void {
       return;
     case 'tools.viewSource':
       viewSource();
+      return;
+    case 'tools.print':
+      void printActiveTab().catch(() => toast.error('Could not print this page'));
       return;
     case 'tools.clearBrowsingData':
       void openInternalPage(INTERNAL_PAGES.settings);

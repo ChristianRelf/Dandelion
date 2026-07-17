@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactElement } from 'react';
+import { useMemo, type ReactElement } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { Command } from 'cmdk';
 import { Search } from 'lucide-react';
@@ -8,22 +8,16 @@ import { EmptyState } from '../ui/EmptyState';
 import { trpc } from '../../lib/trpc/client';
 import { useUiStore } from '../../stores/ui.store';
 import { useOrderedTabs } from '../../hooks/useBrowser';
+import { useModalOverlay } from '../../hooks/useModalOverlay';
 
 /** Quick tab switcher (⌘⇧A): fuzzy search across the workspace's tabs, MRU-first. */
 export function TabSwitcher(): ReactElement {
   const open = useUiStore((state) => state.tabSwitcherOpen);
   const close = useUiStore((state) => state.closeTabSwitcher);
   const tabs = useOrderedTabs();
+  const field = useModalOverlay(open, close);
 
   const mru = useMemo(() => [...tabs].sort((a, b) => b.lastActiveAt - a.lastActiveAt), [tabs]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape' && open) close();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, close]);
 
   return (
     <AnimatePresence>
@@ -37,6 +31,9 @@ export function TabSwitcher(): ReactElement {
           onMouseDown={close}
         >
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Switch tab"
             className="mt-[12vh] h-fit w-[560px] max-w-[92vw] overflow-hidden rounded-2xl border border-line shadow-[var(--shadow-lg)] glass-strong"
             initial={{ opacity: 0, y: -12, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -48,7 +45,7 @@ export function TabSwitcher(): ReactElement {
               <div className="flex items-center gap-3 border-b border-line px-4">
                 <Search className="h-4 w-4 shrink-0 text-faint" />
                 <Command.Input
-                  autoFocus
+                  ref={field}
                   placeholder="Switch to a tab…"
                   className="w-full bg-transparent py-3.5 text-[15px] text-text outline-none placeholder:text-faint"
                 />
