@@ -87,11 +87,21 @@ export class TabManager {
     return this.tabs.get(tabId)?.state ?? null;
   }
 
+  /** Every live tab in a workspace, across all windows. */
   listByWorkspace(workspaceId: string): Tab[] {
     return [...this.tabs.values()]
       .filter((live) => live.state.workspaceId === workspaceId)
       .map((live) => live.state)
       .sort((a, b) => a.index - b.index);
+  }
+
+  /**
+   * A workspace's tabs **in one window** — what that window's strip shows. A
+   * workspace may be open in several windows and each keeps the tabs it holds,
+   * so anything driving a single window's UI must scope to that window.
+   */
+  listInWindow(windowId: string, workspaceId: string): Tab[] {
+    return this.listByWorkspace(workspaceId).filter((tab) => tab.windowId === windowId);
   }
 
   listAll(): Tab[] {
@@ -638,19 +648,26 @@ export class TabManager {
     if (!dandelionWindow) return;
     dandelionWindow.activeWorkspaceId = workspaceId;
 
-    const alreadyOpen = this.listByWorkspace(workspaceId);
+    // Scoped to this window: a workspace may be open in several windows, and
+    // each keeps the tabs it holds. Reading across windows is what let a new
+    // window adopt — and so steal — a tab the window that owned it was showing.
+    const alreadyOpen = this.listInWindow(windowId, workspaceId);
     if (alreadyOpen.length > 0) {
       // A renderer reload re-runs this for the workspace already on screen, so
       // prefer the window's current tab — falling back to the first tab is only
       // right when arriving from another workspace.
       const current = alreadyOpen.find((tab) => tab.id === dandelionWindow.activeTabId);
       const active = current ?? alreadyOpen[0]!;
-      this.reparent(active.id, windowId);
       this.activate(active.id);
       return;
     }
 
-    const persisted = this.deps.repos.tabs.listByWorkspace(workspaceId);
+    // Whatever is already live belongs to the window showing it. Only records
+    // no window has claimed materialise here, so restoring never duplicates a
+    // tab that is on screen elsewhere.
+    const persisted = this.deps.repos.tabs
+      .listByWorkspace(workspaceId)
+      .filter((record) => !this.tabs.has(record.id));
     if (persisted.length === 0) {
       this.createTab({ workspaceId, active: true, windowId });
       return;
@@ -959,23 +976,6 @@ export class TabManager {
       lastActiveAt: record.lastActiveAt,
       openerTabId: null,
     };
-  }
-
-  private reparent(tabId: string, windowId: string): void {
-    const live = this.tabs.get(tabId);
-    if (!live || live.state.windowId === windowId) return;
-    const view = live.view;
-    if (view) {
-      const oldWindow = live.state.windowId ? this.deps.windows.get(live.state.windowId) : null;
-      const newWindow = this.deps.windows.get(windowId);
-      try {
-        oldWindow?.browserWindow.contentView.removeChildView(view);
-        newWindow?.browserWindow.contentView.addChildView(view, 0);
-      } catch {
-        /* best-effort reparent */
-      }
-    }
-    live.state.windowId = windowId;
   }
 
   private handleWindowClosed(windowId: string): void {

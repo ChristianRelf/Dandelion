@@ -64,6 +64,23 @@ Two concepts that overlap in Arc/Zen are given clear, separate responsibilities:
 The domain types live in [`src/shared/types`](../src/shared/types) and are the single source of
 truth shared by all three processes.
 
+### Windows and workspaces
+
+A **window is a view onto a workspace**, and a workspace may be open in **several windows at once**.
+Each window keeps the tabs it holds: a tab carries exactly one `windowId` and owns exactly one
+`WebContentsView`, so it can only ever render in one window. Two windows on the same workspace
+therefore show _different_ tabs from it, not the same ones.
+
+That makes window scope, not workspace scope, the unit for anything driving a single window's UI —
+`TabManager.listInWindow(windowId, workspaceId)`, not `listByWorkspace(workspaceId)`. The latter
+spans every window and exists for workspace-wide bookkeeping (index allocation). Reading across
+windows to drive one window's strip is what let `Ctrl+N` steal a live tab out of the window showing
+it; the renderer mirrors the same scope by ignoring tab events for other windows.
+
+Restoring a workspace into a window only materialises persisted tabs **no window has claimed** —
+whatever is already live belongs to the window showing it. A window that opens an occupied
+workspace gets a fresh tab of its own rather than adopting someone else's.
+
 ## 3. The tRPC-over-IPC bridge
 
 Every renderer → main call is a typed tRPC procedure; there is no ad-hoc `ipcRenderer.send`.
