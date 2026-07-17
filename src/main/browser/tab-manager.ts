@@ -1,4 +1,4 @@
-import { WebContentsView, type WebContents } from 'electron';
+import { WebContentsView, type WebContents, type WindowOpenHandlerResponse } from 'electron';
 import type {
   ClosedTab,
   Profile,
@@ -16,6 +16,8 @@ import {
   clampSplitRatio,
   createId,
   getHostname,
+  getOrigin,
+  isWebContentUrl,
   prettifyUrl,
   splitPaneBounds,
 } from '@shared/utils';
@@ -701,6 +703,61 @@ export class TabManager {
     view.setVisible(false);
   }
 
+  /**
+   * How to answer a `window.open()` that asked for a real popup.
+   *
+   * Every popup was denied and re-opened as a tab, so `window.open()` returned
+   * `null` and the opener chain was severed. "Sign in with Google" and most
+   * OAuth buttons open a popup and wait on `window.opener.postMessage` for the
+   * credential — with no opener there is no channel home, so even a successful
+   * sign-in delivered nothing.
+   *
+   * Allowing it is gated on the site's `popups` rule, which is the control the
+   * Permissions page has always offered and nothing has ever read: denying
+   * unconditionally settled the question before any rule was consulted. An
+   * unset rule allows, matching a real browser — Chromium blocks popups without
+   * a user gesture, and `setWindowOpenHandler` is not told whether there was
+   * one, so the choice is allow-and-let-people-block rather than a prompt in
+   * front of every sign-in button.
+   */
+  private popupResult(live: LiveTab, url: string): WindowOpenHandlerResponse {
+    const profile = this.profileForWorkspace(live.state.workspaceId);
+    const origin = getOrigin(live.state.url);
+    if (profile && origin) {
+      const decision = this.deps.permissions.decisionFor(profile.id, origin, 'popups');
+      if (decision === 'block') {
+        this.deps.logger.info(`blocked a popup from ${origin} to ${getHostname(url)} by site rule`);
+        return { action: 'deny' };
+      }
+      // Record the default the first time a site uses popups, so it appears in
+      // Permissions with a control. The page only edits rules that exist, and
+      // nothing prompts for popups — without this the Block half would still be
+      // unreachable, which is the state this fix is meant to end.
+      if (decision === null) {
+        this.deps.permissions.set(profile.id, origin, 'popups', 'allow');
+      }
+    }
+
+    return {
+      action: 'allow',
+      // Inherit nothing by accident: a popup renders remote content, so it gets
+      // the same lockdown as a tab's view. It shares the opener's session, which
+      // is what makes it useful — the sign-in it completes is the one the tab is
+      // waiting for.
+      outlivesOpener: false,
+      overrideBrowserWindowOptions: {
+        autoHideMenuBar: true,
+        webPreferences: {
+          sandbox: true,
+          contextIsolation: true,
+          nodeIntegration: false,
+          webSecurity: true,
+          safeDialogs: true,
+        },
+      },
+    };
+  }
+
   private createView(profile: Profile): WebContentsView {
     const session = this.deps.sessions.getSession(profile);
     const view = new WebContentsView({
@@ -788,6 +845,23 @@ export class TabManager {
     const profile = this.profileForWorkspace(live.state.workspaceId);
 
     wc.setWindowOpenHandler(({ url, disposition }) => {
+      // This URL comes from the page. Everything below hands it to the browser,
+      // so the scheme is checked before anything else looks at it.
+      if (!isWebContentUrl(url)) {
+        this.deps.logger.warn(`blocked window.open to a non-web URL: ${url}`);
+        return { action: 'deny' };
+      }
+
+      // `new-window` is `window.open()` with features — a real popup, and the
+      // only disposition whose opener matters. Denying it and substituting a tab
+      // returns null to the page and severs `window.opener`, which is the
+      // channel an OAuth popup posts its result back through.
+      if (disposition === 'new-window') {
+        return this.popupResult(live, url);
+      }
+
+      // `target="_blank"` links: a tab is what a browser gives you, and what
+      // this already did.
       this.createTab({
         workspaceId: live.state.workspaceId,
         url,
