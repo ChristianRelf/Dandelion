@@ -64,15 +64,16 @@ export function AppProvider({ children }: { children: ReactNode }): ReactElement
           const reader = useReaderStore.getState();
           if (reader.tabId === event.tab.id && event.tab.status === 'loading') reader.close();
         }
-        if (event.type === 'app:update-downloaded') {
-          useUpdateStore.getState().setReady(event.version);
+        if (event.type === 'app:update-status') {
+          useUpdateStore.getState().setStatus(event.status);
         }
         if (event.type === 'app:command') handleUiCommand(event.commandId);
       }),
     [],
   );
 
-  // An update may already have been downloaded before this window opened.
+  // An update may already be downloading, or waiting, from before this window
+  // opened — a second window must not appear to have missed it.
   useEffect(() => {
     void useUpdateStore.getState().hydrate();
   }, []);

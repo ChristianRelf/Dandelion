@@ -1,13 +1,15 @@
-import { useState, type ReactElement } from 'react';
+import { type ReactElement } from 'react';
 import { motion } from 'motion/react';
-import { Check, Info } from 'lucide-react';
+import { AlertTriangle, Check, ExternalLink, Info } from 'lucide-react';
 import { INTERNAL_PAGES } from '@shared/constants';
+import { formatBytes, formatRelativeTime, formatSpeed } from '@shared/utils';
 import { PageShell } from './PageShell';
 import { DandelionMark } from '../components/brand/DandelionMark';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { useAsyncData } from '../hooks/useAsyncData';
 import { openInternalPage } from '../lib/commands';
+import { openUrlOrToast } from '../lib/navigation';
 import { toast } from '../stores/toast.store';
 import { useUpdateStore } from '../stores/update.store';
 import { trpc } from '../lib/trpc/client';
@@ -17,9 +19,6 @@ interface AppInfo {
   version: string;
   platform: string;
 }
-
-type UpdateResult =
-  { tone: 'idle' } | { tone: 'current'; message: string } | { tone: 'available'; message: string };
 
 const PLATFORM_LABELS: Record<string, string> = {
   darwin: 'macOS',
@@ -31,39 +30,21 @@ function platformLabel(platform: string): string {
   return PLATFORM_LABELS[platform] ?? platform;
 }
 
-function messageOf(error: unknown): string | undefined {
-  return error instanceof Error ? error.message : undefined;
-}
-
 export function AboutPage(): ReactElement {
-  const { status, data: info } = useAsyncData<AppInfo | null>(
+  const { status: infoStatus, data: info } = useAsyncData<AppInfo | null>(
     () => trpc.app.info.query(),
     [],
     null,
   );
-  const [checking, setChecking] = useState(false);
-  const [result, setResult] = useState<UpdateResult>({ tone: 'idle' });
 
-  const readyVersion = useUpdateStore((state) => state.readyVersion);
+  // The updater's state lives in main and arrives via `app:update-status`;
+  // this page renders it rather than tracking an outcome of its own.
+  const update = useUpdateStore((state) => state.status);
 
-  const checkForUpdates = async (): Promise<void> => {
-    setChecking(true);
-    try {
-      const outcome = await trpc.app.checkForUpdates.mutate();
-      setResult(
-        outcome.updateAvailable
-          ? {
-              tone: 'available',
-              message: `Version ${outcome.version} is downloading. You'll be able to restart into it once it's ready.`,
-            }
-          : { tone: 'current', message: `You're on the latest version (${outcome.version}).` },
-      );
-    } catch (caught) {
-      setResult({ tone: 'idle' });
-      toast.error('Could not check for updates', { description: messageOf(caught) });
-    } finally {
-      setChecking(false);
-    }
+  const checkForUpdates = (): void => {
+    void trpc.app.checkForUpdates.mutate().catch(() => {
+      toast.error('Could not check for updates');
+    });
   };
 
   const restart = (): void => {
@@ -85,7 +66,7 @@ export function AboutPage(): ReactElement {
         <DandelionMark className="mb-5 h-16 w-16 text-accent" />
         <h2 className="text-xl font-semibold tracking-tight text-text">Dandelion</h2>
 
-        {status === 'ready' && info ? (
+        {infoStatus === 'ready' && info ? (
           <p className="mt-1.5 text-sm text-muted">
             Version {info.version} · {platformLabel(info.platform)}
           </p>
@@ -98,16 +79,36 @@ export function AboutPage(): ReactElement {
           split view, a command palette and a local-first privacy engine.
         </p>
 
-        {readyVersion ? (
+        {update.phase === 'downloading' ? (
+          <div className="mt-6 w-full max-w-[260px]">
+            <div
+              className="h-1 overflow-hidden rounded-full bg-surface-active"
+              role="progressbar"
+              aria-valuenow={update.total > 0 ? update.percent : undefined}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label={`Version ${update.version} download progress`}
+            >
+              <div
+                className="h-full rounded-full bg-accent transition-[width] duration-[var(--duration-fast)]"
+                style={{ width: update.total > 0 ? `${update.percent}%` : '100%' }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted">
+              Downloading {update.version}
+              {update.bytesPerSecond > 0 && ` · ${formatSpeed(update.bytesPerSecond)}`}
+            </p>
+          </div>
+        ) : update.phase === 'ready' ? (
           <Button variant="primary" icon="arrow-up-circle" onClick={restart} className="mt-6">
-            Restart to update to {readyVersion}
+            Restart to update to {update.version}
           </Button>
         ) : (
           <Button
             variant="primary"
             icon="refresh-cw"
-            loading={checking}
-            onClick={() => void checkForUpdates()}
+            loading={update.phase === 'checking'}
+            onClick={checkForUpdates}
             className="mt-6"
           >
             Check for updates
@@ -115,11 +116,32 @@ export function AboutPage(): ReactElement {
         )}
 
         <div aria-live="polite" className="mt-3 min-h-[1.25rem] text-xs">
-          {result.tone === 'available' && <span className="text-accent">{result.message}</span>}
-          {result.tone === 'current' && (
+          {update.phase === 'current' && (
             <span className="inline-flex items-center gap-1.5 text-success">
               <Check className="h-3.5 w-3.5" />
-              {result.message}
+              You&apos;re on the latest version ({update.version}) · checked{' '}
+              {formatRelativeTime(update.checkedAt)}
+            </span>
+          )}
+          {update.phase === 'downloading' && update.total > 0 && (
+            <span className="text-faint">
+              {formatBytes(update.transferred)} of {formatBytes(update.total)}
+            </span>
+          )}
+          {update.phase === 'ready' && (
+            <button
+              type="button"
+              onClick={() => openUrlOrToast(update.releaseUrl, 'Could not open the release notes')}
+              className="inline-flex items-center gap-1 rounded-xs text-accent transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              What&apos;s new in {update.version}
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
+          {update.phase === 'error' && (
+            <span className="inline-flex items-center gap-1.5 text-danger">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {update.message}
             </span>
           )}
         </div>

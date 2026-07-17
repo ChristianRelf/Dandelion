@@ -39,6 +39,11 @@ function fire(event: string, payload: unknown): void {
   handlers.get(event)?.(payload);
 }
 
+/** One `download-progress` payload; only `percent` usually matters to a test. */
+function progress(percent: number) {
+  return { percent, bytesPerSecond: 1_000, transferred: percent * 10, total: 1_000 };
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   handlers.clear();
@@ -55,6 +60,11 @@ describe('UpdateService', () => {
     makeService();
     expect(autoUpdater.autoInstallOnAppQuit).toBe(false);
     expect(autoUpdater.autoDownload).toBe(true);
+  });
+
+  it('starts idle', () => {
+    const { service } = makeService();
+    expect(service.status()).toEqual({ phase: 'idle' });
   });
 
   it('does not check in the background when automatic updates are off', async () => {
@@ -88,38 +98,155 @@ describe('UpdateService', () => {
     expect(autoUpdater.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 
-  it('announces a downloaded update and remembers it', () => {
+  it('treats an available update as already downloading, since autoDownload is on', () => {
     const { service, emit } = makeService();
-    expect(service.pendingVersion()).toBeNull();
+    fire('update-available', { version: '1.2.0' });
 
-    fire('update-downloaded', { version: '1.2.0' });
-
-    expect(service.pendingVersion()).toBe('1.2.0');
-    expect(emit).toHaveBeenCalledWith({ type: 'app:update-downloaded', version: '1.2.0' });
+    expect(service.status()).toEqual({
+      phase: 'downloading',
+      version: '1.2.0',
+      percent: 0,
+      bytesPerSecond: 0,
+      transferred: 0,
+      total: 0,
+    });
+    expect(emit).toHaveBeenCalledWith({ type: 'app:update-status', status: service.status() });
   });
 
-  it('reports the downloaded version without hitting the feed again', async () => {
+  it('publishes download progress at most once per interval', () => {
+    const { service, emit } = makeService();
+    fire('update-available', { version: '1.2.0' });
+    emit.mockClear();
+
+    // The leading edge publishes; the rest of the burst collapses into one
+    // trailing emit rather than one per chunk.
+    fire('download-progress', progress(10));
+    fire('download-progress', progress(20));
+    fire('download-progress', progress(30));
+    expect(emit).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(250);
+    expect(emit).toHaveBeenCalledTimes(2);
+    expect(service.status()).toMatchObject({ phase: 'downloading', version: '1.2.0' });
+  });
+
+  it('rounds and clamps a percent the feed reports out of range', () => {
+    const { service } = makeService();
+    fire('update-available', { version: '1.2.0' });
+    fire('download-progress', { ...progress(0), percent: 42.6 });
+
+    expect(service.status()).toMatchObject({ percent: 43 });
+  });
+
+  it('does not let a late progress tick drag a ready update back to downloading', () => {
+    const { service } = makeService();
+    fire('update-available', { version: '1.2.0' });
+    fire('download-progress', progress(50));
+    // Queued behind the throttle, so it lands after the download finishes.
+    fire('download-progress', progress(60));
+
+    fire('update-downloaded', { version: '1.2.0', releaseDate: '2026-07-01T00:00:00Z' });
+    vi.advanceTimersByTime(250);
+
+    expect(service.status()).toMatchObject({ phase: 'ready', version: '1.2.0' });
+  });
+
+  it('announces a downloaded update with a link to its notes', () => {
+    const { service, emit } = makeService();
+    fire('update-downloaded', { version: '1.2.0', releaseDate: '2026-07-01T00:00:00Z' });
+
+    expect(service.status()).toEqual({
+      phase: 'ready',
+      version: '1.2.0',
+      releasedAt: Date.parse('2026-07-01T00:00:00Z'),
+      releaseUrl: 'https://github.com/ChristianRelf/Dandelion/releases/tag/v1.2.0',
+    });
+    expect(emit).toHaveBeenCalledWith({ type: 'app:update-status', status: service.status() });
+  });
+
+  it('tolerates a feed that serves no release date', () => {
+    const { service } = makeService();
+    fire('update-downloaded', { version: '1.2.0' });
+    expect(service.status()).toMatchObject({ phase: 'ready', releasedAt: null });
+  });
+
+  it('drops a release date that would not survive being formatted', () => {
+    const { service } = makeService();
+    fire('update-downloaded', { version: '1.2.0', releaseDate: 'the third of never' });
+    expect(service.status()).toMatchObject({ phase: 'ready', releasedAt: null });
+  });
+
+  it('treats a percent from a feed that served no length as zero, not NaN', () => {
+    const { service } = makeService();
+    fire('update-available', { version: '1.2.0' });
+    fire('download-progress', { percent: NaN, bytesPerSecond: 0, transferred: 0, total: 0 });
+
+    expect(service.status()).toMatchObject({ percent: 0 });
+  });
+
+  it('reports a ready update without hitting the feed again', async () => {
     const { service } = makeService();
     fire('update-downloaded', { version: '1.2.0' });
 
-    await expect(service.check()).resolves.toEqual({ updateAvailable: true, version: '1.2.0' });
+    await expect(service.check()).resolves.toMatchObject({ phase: 'ready', version: '1.2.0' });
+    expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('does not restart a download that is already in flight', async () => {
+    const { service } = makeService();
+    fire('update-available', { version: '1.2.0' });
+
+    await expect(service.check()).resolves.toMatchObject({ phase: 'downloading' });
     expect(autoUpdater.checkForUpdates).not.toHaveBeenCalled();
   });
 
   it('reports being up to date when the feed matches', async () => {
     autoUpdater.checkForUpdates.mockResolvedValue({ updateInfo: { version: '1.0.0' } });
     const { service } = makeService();
-    await expect(service.check()).resolves.toEqual({ updateAvailable: false, version: '1.0.0' });
+
+    await expect(service.check()).resolves.toMatchObject({ phase: 'current', version: '1.0.0' });
   });
 
-  it('survives a feed that is unreachable', async () => {
+  it('reports a failed check rather than claiming to be up to date', async () => {
     autoUpdater.checkForUpdates.mockRejectedValue(new Error('offline'));
     const { service } = makeService();
-    await expect(service.check()).resolves.toEqual({ updateAvailable: false, version: '1.0.0' });
+
+    await expect(service.check()).resolves.toEqual({
+      phase: 'error',
+      message: 'Could not reach the update server.',
+    });
+  });
+
+  it('summarises the failure instead of leaking the underlying error', () => {
+    const { service } = makeService();
+    fire('error', new Error('ENOENT: C:\\Users\\someone\\AppData\\Local\\dandelion-updater'));
+
+    expect(service.status()).toEqual({
+      phase: 'error',
+      message: 'Could not reach the update server.',
+    });
+  });
+
+  it('keeps an installable update when a later check fails', async () => {
+    autoUpdater.checkForUpdates.mockRejectedValue(new Error('offline'));
+    const { service } = makeService();
+    fire('update-downloaded', { version: '1.2.0' });
+
+    fire('error', new Error('offline'));
+
+    expect(service.status()).toMatchObject({ phase: 'ready', version: '1.2.0' });
+    expect(service.install()).toBe(true);
   });
 
   it('refuses to install with nothing downloaded, so the app cannot quit without reopening', () => {
     const { service } = makeService();
+    expect(service.install()).toBe(false);
+    expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
+  });
+
+  it('refuses to install a download still in flight', () => {
+    const { service } = makeService();
+    fire('update-available', { version: '1.2.0' });
     expect(service.install()).toBe(false);
     expect(autoUpdater.quitAndInstall).not.toHaveBeenCalled();
   });
