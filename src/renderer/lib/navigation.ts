@@ -23,3 +23,21 @@ export async function openUrl(url: string): Promise<void> {
 export function openUrlOrToast(url: string, failureMessage: string): void {
   void openUrl(url).catch(() => toast.error(failureMessage));
 }
+
+/**
+ * Open a URL in a background tab beside the current one.
+ *
+ * `active: false` because this is the "keep what I am doing, queue that for
+ * later" action; `openerTabId` so it lands next to the tab it came from rather
+ * than at the end of the strip.
+ */
+export async function openUrlInNewTab(url: string): Promise<void> {
+  const { activeTabId, activeWorkspaceId } = useBrowserStore.getState();
+  if (!activeWorkspaceId) return;
+  await trpc.tabs.create.mutate({
+    workspaceId: activeWorkspaceId,
+    url,
+    active: false,
+    openerTabId: activeTabId,
+  });
+}

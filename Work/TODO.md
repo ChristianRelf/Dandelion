@@ -14,6 +14,19 @@ Priorities: **P1** = should do before a public release · **P2** = noticeable / 
 - [ ] **P3** Images with relative `src` can fail to load in the reader (no `<base>`/URL resolution).
 - [ ] **P3** No per-site "always use reader" preference; reader closes on navigation by design.
 
+### Omnibox result actions
+
+- [ ] **P3** The hover actions are mouse-only and `aria-hidden`. Interactive children of a
+      `role="option"` are unreachable anyway — focus stays in the field and selection runs through
+      `aria-activedescendant` — so exposing them would only fold their labels into every option's
+      announced name. `Ctrl+Enter` and `Shift+Delete` are the keyboard paths, matching Chrome;
+      copying a _link_ has none, because `Ctrl+Shift+C` never arrives (Chromium claims it for
+      inspect-element before the page sees the keydown). A command-palette-style action menu on the
+      selected row would close this properly.
+- [ ] **P3** `openTab` results carry no `url` (only `tabId`), so they offer no copy action. Giving
+      them one would collapse them with the history/bookmark result for the same URL in `finalize`'s
+      dedupe — `openTab` scores 0.9 and would win — which is a ranking change, not a copy button.
+
 ### Per-site zoom
 
 - [ ] **P2** Relies on Chromium's per-host session persistence — zoom is **not** persisted to the DB across app restarts. Add an origin→level store applied on `did-navigate`.

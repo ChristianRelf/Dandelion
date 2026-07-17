@@ -37,6 +37,16 @@ export interface OmniboxResult {
   actionId: string | null;
   /** Target tab for `openTab` results. */
   tabId: TabId | null;
+  /**
+   * Whether this result's URL is in history, and so can be removed from it.
+   *
+   * Not the same as `kind === 'history'`: results are deduplicated by URL and
+   * the highest score wins, so a page that is both bookmarked and visited
+   * surfaces as a `bookmark` and its history twin is dropped. Without this the
+   * "remove from history" action would be missing on precisely the pages most
+   * worth scrubbing — the ones visited often enough to have been bookmarked.
+   */
+  inHistory: boolean;
 }
 
 export interface OmniboxQuery {
