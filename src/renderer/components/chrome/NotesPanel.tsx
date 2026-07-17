@@ -33,9 +33,13 @@ function NoteEditor({
   // What is already persisted, so autosave (and the flush on the way out) skip a
   // no-op write that would only bump `updated_at` and reorder the list.
   const savedRef = useRef(note.content);
+  // The latest draft, read by the unmount flush below without re-subscribing it.
+  const draftRef = useRef(note.content);
+  // Set on delete so no later save resurrects a note that is being removed.
+  const abandonedRef = useRef(false);
 
   const save = (value: string): void => {
-    if (value === savedRef.current) return;
+    if (abandonedRef.current || value === savedRef.current) return;
     savedRef.current = value;
     void trpc.notes.update
       .mutate({ id: note.id, content: value })
@@ -44,10 +48,17 @@ function NoteEditor({
 
   // Debounced autosave while typing.
   useEffect(() => {
+    draftRef.current = draft;
     if (draft === savedRef.current) return;
     const timer = setTimeout(() => save(draft), 500);
     return () => clearTimeout(timer);
   }, [draft]);
+
+  // Flush the latest draft if the editor unmounts without a blur — the sidebar
+  // collapsed by shortcut, another panel opened, or the window closed within the
+  // debounce window. `save` is a no-op when nothing changed or the note was just
+  // deleted, so this is safe on every close path.
+  useEffect(() => () => save(draftRef.current), []);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 px-2 pt-1">
@@ -65,7 +76,14 @@ function NoteEditor({
         <span className="flex-1 truncate text-[12px] font-medium text-muted">
           {noteTitle(draft)}
         </span>
-        <IconButton size="sm" aria-label="Delete note" onClick={onDelete}>
+        <IconButton
+          size="sm"
+          aria-label="Delete note"
+          onClick={() => {
+            abandonedRef.current = true;
+            onDelete();
+          }}
+        >
           <Trash2 className="h-4 w-4" />
         </IconButton>
       </div>
