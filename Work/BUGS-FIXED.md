@@ -9,6 +9,62 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.2
 
+### P1 · The AI chat wedged forever on its first use
+
+Fresh install, no API key → open the AI sidebar, send a message → the message appears, the panel
+enters its thinking state and never leaves. No error, ever. `send()` early-returns on `busy`, so the
+chat was then bricked until the user found Stop or Clear. This was the primary onboarding path.
+
+The renderer learns `requestId` only **after** the mutation resolves, but main emitted its early-exit
+failures **before** returning one:
+
+```ts
+const requestId = createId('ai');
+if (provider.requiresApiKey && !apiKey) {
+  this.emitChunk(requestId, '', true, `${provider.name} is not configured`);
+  return requestId;
+}
+```
+
+`emitChunk` → `EventBus.emit` is a plain synchronous `EventEmitter`, and `ipc-host` forwards it with
+`webContents.send` **inside the still-running `ipcMain.handle` callback**, so the event reached the
+renderer strictly before the invoke reply. `applyChunk`'s guard compared `'ai_x' !== null` and dropped
+it. Deterministic, not racy — the guard could never match. `busy` is only cleared by `applyChunk`'s
+error/done branches, both unreachable once the only chunk was gone.
+
+**Fix.** A failure knowable before the stream exists is a failure of the _call_, not an event in a
+stream — so `complete()` and `pageAction()` now **throw** instead of emitting a terminal chunk. The
+renderer already had the machinery: its `catch` synthesises a local chunk with an empty `requestId`,
+which the guard deliberately lets through. `serializeError` keeps `error.message` for a plain `Error`
+and the IPC link rebuilds it, so the user reads "OpenAI is not configured" rather than "Request
+failed". Deferring the emit would have worked by timing; this removes the ordering question.
+
+Also fixed here: **`pageAction` ignored the model picker.** The store passed `providerId`/`model` and
+then `void`ed them, so Summarise/Explain/Translate always used the default provider's first model
+while chat honoured the picker — the two paths silently disagreed. Both are now sent, with the
+default as a fallback rather than the rule.
+
+Pinned by `tests/unit/ai-service.test.ts`, which asserts both the throw **and** that nothing reached
+the event bus.
+
+### P1 · Saving an API key never reached an already-open sidebar
+
+Open the AI sidebar (providers load, `configured: false`) → Settings → paste key → Save ("API key
+saved") → back to the sidebar: composer still disabled, still "Assistant unavailable". Only a
+renderer reload fixed it. This is the natural setup order — the user finds the sidebar unavailable,
+goes to configure it, and it stays broken behind a success toast.
+
+`loadProviders` sets `providersLoaded: true` permanently and its only call site is guarded by that
+same flag, so it runs exactly once per renderer. `configured` is derived **in main** from the stored
+key, but `ai.configure` emitted nothing and Settings only toasted. Nothing could flip it false → true
+in a live window, and Settings is an internal page in the _same_ renderer, so the module-level store
+survived the whole journey.
+
+**Fix.** `configure` emits `ai:providers` carrying the recomputed list, following the `vault:state`
+and `app:update-status` precedent: main owns the state, so main announces it. The renderer applies it
+through the existing event bridge. A refetch would have worked too, but only for the one caller that
+remembered — the event is correct for every future one.
+
 ### P1 · Every normal quit saved an _empty_ session, then pruned the real ones away
 
 "Restore previous session" restored nothing after a normal quit, and each quit destroyed one more

@@ -269,60 +269,6 @@ mangles any title containing `&` into `Tips &amp; Tricks`. Chrome and Firefox es
 way, so importing a real browser's bookmark file corrupts those URLs too. Imports are silent, so the
 damage only shows when a link is clicked.
 
-## AI assistant
-
-### P1 · Confirmed · A terminal `ai:chunk` is emitted before the renderer knows the `requestId`, wedging the chat forever
-
-The renderer learns `requestId` only **after** the mutation resolves, but main emits its early-exit
-chunks **before** returning:
-
-```ts
-// ai.service.ts — emitted synchronously, before the promise resolves
-if (!context) {
-  this.emitChunk(requestId, '', true, 'No readable page content');
-  return requestId;
-}
-```
-
-```ts
-// ai.store.ts — requestId is still null while the await is pending
-const { requestId } = await trpc.ai.pageAction.mutate({ tabId, task });
-set({ requestId });
-// …
-if (chunk.requestId && chunk.requestId !== get().requestId) return; // 'ai_x' !== null → dropped
-```
-
-`emitChunk` → `events.emit` is a plain synchronous `EventEmitter`, and `ipc-host.ts` forwards it via
-`webContents.send` **inside the still-running `ipcMain.handle` callback**, so the event reaches the
-renderer strictly before the invoke reply. This is deterministic, not racy — the guard can never
-match. `busy` is only cleared by `applyChunk`'s error/done branches, both now unreachable, and
-`send()` early-returns on `busy`.
-
-**Impact.** This is the primary onboarding path. Fresh install, no API key → open the AI sidebar, send
-a message → the message appears, the panel enters its thinking state and **never leaves**. No error is
-ever shown, and the chat is bricked until the user finds Stop/Clear. `pageAction` on any internal page
-or unmaterialised tab has the identical shape.
-
-Not symmetric with `cancel()` — `stop()` nulls `requestId` before the abort lands, so that chunk is
-filtered correctly. Only the early-error paths break.
-
-### P1 · Confirmed · Saving an API key never reaches an already-open sidebar
-
-`loadProviders` sets `providersLoaded: true` permanently, and its **only** call site is guarded by
-that same flag ([AiSidebar.tsx](../src/renderer/components/ai/AiSidebar.tsx)).
-`providers[].configured` is computed in main from the stored key, but `trpc.ai.configure` emits **no
-event** and `SettingsPage` never refreshes the AI store — it only toasts "API key saved". Nothing can
-flip `configured` false → true in a live window. Settings is an internal page in the same renderer, so
-the module-level store survives the whole journey.
-
-**Reproduction.** Open the AI sidebar (providers load, `configured: false`) → Settings → paste key →
-Save ("API key saved") → back to the sidebar. Composer still disabled, placeholder still "Assistant
-unavailable". Only a renderer reload fixes it. This is the natural setup order: the user finds the
-sidebar unavailable, goes to configure it, and it stays broken behind a success toast.
-
-Together with the entry above these compound — this one blocks reaching the assistant, that one wedges
-it once reached.
-
 ## Extensions
 
 ### P2 · Confirmed · A disabled extension can never be removed

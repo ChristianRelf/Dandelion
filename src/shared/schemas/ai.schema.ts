@@ -22,6 +22,9 @@ export const aiPageActionInput = z.object({
   tabId: zId,
   task: z.enum(['summarize', 'explain', 'translate']),
   targetLanguage: z.string().optional(),
+  /** From the sidebar's picker. Falls back to the default provider's first model. */
+  providerId: z.string().optional(),
+  model: z.string().optional(),
 });
 
 export const promptTemplateInput = z.object({
