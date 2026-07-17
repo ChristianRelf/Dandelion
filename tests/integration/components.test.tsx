@@ -5,7 +5,7 @@ import { Favicon } from '@renderer/components/ui/Favicon';
 import { Kbd } from '@renderer/components/ui/Kbd';
 import { useBrowserStore } from '@renderer/stores/browser.store';
 import type { Profile } from '@shared/types';
-import { FAVICON_SCHEME } from '@shared/constants';
+import { MEDIA_SCHEME } from '@shared/constants';
 
 /**
  * `Favicon` resolves its address through the active profile, so these seed one.
@@ -43,7 +43,7 @@ describe('brand + ui primitives', () => {
     withProfile();
     const { container } = render(<Favicon src="https://tracker.example/id?u=123" />);
     const src = container.querySelector('img')?.getAttribute('src') ?? '';
-    expect(src.startsWith(`${FAVICON_SCHEME}://`)).toBe(true);
+    expect(src.startsWith(`${MEDIA_SCHEME}://`)).toBe(true);
     expect(src).not.toMatch(/^https:/);
   });
 

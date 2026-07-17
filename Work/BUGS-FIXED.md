@@ -9,6 +9,32 @@ Kept so a regression is recognised rather than re-diagnosed from scratch.
 
 ## v0.2.3
 
+### P2 · The reader's inline images were still fetched by the chrome
+
+The last of the default-session leak. Favicons were routed through the owning profile in v0.2.2h, but
+`ReaderView` still rendered `<img src={block.src}>` for a page's own images — and the chrome has no
+session, so those landed in the **default session**: a persistent, on-disk jar shared by every profile
+including private ones, with none of the privacy engine's filters attached.
+
+Narrower than the favicon leak (it needs reader mode open on a page with images, where favicons were
+fetched for every tab and every history row) but the same defect, and the same fix.
+
+**Fix.** The scheme was never favicon-specific in nature, only in name: `dandelion-favicon:` →
+**`dandelion-media:`**, `faviconUrl` → `mediaUrl`, `favicon-protocol.ts` → `media-protocol.ts`. The
+reader resolves its images through it, so they are fetched in the profile that loaded the article —
+where the block engine sees them and the shields count them.
+
+**And now it is enforced rather than intended.** `img-src` allowed `https:` purely because the reader
+needed it; with the reader routed, it comes out. The chrome's policy is now
+`img-src 'self' data: blob: dandelion-media:` — **no remote origin at all**. Verified against the
+built `out/renderer/index.html`, not just the source. That matters more than the component change: a
+future component could always have pointed an `<img>` at a page-chosen URL and quietly reopened this;
+now the policy refuses it.
+
+The only three `<img>` in the chrome are accounted for: favicons and reader images route through the
+scheme, and tab previews are `data:` URLs from `capturePage`. Pinned by `tests/unit/chrome-csp.test.ts`,
+which asserts no remote origin survives in either mode.
+
 <<<<<<< HEAD
 
 ### P1 · Every toolbar popover rendered _behind_ the page

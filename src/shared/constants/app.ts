@@ -6,7 +6,7 @@ export const APP_SCHEME = 'dandelion';
 
 /**
  * Scheme the chrome loads favicons through, e.g.
- * `dandelion-favicon://icon?profile=<id>&url=<encoded>`.
+ * `dandelion-media://icon?profile=<id>&url=<encoded>`.
  *
  * The chrome window has no session of its own, so it renders in the **default**
  * session. Pointing an `<img>` at a site-chosen favicon URL therefore fetched it
@@ -15,7 +15,7 @@ export const APP_SCHEME = 'dandelion';
  * Main resolves this scheme by fetching through the owning profile's session
  * instead, so the request is isolated, blockable, and counted like any other.
  */
-export const FAVICON_SCHEME = 'dandelion-favicon';
+export const MEDIA_SCHEME = 'dandelion-media';
 
 /** Fallback version; the main process prefers `app.getVersion()`. */
 export const APP_VERSION = '0.1.0';

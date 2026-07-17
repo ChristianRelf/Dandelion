@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Globe } from 'lucide-react';
-import { faviconUrl } from '@shared/utils';
+import { mediaUrl } from '@shared/utils';
 import { useBrowserStore } from '../../stores/browser.store';
 import { cn } from '../../lib/cn';
 
@@ -17,7 +17,7 @@ import { cn } from '../../lib/cn';
 export function Favicon({ src, className }: { src: string | null; className?: string }) {
   const profileId = useBrowserStore((state) => state.profile?.id);
   const [failed, setFailed] = useState(false);
-  const resolved = profileId ? faviconUrl(profileId, src) : null;
+  const resolved = profileId ? mediaUrl(profileId, src) : null;
 
   useEffect(() => setFailed(false), [resolved]);
 

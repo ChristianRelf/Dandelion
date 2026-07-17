@@ -28,11 +28,23 @@ describe('chromeCsp', () => {
     expect(scriptSrc(chromeCsp(true))).toBe("'self' 'unsafe-inline' 'unsafe-eval'");
   });
 
-  // Favicons load over this scheme so main can resolve them through the owning
-  // profile's session instead of the shared default one (fixed in v0.2.2h).
-  it('keeps the favicon scheme in img-src for both modes', () => {
-    expect(chromeCsp(true)).toContain('dandelion-favicon:');
-    expect(chromeCsp(false)).toContain('dandelion-favicon:');
+  // Favicons and the reader's images load over this scheme so main can resolve
+  // them through the owning profile's session instead of the shared default one.
+  it('keeps the media scheme in img-src for both modes', () => {
+    expect(chromeCsp(true)).toContain('dandelion-media:');
+    expect(chromeCsp(false)).toContain('dandelion-media:');
+  });
+
+  // The policy is what makes that routing *enforced* rather than merely
+  // intended: with `https:` here, any component could fetch a page-chosen URL
+  // straight into the default session — the leak this closes.
+  it('allows no remote origin to be fetched by the chrome itself', () => {
+    for (const csp of [chromeCsp(true), chromeCsp(false)]) {
+      const imgSrc = /img-src ([^;]*)/.exec(csp)?.[1] ?? '';
+      expect(imgSrc).not.toContain('https:');
+      expect(imgSrc).not.toContain('http:');
+      expect(imgSrc).not.toContain('*');
+    }
   });
 
   // Inline styles are Tailwind's and motion's, in every mode.

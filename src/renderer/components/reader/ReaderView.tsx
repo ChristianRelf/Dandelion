@@ -2,10 +2,12 @@ import type { ReactElement } from 'react';
 import { motion } from 'motion/react';
 import { AArrowDown, AArrowUp, BookOpen, X } from 'lucide-react';
 import type { ReaderArticle } from '@shared/types';
+import { mediaUrl } from '@shared/utils';
 import { IconButton } from '../ui/IconButton';
 import { Spinner } from '../ui/Spinner';
 import { EmptyState } from '../ui/EmptyState';
 import { Button } from '../ui/Button';
+import { useBrowserStore } from '../../stores/browser.store';
 import { useReaderStore } from '../../stores/reader.store';
 
 function readTime(length: number): string {
@@ -13,7 +15,13 @@ function readTime(length: number): string {
   return `${minutes} min read`;
 }
 
-function Block({ block }: { block: ReaderArticle['blocks'][number] }): ReactElement | null {
+function Block({
+  block,
+  profileId,
+}: {
+  block: ReaderArticle['blocks'][number];
+  profileId: string;
+}): ReactElement | null {
   switch (block.type) {
     case 'h1':
     case 'h2':
@@ -34,15 +42,20 @@ function Block({ block }: { block: ReaderArticle['blocks'][number] }): ReactElem
           {block.text}
         </pre>
       );
-    case 'img':
-      return block.src ? (
+    case 'img': {
+      // The page chose this URL. The chrome has no session, so fetching it here
+      // would land it in the default session — outside the profile partition and
+      // outside the block engine — which is the same leak favicons had.
+      const src = block.src ? mediaUrl(profileId, block.src) : null;
+      return src ? (
         <img
-          src={block.src}
+          src={src}
           alt={block.alt ?? ''}
           loading="lazy"
           className="my-5 max-h-[70vh] w-full rounded-lg object-contain"
         />
       ) : null;
+    }
     default:
       return <p className="my-4 leading-[1.75] text-text/90">{block.text}</p>;
   }
@@ -55,6 +68,9 @@ export function ReaderView(): ReactElement {
   const fontScale = useReaderStore((state) => state.fontScale);
   const close = useReaderStore((state) => state.close);
   const setFontScale = useReaderStore((state) => state.setFontScale);
+  // Names the session an image is fetched in. The reader only ever shows the
+  // active tab's article, so the active profile is the one that loaded it.
+  const profileId = useBrowserStore((state) => state.profile?.id) ?? '';
 
   return (
     <div className="relative flex h-full w-full flex-col bg-bg-elevated">
@@ -116,7 +132,7 @@ export function ReaderView(): ReactElement {
             </div>
             <div className="mt-8 text-[1rem]">
               {article.blocks.map((block, index) => (
-                <Block key={index} block={block} />
+                <Block key={index} block={block} profileId={profileId} />
               ))}
             </div>
           </motion.article>
