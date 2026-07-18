@@ -35,6 +35,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Skeleton } from '../components/ui/Skeleton';
 import { toast } from '../stores/toast.store';
 import { trpc } from '../lib/trpc/client';
+import { useAsyncData } from '../hooks/useAsyncData';
 import { useBrowserStore } from '../stores/browser.store';
 import { cn } from '../lib/cn';
 
@@ -186,13 +187,21 @@ function SettingsRow({ row }: { row: RowDef }): ReactElement {
   );
 }
 
-function SettingsSection({ section }: { section: SectionDef }): ReactElement {
+function SettingsSection({
+  section,
+  hideHeader,
+}: {
+  section: SectionDef;
+  hideHeader?: boolean;
+}): ReactElement {
   return (
-    <section id={`section-${section.id}`} data-section-id={section.id} className="scroll-mt-20">
-      <div className="mb-2.5 flex items-center gap-2 px-1">
-        <Icon name={section.icon} className="h-4 w-4 text-faint" strokeWidth={2} />
-        <h2 className="text-[13px] font-semibold tracking-tight text-text">{section.label}</h2>
-      </div>
+    <section id={`section-${section.id}`}>
+      {!hideHeader && (
+        <div className="mb-2.5 flex items-center gap-2 px-1">
+          <Icon name={section.icon} className="h-4 w-4 text-faint" strokeWidth={2} />
+          <h2 className="text-[13px] font-semibold tracking-tight text-text">{section.label}</h2>
+        </div>
+      )}
       <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow-sm)]">
         {section.rows.map((row) => (
           <SettingsRow key={row.title} row={row} />
@@ -357,7 +366,7 @@ function SettingsSkeleton(): ReactElement {
         ))}
       </nav>
       <div className="min-w-0 flex-1 overflow-hidden">
-        <div className="mx-auto max-w-2xl px-6 pt-8">
+        <div className="mx-auto max-w-3xl px-8 pt-8">
           <Skeleton className="h-6 w-40" />
           <Skeleton className="mt-2 h-4 w-72" />
           <Skeleton className="mt-6 h-[38px] w-full rounded-xl" />
@@ -395,6 +404,11 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
   const [confirmReset, setConfirmReset] = useState(false);
   const [activeSection, setActiveSection] = useState<string>(SECTIONS_META[0].id);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const appInfo = useAsyncData<{ version: string } | null>(
+    () => trpc.app.info.query(),
+    [],
+    null,
+  );
 
   useEffect(() => {
     void trpc.search.listEngines.query().then(setEngines);
@@ -1007,43 +1021,23 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
         .filter((section) => section.rows.length > 0)
     : sections;
 
-  const visibleKey = filtered.map((section) => section.id).join(',');
+  // No search: one category fills the view at a time, so settings reads as
+  // discrete pages rather than one endless scroll. A query searches across every
+  // page at once, so all matching categories show together.
+  const visibleSections = query
+    ? filtered
+    : filtered.filter((section) => section.id === activeSection);
 
-  useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
-    const ids = visibleKey ? visibleKey.split(',') : [];
-    if (ids.length === 0) return;
+  const activeMeta = SECTIONS_META.find((meta) => meta.id === activeSection) ?? SECTIONS_META[0];
 
-    const intersecting = new Map<string, boolean>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = entry.target.getAttribute('data-section-id');
-          if (id) intersecting.set(id, entry.isIntersecting);
-        }
-        const next = ids.find((id) => intersecting.get(id));
-        if (next) setActiveSection(next);
-      },
-      { root, rootMargin: '-64px 0px -70% 0px', threshold: 0 },
-    );
-
-    for (const id of ids) {
-      const element = document.getElementById(`section-${id}`);
-      if (element) observer.observe(element);
-    }
-    return () => observer.disconnect();
-  }, [visibleKey]);
-
-  const scrollToSection = (id: string): void => {
+  const selectSection = (id: string): void => {
+    setSearch('');
     setActiveSection(id);
-    document
-      .getElementById(`section-${id}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollRef.current?.scrollTo({ top: 0 });
   };
 
   return (
-    <div className="flex h-full bg-bg text-text">
+    <div className="relative flex h-full bg-bg text-text">
       <nav className="scrollbar-none flex w-56 shrink-0 flex-col gap-1 overflow-y-auto border-r border-line px-3 py-4">
         <div className="mb-3 flex items-center gap-2.5 px-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-soft text-accent">
@@ -1051,13 +1045,14 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           </div>
           <span className="text-[13px] font-semibold tracking-tight text-text">Settings</span>
         </div>
-        {filtered.map((section) => {
-          const active = section.id === activeSection;
+        {SECTIONS_META.map((meta) => {
+          // While searching, results span pages, so no single page is "current".
+          const active = meta.id === activeSection && !query;
           return (
             <button
-              key={section.id}
+              key={meta.id}
               type="button"
-              onClick={() => scrollToSection(section.id)}
+              onClick={() => selectSection(meta.id)}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] transition-colors',
@@ -1072,11 +1067,11 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
                 />
               )}
               <Icon
-                name={section.icon}
+                name={meta.icon}
                 className={cn('relative h-4 w-4 shrink-0', active && 'text-accent')}
                 strokeWidth={2}
               />
-              <span className="relative truncate">{section.label}</span>
+              <span className="relative truncate">{meta.label}</span>
             </button>
           );
         })}
@@ -1084,12 +1079,18 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
 
       <div ref={scrollRef} className="scrollbar-slim min-w-0 flex-1 overflow-y-auto">
         <header>
-          <div className="mx-auto flex max-w-2xl items-start gap-4 px-6 pt-8 pb-5">
+          <div className="mx-auto flex max-w-3xl items-center gap-3 px-8 pt-8 pb-5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+              <Icon
+                name={query ? 'search' : activeMeta.icon}
+                className="h-[18px] w-[18px]"
+                strokeWidth={2}
+              />
+            </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-[22px] font-semibold tracking-tight text-text">Settings</h1>
-              <p className="mt-1 text-[13px] text-muted">
-                Manage how Dandelion looks, behaves, and protects you.
-              </p>
+              <h1 className="text-[22px] font-semibold tracking-tight text-text">
+                {query ? 'Search results' : activeMeta.label}
+              </h1>
             </div>
             <Button
               variant="ghost"
@@ -1103,7 +1104,7 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
         </header>
 
         <div className="sticky top-0 z-20 border-b border-line glass">
-          <div className="mx-auto max-w-2xl px-6 py-3">
+          <div className="mx-auto max-w-3xl px-8 py-3">
             <SearchField
               value={search}
               onChange={setSearch}
@@ -1113,8 +1114,8 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           </div>
         </div>
 
-        <div className="mx-auto max-w-2xl px-6 pt-6 pb-[32vh]">
-          {filtered.length === 0 ? (
+        <div className="mx-auto max-w-3xl px-8 pt-6 pb-24">
+          {visibleSections.length === 0 ? (
             <motion.div
               initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1136,13 +1137,19 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
             </motion.div>
           ) : (
             <div className="space-y-8">
-              {filtered.map((section) => (
-                <SettingsSection key={section.id} section={section} />
+              {visibleSections.map((section) => (
+                <SettingsSection key={section.id} section={section} hideHeader={!query} />
               ))}
             </div>
           )}
         </div>
       </div>
+
+      {appInfo.data && (
+        <span className="pointer-events-none absolute right-4 bottom-3 z-10 text-[11px] font-medium text-faint">
+          Dandelion v{appInfo.data.version}
+        </span>
+      )}
 
       <ConfirmDialog
         open={confirmReset}

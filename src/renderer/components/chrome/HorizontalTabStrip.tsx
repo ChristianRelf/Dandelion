@@ -4,7 +4,7 @@ import type { Tab } from '@shared/types';
 import { prettifyUrl } from '@shared/utils';
 import { INTERNAL_PAGES } from '@shared/constants';
 import { cn } from '../../lib/cn';
-import { Favicon } from '../ui/Favicon';
+import { TabGlyph } from './TabGlyph';
 import { Spinner } from '../ui/Spinner';
 import { IconButton } from '../ui/IconButton';
 import { trpc } from '../../lib/trpc/client';
@@ -44,7 +44,7 @@ function StripTab({ tab, active }: { tab: Tab; active: boolean }): ReactElement 
         {tab.status === 'loading' ? (
           <Spinner size={14} className="shrink-0 text-accent" />
         ) : (
-          <Favicon src={tab.favicon} className="h-4 w-4 shrink-0" />
+          <TabGlyph tab={tab} className="h-4 w-4 shrink-0" />
         )}
         <span className="min-w-0 flex-1 truncate">{label}</span>
         <button

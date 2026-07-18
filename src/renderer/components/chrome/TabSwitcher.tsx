@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { Command } from 'cmdk';
 import { Search } from 'lucide-react';
 import { prettifyUrl } from '@shared/utils';
-import { Favicon } from '../ui/Favicon';
+import { TabGlyph } from './TabGlyph';
 import { EmptyState } from '../ui/EmptyState';
 import { trpc } from '../../lib/trpc/client';
 import { useUiStore } from '../../stores/ui.store';
@@ -69,7 +69,7 @@ export function TabSwitcher(): ReactElement {
                     }}
                     className="flex cursor-default items-center gap-3 rounded-lg px-2.5 py-2 text-[13.5px] text-muted outline-none data-[selected=true]:bg-surface-active data-[selected=true]:text-text"
                   >
-                    <Favicon src={tab.favicon} className="h-4 w-4 shrink-0" />
+                    <TabGlyph tab={tab} className="h-4 w-4 shrink-0" />
                     <span className="min-w-0 flex-1 truncate text-text">
                       {tab.title || prettifyUrl(tab.url)}
                     </span>

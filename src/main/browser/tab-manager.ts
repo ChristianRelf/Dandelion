@@ -17,7 +17,7 @@ import type {
   TabThumbnail,
   VisitTransition,
 } from '@shared/types';
-import { INTERNAL_PAGES, isInternalUrl, LIMITS } from '@shared/constants';
+import { INTERNAL_PAGE_META, internalPageOf, isInternalUrl, LIMITS } from '@shared/constants';
 import {
   clampSplitRatio,
   createId,
@@ -1348,7 +1348,8 @@ export class TabManager {
   }
 
   private initialTitle(url: string): string {
-    if (url === INTERNAL_PAGES.newTab) return 'New Tab';
+    const page = internalPageOf(url);
+    if (page) return INTERNAL_PAGE_META[page].title;
     if (isInternalUrl(url)) return 'Dandelion';
     return prettifyUrl(url) || 'New Tab';
   }

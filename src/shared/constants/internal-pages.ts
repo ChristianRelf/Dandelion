@@ -20,6 +20,25 @@ export const INTERNAL_PAGES = {
 
 export type InternalPageKey = keyof typeof INTERNAL_PAGES;
 
+/**
+ * Presentation for each internal page: the label its tab wears and the Lucide
+ * icon that stands in for a favicon. Kept beside the URLs so the tab strip, the
+ * address bar and the main-process tab title all read the same source rather
+ * than each inventing their own.
+ */
+export const INTERNAL_PAGE_META: Record<InternalPageKey, { title: string; icon: string }> = {
+  newTab: { title: 'New Tab', icon: 'sparkles' },
+  settings: { title: 'Settings', icon: 'settings' },
+  history: { title: 'History', icon: 'history' },
+  downloads: { title: 'Downloads', icon: 'download' },
+  bookmarks: { title: 'Bookmarks', icon: 'bookmark' },
+  passwords: { title: 'Passwords', icon: 'key-round' },
+  permissions: { title: 'Permissions', icon: 'shield-check' },
+  cookies: { title: 'Cookies', icon: 'cookie' },
+  extensions: { title: 'Extensions', icon: 'puzzle' },
+  about: { title: 'About', icon: 'info' },
+};
+
 const PREFIX = `${APP_SCHEME}://`;
 
 export function isInternalUrl(url: string): boolean {

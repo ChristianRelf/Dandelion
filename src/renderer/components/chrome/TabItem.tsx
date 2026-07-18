@@ -4,7 +4,7 @@ import type { Tab } from '@shared/types';
 import { prettifyUrl } from '@shared/utils';
 import { INTERNAL_PAGES } from '@shared/constants';
 import { cn } from '../../lib/cn';
-import { Favicon } from '../ui/Favicon';
+import { TabGlyph } from './TabGlyph';
 import { Spinner } from '../ui/Spinner';
 import { trpc } from '../../lib/trpc/client';
 import { useTabPreviewStore } from '../../stores/tab-preview.store';
@@ -114,7 +114,7 @@ export function TabItem({
           {tab.status === 'loading' ? (
             <Spinner size={14} className="text-accent" />
           ) : (
-            <Favicon src={tab.favicon} className={cn('h-4 w-4', tab.asleep && 'opacity-50')} />
+            <TabGlyph tab={tab} className={cn('h-4 w-4', tab.asleep && 'opacity-50')} />
           )}
         </span>
 

@@ -8,7 +8,7 @@ import { DandelionMark } from '../components/brand/DandelionMark';
 import { Button } from '../components/ui/Button';
 import { Skeleton } from '../components/ui/Skeleton';
 import { useAsyncData } from '../hooks/useAsyncData';
-import { openInternalPage } from '../lib/commands';
+import { openInternalPage, openInternalPageInOwnTab } from '../lib/commands';
 import { openUrlOrToast } from '../lib/navigation';
 import { toast } from '../stores/toast.store';
 import { useUpdateStore } from '../stores/update.store';
@@ -153,7 +153,7 @@ export function AboutPage(): ReactElement {
             variant="ghost"
             size="sm"
             icon="settings"
-            onClick={() => void openInternalPage(INTERNAL_PAGES.settings)}
+            onClick={() => void openInternalPageInOwnTab(INTERNAL_PAGES.settings)}
           >
             Settings
           </Button>

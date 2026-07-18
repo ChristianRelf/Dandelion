@@ -129,6 +129,25 @@ export function openInternalPage(url: string): Promise<void> {
   return openUrl(url);
 }
 
+/**
+ * Open one of the browser's own pages in a tab of its own rather than replacing
+ * whatever the active tab is showing. Settings and the like are destinations you
+ * return to, not steps in browsing, so a second click focuses the existing tab
+ * instead of opening a duplicate.
+ */
+export async function openInternalPageInOwnTab(url: string): Promise<void> {
+  const { tabs, activeWorkspaceId } = useBrowserStore.getState();
+  if (!activeWorkspaceId) return;
+  const existing = Object.values(tabs).find(
+    (tab) => tab.workspaceId === activeWorkspaceId && tab.url === url,
+  );
+  if (existing) {
+    await trpc.tabs.activate.mutate({ tabId: existing.id });
+    return;
+  }
+  await trpc.tabs.create.mutate({ workspaceId: activeWorkspaceId, url, active: true });
+}
+
 async function toggleBookmarkActive(): Promise<void> {
   const { activeTabId, tabs, profile, activeWorkspaceId } = useBrowserStore.getState();
   const tab = activeTabId ? tabs[activeTabId] : null;
@@ -182,7 +201,7 @@ export function handleUiCommand(commandId: string): void {
       ui.toggleAiSidebar();
       return;
     case 'tools.settings':
-      void openInternalPage(INTERNAL_PAGES.settings);
+      void openInternalPageInOwnTab(INTERNAL_PAGES.settings);
       return;
     case 'tools.history':
       void openInternalPage(INTERNAL_PAGES.history);
@@ -213,7 +232,7 @@ export function handleUiCommand(commandId: string): void {
       );
       return;
     case 'tools.clearBrowsingData':
-      void openInternalPage(INTERNAL_PAGES.settings);
+      void openInternalPageInOwnTab(INTERNAL_PAGES.settings);
       return;
     case 'tab.search':
       ui.openTabSwitcher();
