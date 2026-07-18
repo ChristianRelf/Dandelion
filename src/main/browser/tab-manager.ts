@@ -32,6 +32,7 @@ import type { PersistedTab } from '../storage';
 import type { EventBus } from '../core/event-bus';
 import type { Logger } from '../core/logger';
 import { TabLoadScheduler } from './tab-load-scheduler';
+import { applyChromeIdentity, removeChromeIdentity } from './chrome-identity';
 import type { WindowManager } from './window-manager';
 import type { SessionManager } from './session-manager';
 import type { WorkspaceService } from '../services/workspace.service';
@@ -419,8 +420,32 @@ export class TabManager {
   toggleDevTools(tabId: string): void {
     const wc = this.tabs.get(tabId)?.view?.webContents;
     if (!wc) return;
-    if (wc.isDevToolsOpened()) wc.closeDevTools();
-    else wc.openDevTools({ mode: 'detach' });
+    if (wc.isDevToolsOpened()) {
+      wc.closeDevTools();
+      return;
+    }
+    // The Chrome-identity spoof holds this tab's debugger over CDP, and the
+    // DevTools front-end needs the same channel — so release it (only if it was
+    // ours). The current page keeps the identity it was loaded with; the spoof
+    // resumes when DevTools closes, on the next reload.
+    removeChromeIdentity(wc);
+    wc.openDevTools({ mode: 'detach' });
+  }
+
+  /**
+   * Re-apply, or drop, the "present as Google Chrome" spoof across every open tab
+   * when the setting is toggled — the reason a page opened *before* the toggle
+   * would otherwise never be reached. The document-start script only takes effect
+   * on the next load, so an open page still needs a reload after enabling.
+   */
+  syncChromeIdentity(): void {
+    const on = this.deps.settings.get().privacy.spoofChromeIdentity;
+    for (const live of this.tabs.values()) {
+      const wc = live.view?.webContents;
+      if (!wc || wc.isDestroyed()) continue;
+      if (on) applyChromeIdentity(wc, this.deps.logger);
+      else removeChromeIdentity(wc);
+    }
   }
 
   /**
@@ -1030,6 +1055,28 @@ export class TabManager {
       const tabId = live.state.id;
       wc.on('input-event', (_event, input) => onPageInput(tabId, input));
     }
+
+    // Opt-in "present as Google Chrome" spoof (off by default). Applied here,
+    // before the first load, so the document-start script is registered in time.
+    // Toggling the setting later re-applies to open tabs via syncChromeIdentity().
+    if (this.deps.settings.get().privacy.spoofChromeIdentity) {
+      applyChromeIdentity(wc, this.deps.logger);
+    }
+    // DevTools takes the debugger channel while open (toggleDevTools releases the
+    // spoof for that); re-register once it closes so a later reload is spoofed.
+    wc.on('devtools-closed', () => {
+      if (this.deps.settings.get().privacy.spoofChromeIdentity) {
+        applyChromeIdentity(wc, this.deps.logger);
+      }
+    });
+    // Sign-in popups (window.open) get the same treatment — they carry the same
+    // profile session, so without this the popup's JS identity would disagree
+    // with its (already-spoofed) headers.
+    wc.on('did-create-window', (childWindow) => {
+      if (this.deps.settings.get().privacy.spoofChromeIdentity) {
+        applyChromeIdentity(childWindow.webContents, this.deps.logger);
+      }
+    });
 
     wc.setWindowOpenHandler(({ url, disposition }) => {
       // A page opening its own blob: content — "Download", "Export" and "Open

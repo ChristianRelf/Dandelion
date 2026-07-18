@@ -52,6 +52,9 @@ if (!app.requestSingleInstanceLock()) {
       if (!context) return;
       buildApplicationMenu(context);
       context.sessions.applySecureDns();
+      // Re-apply the opt-in Chrome-identity spoof to open tabs when it is toggled;
+      // without this only tabs opened after the change would ever get it.
+      context.tabs.syncChromeIdentity();
     });
 
     context.openWindow();

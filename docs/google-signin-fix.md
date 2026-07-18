@@ -203,3 +203,63 @@ every server-side embedded-browser heuristic Google may apply — if Google gate
 flow by other means (enterprise SSO policy, WebAuthn edge cases, or a future
 detection), that remains outside the browser's control, exactly as noted below in
 `Work/BUGS.md`.
+
+## Correction: v0.2.15 — v0.2.12 was necessary but not sufficient
+
+Tested against the live flow, **v0.2.12 did not clear the block.** The console on
+the rejected page (`ec=65620`, `GlifWebSignIn`) told the real story:
+
+```text
+navigator.userAgentData.brands = [ {"Not;A=Brand"}, {"Chromium", v150} ]
+```
+
+Two things this proves and v0.2.12 got wrong:
+
+1. **This Electron build leaks no `"Electron"` brand at all** — the client hints
+   are clean `Chromium`. The v0.2.12 premise ("the hints say Electron") was wrong
+   for current Electron.
+2. **A header rewrite can't reach `navigator.userAgentData`.** v0.2.12 made the
+   `Sec-CH-UA` **header** claim `"Google Chrome"`, but the page's **JavaScript**
+   still reported only `"Chromium"`. That header↔JS mismatch is an inconsistency a
+   real browser never has — arguably a _worse_ tell than plain Chromium.
+
+`ec=65620` is Google's **`disallowed_useragent`** policy: it blocks anything that
+isn't a recognised standalone browser. Brave/Opera/Vivaldi/Arc/Edge pass because
+they are compiled Chromium **browser forks** with their own product branding;
+Dandelion is an **Electron app** reporting the generic `"Chromium"` identity, which
+Google treats as "not a real browser." This is not cleanly fixable — the honest
+resolution would be to be a real fork, which Electron isn't.
+
+**What v0.2.15 ships:** an **opt-in** spoof (`privacy.spoofChromeIdentity`, off by
+default; Settings → Privacy → "Present as Google Chrome"). When on, it makes both
+halves claim Chrome _consistently_:
+
+- the header rewrite (`harmonizeClientHints`) is now **gated on this setting**
+  instead of always-on;
+- `src/main/browser/chrome-identity.ts` (new) injects a script at document-start
+  (via CDP `Page.addScriptToEvaluateOnNewDocument` — the only main-world,
+  pre-page-script hook that doesn't disable context isolation) that adds a
+  `"Google Chrome"` brand to `navigator.userAgentData`, mirroring the real
+  Chromium version, and pins `navigator.webdriver` to `false`.
+
+The honest caveats, restated in the Settings copy and in `Work/BUGS.md`: it is a
+**spoof** — it runs a script in every page's main world (the one thing tab views
+otherwise never do), Google can still detect it by other signals and re-block at
+any time, and opening DevTools on a tab pauses it (both want the debugger
+channel). It is off by default because presenting a false identity is a trade the
+browser shouldn't make for everyone. Covered by
+`tests/unit/chrome-identity.test.ts`.
+
+### v0.2.16 — the toggle now reaches already-open tabs
+
+v0.2.15 registered the injection only when a tab was **materialised**, gated on the
+setting at that instant — so a tab opened _before_ the toggle was flipped never got
+it, and a reload reuses the same `webContents`, so it never re-registered.
+Confirmed live: `navigator.userAgentData` still reported plain Chromium with the
+setting on. `TabManager.syncChromeIdentity()` now (re)applies or drops the spoof
+across every open tab whenever the setting changes (wired through
+`SettingsService.onChange`), and a `devtools-closed` handler re-registers after
+DevTools releases the debugger. The document-start script still only takes on the
+**next** load, so an open page must be reloaded after enabling — but it no longer
+has to be reopened. **To verify:** enable it, close DevTools, reload the tab, then
+reopen DevTools — the override persists on the loaded page.
