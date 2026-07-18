@@ -74,21 +74,33 @@ export const CHROME_IDENTITY_SCRIPT = `(() => {
 })();`;
 
 /**
+ * The webContents whose debugger *we* attached, so {@link removeChromeIdentity}
+ * never detaches one the DevTools front-end owns (that would break DevTools), and
+ * {@link applyChromeIdentity} never stacks a second copy of the script.
+ */
+const attachedByUs = new WeakSet<WebContents>();
+
+/**
  * Register {@link CHROME_IDENTITY_SCRIPT} to run at document-start on every future
  * navigation in `webContents`, via the Chrome DevTools Protocol.
  *
  * CDP is the only hook that reaches the main world before page scripts without
  * turning off context isolation. The cost is that the DevTools front-end wants the
- * same debugger channel — {@link TabManager.toggleDevTools} detaches this first so
- * DevTools can still open (the spoof then pauses for that tab until it reloads).
+ * same debugger channel — {@link TabManager.toggleDevTools} releases this first so
+ * DevTools can still open. The script only affects **future** documents, so a page
+ * already loaded needs a reload to pick it up.
  */
 export function applyChromeIdentity(webContents: WebContents, logger: Logger): void {
+  // Already attached — either we set it up (don't stack a second script) or the
+  // DevTools front-end holds the channel (we can't, and shouldn't fight it).
+  if (webContents.isDestroyed() || webContents.debugger.isAttached()) return;
   try {
-    if (!webContents.debugger.isAttached()) webContents.debugger.attach('1.3');
+    webContents.debugger.attach('1.3');
   } catch (error) {
     logger.warn('chrome-identity: could not attach debugger', error);
     return;
   }
+  attachedByUs.add(webContents);
   void webContents.debugger
     .sendCommand('Page.enable')
     .then(() =>
@@ -97,4 +109,15 @@ export function applyChromeIdentity(webContents: WebContents, logger: Logger): v
       }),
     )
     .catch((error) => logger.warn('chrome-identity: could not register document script', error));
+}
+
+/** Release the spoof's debugger — only when we were the ones holding it. */
+export function removeChromeIdentity(webContents: WebContents): void {
+  if (webContents.isDestroyed() || !attachedByUs.has(webContents)) return;
+  attachedByUs.delete(webContents);
+  try {
+    webContents.debugger.detach();
+  } catch {
+    // Already detached.
+  }
 }

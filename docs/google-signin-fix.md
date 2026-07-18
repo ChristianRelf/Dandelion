@@ -249,3 +249,17 @@ any time, and opening DevTools on a tab pauses it (both want the debugger
 channel). It is off by default because presenting a false identity is a trade the
 browser shouldn't make for everyone. Covered by
 `tests/unit/chrome-identity.test.ts`.
+
+### v0.2.16 — the toggle now reaches already-open tabs
+
+v0.2.15 registered the injection only when a tab was **materialised**, gated on the
+setting at that instant — so a tab opened _before_ the toggle was flipped never got
+it, and a reload reuses the same `webContents`, so it never re-registered.
+Confirmed live: `navigator.userAgentData` still reported plain Chromium with the
+setting on. `TabManager.syncChromeIdentity()` now (re)applies or drops the spoof
+across every open tab whenever the setting changes (wired through
+`SettingsService.onChange`), and a `devtools-closed` handler re-registers after
+DevTools releases the debugger. The document-start script still only takes on the
+**next** load, so an open page must be reloaded after enabling — but it no longer
+has to be reopened. **To verify:** enable it, close DevTools, reload the tab, then
+reopen DevTools — the override persists on the loaded page.
