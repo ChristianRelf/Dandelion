@@ -107,11 +107,12 @@ export class PrivacyService {
       const privacy = this.settings.get().privacy;
       const headers = details.requestHeaders;
 
-      // Keep the Sec-CH-UA client hints telling the same stock-Chrome story the
-      // UA string does. Always on — the UA strip it mirrors is not a privacy
-      // toggle either, and a hint that still says "Electron" is what Google's
-      // sign-in reads to call the browser insecure.
-      harmonizeClientHints(headers);
+      // The header half of the opt-in "present as Google Chrome" spoof: add a
+      // "Google Chrome" brand to the Sec-CH-UA client hints. Gated with — and
+      // useless without — its JavaScript counterpart in chrome-identity.ts, since
+      // a header that claims Chrome while the page's navigator.userAgentData says
+      // only Chromium is an inconsistency a real browser never has.
+      if (privacy.spoofChromeIdentity) harmonizeClientHints(headers);
 
       if (privacy.doNotTrack) headers['DNT'] = '1';
       if (privacy.globalPrivacyControl) headers['Sec-GPC'] = '1';

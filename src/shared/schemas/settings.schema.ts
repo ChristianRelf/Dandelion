@@ -75,6 +75,7 @@ const privacySchema = z.object({
   secureDns: secureDnsSchema,
   doNotTrack: z.boolean(),
   globalPrivacyControl: z.boolean(),
+  spoofChromeIdentity: z.boolean(),
   clearOnExit: clearDataSchema,
 });
 

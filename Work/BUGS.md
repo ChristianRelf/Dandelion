@@ -206,20 +206,23 @@ it wants a `workspace:removed` event.
 
 Recorded so they are not re-investigated:
 
-- **Google sign-in's "This browser or app may not be secure" block.** Addressed in stages, ending in
-  v0.2.12 — see [../docs/google-signin-fix.md](../docs/google-signin-fix.md). The last cause was a
-  UA↔client-hints mismatch: the UA string presented as stock Chrome while `Sec-CH-UA` still carried an
-  `"Electron"` brand and no `"Google Chrome"`. `harmonizeClientHints` now keeps the hints consistent
-  with the UA. What is **not** fixable from here is any _further_ embedded-browser gating Google
-  chooses to apply (enterprise SSO policy, WebAuthn edge cases, a future heuristic) — an embedded
-  user-agent is, by Google's published definition, any library that can insert scripts, reroute the
-  OAuth request or read session cookies, and Dandelion does all three by design. Switching to a
-  Chromium fork would not change that, since Electron already ships real Chromium.
+- **Google sign-in's "This browser or app may not be secure" block (`ec=65620`, `GlifWebSignIn`).**
+  Not fixable by us — see [../docs/google-signin-fix.md](../docs/google-signin-fix.md) for the full
+  history, including where v0.2.12's client-hints fix was wrong. This is Google's
+  **`disallowed_useragent`** policy: it allows recognised standalone browsers (Chrome, Firefox,
+  Safari, Edge, and the Chromium **forks** Brave/Opera/Vivaldi/Arc, each self-branded) and blocks
+  anything reporting the generic embedded-Chromium identity — which is what Electron is. The console on
+  the rejected page confirmed a clean `Chromium` `navigator.userAgentData` with no `"Electron"` leak,
+  so the block is the framework category, not a spoofable header. v0.2.15 adds an **opt-in** spoof
+  (`privacy.spoofChromeIdentity`, off by default) that makes both the `Sec-CH-UA` header and
+  `navigator.userAgentData` claim Chrome consistently — but it is a spoof (main-world injection, and
+  Google can re-block it), which is why it is off by default and not treated as "the fix".
 - **The user-agent strip in `SessionManager.chromeUserAgent()` looks like a hack but is
   load-bearing.** With the stock Electron UA, Google rejects the sign-in navigation outright
-  (`ERR_FAILED`). Its client-hints counterpart, `harmonizeClientHints`
-  ([client-hints.ts](../src/shared/utils/client-hints.ts)), is load-bearing for the same reason —
-  don't "simplify" either away.
+  (`ERR_FAILED`), so the strip stays. Its client-hints counterpart, `harmonizeClientHints`
+  ([client-hints.ts](../src/shared/utils/client-hints.ts)), is **not** load-bearing and is **not**
+  always-on — as of v0.2.15 it runs only when `privacy.spoofChromeIdentity` is enabled, paired with
+  the `navigator.userAgentData` injection so the header and the JS never disagree.
 - **Renderer store races on `switchWorkspace` / `hydrate` / `downloads.load`.** `restoreWorkspace`,
   `updateStatus` and `downloads.list` are all **synchronous** resolvers, and replies plus
   `webContents.send` share one ordered IPC pipe per renderer, so main-process ordering is preserved

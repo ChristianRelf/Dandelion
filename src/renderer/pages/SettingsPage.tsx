@@ -884,6 +884,16 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           { keywords: 'gpc opt out' },
         ),
         toggleRow(
+          'Present as Google Chrome',
+          s.privacy.spoofChromeIdentity,
+          (value) => void patch({ privacy: { spoofChromeIdentity: value } }),
+          {
+            description:
+              'Report Chrome’s identity to sites so Google sign-in works. This is a spoof, runs a script in every page, and Google may still detect it. Reload open tabs after changing.',
+            keywords: 'google sign-in signin user agent client hints youtube gmail secure browser',
+          },
+        ),
+        toggleRow(
           'Secure DNS (DoH)',
           s.privacy.secureDns.enabled,
           (value) =>
