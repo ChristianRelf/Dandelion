@@ -101,6 +101,14 @@ export interface PrivacySettings {
   secureDns: SecureDnsSettings;
   doNotTrack: boolean;
   globalPrivacyControl: boolean;
+  /**
+   * Present as Google Chrome (site compatibility). Off by default: it makes the
+   * browser claim Chrome's identity in both the `Sec-CH-UA` headers and the page's
+   * `navigator.userAgentData`, which lets Google sign-in through but is a spoof
+   * — it runs a script in every page's main world and Google can still detect and
+   * block it. See `src/main/browser/chrome-identity.ts`.
+   */
+  spoofChromeIdentity: boolean;
   clearOnExit: ClearDataOptions;
 }
 

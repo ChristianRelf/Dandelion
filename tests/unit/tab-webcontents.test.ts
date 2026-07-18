@@ -112,6 +112,7 @@ function makeManager() {
       get: () => ({
         behavior: { newTabPage: INTERNAL_PAGES.newTab },
         appearance: { cornerRadius: 8 },
+        privacy: { spoofChromeIdentity: false },
       }),
     },
     repos: {

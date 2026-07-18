@@ -32,6 +32,7 @@ import type { PersistedTab } from '../storage';
 import type { EventBus } from '../core/event-bus';
 import type { Logger } from '../core/logger';
 import { TabLoadScheduler } from './tab-load-scheduler';
+import { applyChromeIdentity } from './chrome-identity';
 import type { WindowManager } from './window-manager';
 import type { SessionManager } from './session-manager';
 import type { WorkspaceService } from '../services/workspace.service';
@@ -419,8 +420,21 @@ export class TabManager {
   toggleDevTools(tabId: string): void {
     const wc = this.tabs.get(tabId)?.view?.webContents;
     if (!wc) return;
-    if (wc.isDevToolsOpened()) wc.closeDevTools();
-    else wc.openDevTools({ mode: 'detach' });
+    if (wc.isDevToolsOpened()) {
+      wc.closeDevTools();
+      return;
+    }
+    // The Chrome-identity spoof holds this tab's debugger over CDP, and the
+    // DevTools front-end needs the same channel — so release it. The current
+    // page keeps the identity it was loaded with; the spoof resumes on reload.
+    if (wc.debugger.isAttached()) {
+      try {
+        wc.debugger.detach();
+      } catch {
+        // Already detached, or never attached — nothing to do.
+      }
+    }
+    wc.openDevTools({ mode: 'detach' });
   }
 
   /**
@@ -1030,6 +1044,21 @@ export class TabManager {
       const tabId = live.state.id;
       wc.on('input-event', (_event, input) => onPageInput(tabId, input));
     }
+
+    // Opt-in "present as Google Chrome" spoof (off by default). Applied here,
+    // before the first load, so the document-start script is registered in time;
+    // a tab materialised after the toggle flips gets it, existing tabs on reload.
+    if (this.deps.settings.get().privacy.spoofChromeIdentity) {
+      applyChromeIdentity(wc, this.deps.logger);
+    }
+    // Sign-in popups (window.open) get the same treatment — they carry the same
+    // profile session, so without this the popup's JS identity would disagree
+    // with its (already-spoofed) headers.
+    wc.on('did-create-window', (childWindow) => {
+      if (this.deps.settings.get().privacy.spoofChromeIdentity) {
+        applyChromeIdentity(childWindow.webContents, this.deps.logger);
+      }
+    });
 
     wc.setWindowOpenHandler(({ url, disposition }) => {
       // A page opening its own blob: content — "Download", "Export" and "Open

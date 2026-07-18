@@ -76,6 +76,7 @@ export const DEFAULT_SETTINGS: Settings = {
     },
     doNotTrack: true,
     globalPrivacyControl: true,
+    spoofChromeIdentity: false,
     clearOnExit: {
       history: false,
       cookies: false,
