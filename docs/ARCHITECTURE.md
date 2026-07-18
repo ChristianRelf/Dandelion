@@ -131,9 +131,19 @@ Electron `Session` per profile partition, applying:
 
 The privacy engine attaches `webRequest` listeners to each session:
 
-- **`BlockEngine`** ([`block-engine.ts`](../src/main/services/privacy/block-engine.ts)) matches a
-  request's hostname (and every parent domain) against a seeded ad/tracker/fingerprinter/cryptominer
-  blocklist in O(labels) time; blocked requests are cancelled and counted.
+- **`FilterEngineService`** ([`filter-engine.ts`](../src/main/services/privacy/filter-engine.ts)) is
+  the primary ad blocker: one `@ghostery/adblocker` engine per shield category, compiled from
+  EasyList, EasyPrivacy and the uBlock Origin lists
+  ([`filter-lists.ts`](../src/main/services/privacy/filter-lists.ts)). It supports full Adblock Plus
+  syntax — resource types, first/third-party scoping, `$redirect`, `$csp` and **cosmetic filters**
+  (element hiding). Engines are kept per category rather than merged so that a blocked request can
+  be attributed to one counter and so a disabled category cannot block. Compiled engines are cached
+  under `userData/Filters` and refreshed in the background; see
+  [`ad-blocking.md`](./ad-blocking.md).
+- **`BlockEngine`** ([`block-engine.ts`](../src/main/services/privacy/block-engine.ts)) is the
+  fallback: it matches a request's hostname (and every parent domain) against a small bundled
+  ad/tracker/fingerprinter/cryptominer blocklist in O(labels) time. It answers only while the filter
+  lists are still downloading on a cold first run, and never overrides an exception rule.
 - **HTTPS upgrade** rewrites `http://` to `https://` for non-local hosts.
 - **DNT / GPC** headers are injected; **third-party cookies** are stripped by comparing the request's
   registrable domain to that of the document owning its frame tree — `Cookie` on the way out and

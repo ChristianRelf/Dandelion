@@ -849,16 +849,30 @@ function SettingsBody({ settings, patch }: { settings: Settings; patch: PatchFn 
           'Block ads',
           s.privacy.blockAds,
           (value) => void patch({ privacy: { blockAds: value } }),
+          {
+            description:
+              'Blocks ad requests using EasyList and uBlock Origin filters, and hides the ' +
+              'leftover ad slots on the page.',
+            keywords: 'adblock ad blocker easylist ublock cosmetic element hiding banner popup',
+          },
         ),
         toggleRow(
           'Block trackers',
           s.privacy.blockTrackers,
           (value) => void patch({ privacy: { blockTrackers: value } }),
+          {
+            description: 'Blocks analytics and tracking requests using EasyPrivacy filters.',
+            keywords: 'tracker tracking analytics easyprivacy telemetry',
+          },
         ),
         toggleRow(
           'Block fingerprinting',
           s.privacy.blockFingerprinting,
           (value) => void patch({ privacy: { blockFingerprinting: value } }),
+          {
+            description: 'Blocks fingerprinting, cryptomining and other resource-abuse scripts.',
+            keywords: 'fingerprint fingerprinting cryptominer cryptomining badware',
+          },
         ),
         toggleRow(
           'Block third-party cookies',

@@ -22,6 +22,17 @@ export function cacheDir(): string {
 }
 
 /**
+ * Directory holding the compiled ad/tracker filter engines.
+ *
+ * Regenerable like {@link cacheDir}, but kept separate: these are rebuilt from
+ * the network over seconds, so clearing the browser cache should not throw them
+ * away and leave the shield degraded until the lists download again.
+ */
+export function filtersDir(): string {
+  return join(userDataDir(), 'Filters');
+}
+
+/**
  * Directory holding this install's copies of user-chosen wallpaper images.
  *
  * Not regenerable — unlike {@link cacheDir}, deleting this loses the picture a

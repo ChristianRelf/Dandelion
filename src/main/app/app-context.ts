@@ -350,6 +350,7 @@ export class AppContext {
     // views the snapshot is still reading, and any write it triggers would race
     // `db.close()`.
     this.tabSleeper.stop();
+    this.privacy.dispose();
     try {
       // Set first: this snapshot covers every window, so the closes that follow
       // must not each take another of what is left.
