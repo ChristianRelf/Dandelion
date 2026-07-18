@@ -45,6 +45,9 @@
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true});require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@ghostery/adblocker": "^2.18.1",
+    "@ghostery/adblocker-electron": "^2.18.1",
+    "@ghostery/adblocker-electron-preload": "^2.18.1",
     "better-sqlite3": "^12.11.1",
     "electron-updater": "^6.6.2"
   },

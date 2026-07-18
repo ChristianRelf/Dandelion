@@ -57,6 +57,11 @@ if (!app.requestSingleInstanceLock()) {
       context.tabs.syncChromeIdentity();
     });
 
+    // Deliberately not awaited. This restores the cached filter engines and, if
+    // they are missing or stale, downloads the lists in the background — the
+    // first window must not wait on the network for either.
+    void context.privacy.initialize();
+
     context.openWindow();
     rootLogger.info('Dandelion ready');
 
